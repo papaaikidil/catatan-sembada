@@ -251,6 +251,13 @@ tarif.data = [['Pilihan', 'Untuk', 'Upah', 'Jenis kerja'], ['Libur', 'Semua', 0,
 r = ctx.layani_(ss, { aksi: 'masuk', pin: '6125' });
 assert.strictEqual(r.kelompokAbsensi, 'Tim suling'); assert.deepStrictEqual(Array.from(r.tab), ['Absensi']);
 assert.strictEqual(ctx.layani_(ss, { aksi: 'masuk', pin: '123456' }).kelompokAbsensi, '', 'pemilik tidak dibatasi');
+// Kolom E saja sudah cukup: C tetap "Ambil Bahan", absensi tim ikut terbuka
+pengaturan.data[20] = ['Pengumpul', '4321', 'Ambil Bahan', '', 'Pengumpul'];
+r = ctx.layani_(ss, { aksi: 'masuk', pin: '4321' });
+assert.deepStrictEqual(Array.from(r.tab), ['Ambil Bahan', 'Absensi']); assert.strictEqual(r.kelompokAbsensi, 'Pengumpul');
+r = ctx.layani_(ss, { aksi: 'pinDaftar', pin: '123456' });
+assert.strictEqual(r.daftar.filter(d => d.baris === 21)[0].boleh, 'Ambil Bahan, absensi pengumpul (jobdesk saja)');
+assert.strictEqual(r.daftar.filter(d => d.baris === 23)[0].boleh, 'absensi tim suling (jobdesk saja)');
 const barisAbsensi = () => absensi.data.length;
 const awal = barisAbsensi();
 r = ctx.layani_(ss, { aksi: 'simpan', pin: '6125', tab: 'Absensi', id: 'k1', nilai: { 'Tanggal': '2026-10-22', 'Tim suling [Eko & Pak Gatot]': '2x suling', 'Keterangan': 'ketel aman' } });

@@ -78,7 +78,12 @@ function cekPin_(ss, pin) {
         var semua = boleh.toLowerCase() === 'semua';
         var tab = semua ? API_TAB.slice() : boleh.split(',').map(function (t) { return t.trim(); })
           .filter(function (t) { return API_TAB.indexOf(t) >= 0; });
+        // Kolom E (Absensi tim): PIN ini otomatis boleh mengisi absensi, tapi hanya jobdesk timnya.
         var kelompok = semua ? '' : String(baris[i][4] || '').trim();
+        if (kelompok && tab.indexOf('Absensi') < 0) {
+          tab.push('Absensi');
+          tab.sort(function (a, b) { return API_TAB.indexOf(a) - API_TAB.indexOf(b); });
+        }
         return {peran: String(baris[i][0]).trim(), tab: tab, semua: semua, baris: 20 + i,
           kelompokAbsensi: tab.indexOf('Absensi') >= 0 ? kelompok : ''};
       }
@@ -384,10 +389,17 @@ function pinDaftar_(ss, akses) {
   for (var i = 0; i < data.length; i++) {
     if (!String(data[i][0]).trim()) continue;
     daftar.push({baris: 20 + i, peran: String(data[i][0]).trim(), pin: String(data[i][1]).trim(),
-      boleh: String(data[i][2]).trim() + (String(data[i][4] || '').trim() ? ' (absensi ' + String(data[i][4]).trim() + ' saja)' : ''),
+      boleh: teksBoleh_(String(data[i][2]).trim(), String(data[i][4] || '').trim()),
       saya: akses.baris === 20 + i});
   }
   return {ok: true, daftar: daftar};
+}
+
+function teksBoleh_(boleh, kelompok) {
+  if (!kelompok || boleh.toLowerCase() === 'semua') return boleh;
+  var lain = boleh.split(',').map(function (t) { return t.trim(); })
+    .filter(function (t) { return t && t !== 'Absensi'; });
+  return lain.concat(['absensi ' + kelompok.toLowerCase() + ' (jobdesk saja)']).join(', ');
 }
 
 function pinUbah_(ss, akses, req) {
