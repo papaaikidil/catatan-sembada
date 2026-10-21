@@ -265,7 +265,7 @@ async function pasangMock(page) {
   await page.click('[data-hapus-entri="0"]');
   await page.waitForSelector('.lembar');
   await page.screenshot({ path: OUT + '/15-hapus.png' });
-  await page.click('[data-aksi=hapus]');
+  await page.click('[data-aksi=ya]');
   await page.waitForFunction(() => true);
   for (let i = 0; i < 20 && !kelola.length; i++) await page.waitForTimeout(100);
   const h = kelola.pop();

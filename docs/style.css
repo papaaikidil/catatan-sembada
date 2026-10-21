@@ -273,3 +273,68 @@ textarea.masukan { min-height: 88px; resize: vertical; }
 .gaji-baris b { font-variant-numeric: tabular-nums; }
 .gaji-total { border-top: 1px dashed var(--garis); font-weight: 800; }
 .gaji .catatan { font-size: 12px; color: var(--teks-2); margin: 4px 0 0; }
+
+/* ---------- absensi versi 2: isian per orang */
+.bidang.anak { margin: -6px 0 14px 14px; padding-left: 12px; border-left: 2px solid var(--garis); }
+.bidang.anak .label { font-size: 14px; }
+.bidang.tombol-kl { margin-top: -10px; }
+.bidang.tombol-kl .chip span { min-height: 36px; padding: 6px 12px; font-size: 14px; border-style: dashed; color: var(--hijau); font-weight: 700; }
+.bidang.tombol-kl .chip input:checked + span { border-style: solid; }
+
+/* ---------- menu pengaturan */
+.menu-atur { padding: 4px 0; }
+.baris-menu {
+  display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; border-top: 1px solid var(--garis);
+  padding: 14px 16px; text-align: left; cursor: pointer; color: var(--teks); min-height: 64px;
+}
+.baris-menu:first-child { border-top: 0; }
+.baris-menu span { flex: 1; min-width: 0; }
+.baris-menu b { display: block; font-size: 16px; }
+.baris-menu small { display: block; color: var(--teks-2); font-size: 13px; }
+.baris-menu svg { width: 20px; height: 20px; color: var(--teks-2); flex: none; }
+.baris-menu:active { background: var(--latar); }
+
+.kartu.pengguna h2, .kartu.pertanyaan h2 { margin: 0; overflow-wrap: anywhere; }
+.baris-judul { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.kartu.nonaktif { opacity: .65; }
+.kartu .sub.redup { font-style: italic; }
+.pin-tampil { font-variant-numeric: tabular-nums; letter-spacing: .12em; color: var(--teks); }
+.catatan-kecil { color: var(--teks-2); font-size: 13px; margin: 14px 2px 0; }
+.terkunci { flex: 1; align-self: center; font-size: 12px; color: var(--teks-2); }
+
+.form-atur .bidang { display: block; }
+.form-atur .kartu .bidang:last-child { margin-bottom: 0; }
+.baris-input { display: flex; gap: 8px; }
+.baris-input .masukan { flex: 1; min-width: 0; }
+.baris-input .tombol { flex: none; min-height: 50px; }
+.lembar .form-atur { margin: 12px 0 16px; }
+.lembar .chips { gap: 6px; }
+
+/* daftar yang bisa diurutkan */
+.urut { list-style: none; margin: 4px 0 0; padding: 0; }
+.urut li { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid var(--garis); }
+.urut li:first-child { border-top: 0; }
+.urut label { flex: 1; display: flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; font-size: 15px; }
+.urut input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--hijau); flex: none; }
+.urut li:has(input:not(:checked)) label span { color: var(--teks-2); text-decoration: line-through; }
+.tombol-kecil {
+  width: 40px; height: 40px; border-radius: 10px; border: 1.5px solid var(--garis); background: var(--kartu); color: var(--teks);
+  display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.tombol-kecil svg { width: 18px; height: 18px; }
+.urut-tombol { display: flex; gap: 6px; }
+
+/* warna dan logo */
+.chip.warna span { gap: 8px; }
+.chip.warna i { width: 18px; height: 18px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
+.chip.warna input[type="color"] { width: 24px; height: 24px; border: 0; padding: 0; background: none; cursor: pointer; }
+.baris-logo { display: flex; gap: 16px; align-items: center; }
+.pratinjau-logo { width: 96px; height: 96px; border-radius: 22px; box-shadow: var(--bayang); object-fit: contain; background: var(--kartu); flex: none; }
+.baris-logo .tumpuk { flex: 1; }
+.baris-logo .tombol { width: 100%; min-height: 46px; font-size: 15px; }
+
+/* sulingan per alat */
+.gaji-baris .operator { display: block; font-size: 12px; color: var(--teks-2); font-weight: 500; }
+.bidang.tombol-kl .chip input:checked + span { color: var(--di-hijau); background: var(--hijau); }
+.chip.warna input[type="color"] { position: static; opacity: 1; pointer-events: auto; }
+.tombol svg { width: 20px; height: 20px; flex: none; }
