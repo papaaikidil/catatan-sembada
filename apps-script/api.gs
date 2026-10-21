@@ -17,7 +17,7 @@
 var API_ID_SHEET = '11erbcsOh7G0BKWFLmsGqvWNcQiyz0mSogFLX5AS_8AI';
 var API_ZONA = 'Asia/Jakarta';
 var API_TAB = ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
-var API_VERSI = 3;
+var API_VERSI = 4;
 var API_LOG = 'Log Aplikasi';   // tab tersembunyi: catatan setiap perubahan dan penghapusan
 var API_BATAS_GAGAL = 30;      // PIN salah sebanyak ini dalam 15 menit = dikunci sementara
 var API_SIMPAN_ID = 300;       // jumlah id entri terakhir yang diingat untuk mencegah dobel
@@ -240,8 +240,17 @@ function ringkasan_(ss, akses) {
   var tgl = function (d) { return adalahTanggal_(d) ? Utilities.formatDate(d, API_ZONA, 'dd/MM/yyyy') : String(d || ''); };
   var angka = function (v) { return typeof v === 'number' ? v : null; };
 
+  // Kolom upah per pekerja (untuk gajian) di Rekap Mingguan: "Upah <nama> (Rp)", mulai kolom W.
+  var lebarRek = Math.max(26, rek.getLastColumn());
+  var kepalaRek = rek.getRange(4, 1, 1, lebarRek).getDisplayValues()[0];
+  var kolomOrang = [];
+  for (var c = 22; c < kepalaRek.length; c++) {
+    var cocok = /^Upah (.+) \(Rp\)$/.exec(String(kepalaRek[c]).trim());
+    if (cocok) kolomOrang.push({i: c, nama: cocok[1].replace(/^tim suling$/i, 'Tim suling')});
+  }
   var minggu = function (v) {
-    return {mulai: tgl(v[0]), sampai: tgl(v[1]), trip: angka(v[2]), bahanKg: angka(v[3]), beliBahan: angka(v[4]),
+    return {upahOrang: kolomOrang.map(function (k) { return {nama: k.nama, upah: angka(v[k.i]) || 0}; }),
+      mulai: tgl(v[0]), sampai: tgl(v[1]), trip: angka(v[2]), bahanKg: angka(v[3]), beliBahan: angka(v[4]),
       hargaBahan: angka(v[5]), biayaJalan: angka(v[6]), sulingan: angka(v[7]), ketelKosong: angka(v[8]),
       minyak: angka(v[10]), minyakPerSulingan: angka(v[11]), rendemen: angka(v[12]), upahPengumpul: angka(v[13]),
       upahPenyuling: angka(v[14]), operasional: angka(v[15]), biayaProduksi: angka(v[16]), biayaPerKg: angka(v[17]),
@@ -262,7 +271,7 @@ function ringkasan_(ss, akses) {
   var rMinggu = Number(dash.getRange('N5').getValue());
   var rPenuh = Number(dash.getRange('N6').getValue());
   var rBulan = Number(dash.getRange('N8').getValue());
-  var semuaMinggu = semua(rek, rMinggu, 26, minggu);
+  var semuaMinggu = semua(rek, rMinggu, lebarRek, minggu);
   var semuaBulan = semua(rekBln, rBulan, 31, bulan);
 
   var peringatan = dash.getRange('A15:F23').getDisplayValues().map(function (r) {

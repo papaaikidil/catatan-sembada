@@ -216,8 +216,9 @@ assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Hapus' && /baru/.test(
 console.log('Semua uji fitur pemilik lulus.');
 
 // 16. Ringkasan: semua minggu dan bulan, terbaru di depan
-const rekM = buatSheet('Rekap Mingguan', [[], [], [], ['Minggu mulai']]);
-for (let i = 0; i < 4; i++) { const r = new Array(26).fill(0); r[0] = new Date(2026, 8, 28 + 7 * i); r[1] = new Date(2026, 9, 4 + 7 * i); r[19] = 1000 * (i + 1); r[20] = 100 * (i + 1); rekM.data.push(r); }
+const kepalaRek = new Array(26).fill(''); kepalaRek[0] = 'Minggu mulai'; kepalaRek[21] = 'Upah kerja harian & lain (Rp)'; kepalaRek[22] = 'Upah Rofik (Rp)'; kepalaRek[23] = 'Upah Pak Muh (Rp)'; kepalaRek[24] = 'Upah tim suling (Rp)';
+const rekM = buatSheet('Rekap Mingguan', [[], [], [], kepalaRek]);
+for (let i = 0; i < 4; i++) { const r = new Array(26).fill(0); r[0] = new Date(2026, 8, 28 + 7 * i); r[1] = new Date(2026, 9, 4 + 7 * i); r[19] = 1000 * (i + 1); r[20] = 100 * (i + 1); r[22] = 76000 * (i + 1); r[23] = 115000; r[24] = 0; rekM.data.push(r); }
 const rekB = buatSheet('Rekap Bulanan', [[], [], [], ['Bulan']]);
 for (let i = 0; i < 2; i++) { const r = new Array(31).fill(0); r[0] = new Date(2026, 8 + i, 1); r[19] = 5000 * (i + 1); r[30] = -7; rekB.data.push(r); }
 const dash = buatSheet('Dashboard', Array.from({ length: 30 }, () => []));
@@ -231,6 +232,7 @@ assert.strictEqual(r.semuaMinggu.length, 4);
 assert.strictEqual(r.semuaMinggu[0].penjualan, 4000, 'minggu terbaru di depan');
 assert.strictEqual(r.mingguBerjalan.penjualan, 4000);
 assert.strictEqual(r.mingguPenuh.penjualan, 3000);
+assert.deepStrictEqual(JSON.parse(JSON.stringify(r.semuaMinggu[0].upahOrang)), [{ nama: 'Rofik', upah: 304000 }, { nama: 'Pak Muh', upah: 115000 }, { nama: 'Tim suling', upah: 0 }]);
 assert.strictEqual(r.semuaBulan.length, 2); assert.strictEqual(r.bulanIni.penjualan, 10000); assert.strictEqual(r.bulanIni.perubahanKas, -7);
 assert.strictEqual(r.peringatan.length, 1); assert.strictEqual(r.peringatan[0].status, 'PERHATIAN');
 assert.strictEqual(ctx.layani_(ss, { aksi: 'ringkasan', pin: '4321' }).ok, false, 'pekerja tidak boleh melihat ringkasan');

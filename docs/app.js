@@ -457,6 +457,21 @@
   }
   function totalUpah(m) { return (m.upahPengumpul || 0) + (m.upahPenyuling || 0) + (m.upahHarian || 0); }
 
+  // Upah per pekerja satu minggu (untuk gajian), dari Rekap Mingguan.
+  function htmlGaji(m, berjalan) {
+    if (!m.upahOrang) {
+      return '<div class="gaji"><div class="gaji-judul">Upah per orang</div><p class="catatan">Rincian upah per orang muncul setelah API di Apps Script diperbarui ke versi 4.</p></div>';
+    }
+    var total = 0;
+    var baris = m.upahOrang.map(function (o) {
+      total += o.upah || 0;
+      return '<div class="gaji-baris"><span>' + esc(o.nama) + '</span><b>' + esc(rp(o.upah)) + '</b></div>';
+    }).join('');
+    return '<div class="gaji"><div class="gaji-judul">Upah per orang (untuk gajian)' + (berjalan ? ' · sampai hari ini' : '') + '</div>' + baris +
+      '<div class="gaji-baris gaji-total"><span>Total</span><b>' + esc(rp(total)) + '</b></div>' +
+      '<p class="catatan">Dari absensi. Bonus atau tambahan yang dicatat di Kas belum termasuk.</p></div>';
+  }
+
   function htmlRingkasMini(r) {
     if (!r) return '';
     var daftar = daftarMinggu(r);
@@ -470,7 +485,7 @@
       kotakAngka('Penjualan', rp(m.penjualan), false, sebelum ? banding(m.penjualan, sebelum.penjualan) : '') +
       kotakAngka('Laba usaha', rp(m.laba), m.laba < 0, sebelum ? banding(m.laba, sebelum.laba) : '') +
       kotakAngka('Minyak dihasilkan', ang(m.minyak) + ' kg') + kotakAngka('Total upah', rp(totalUpah(m))) +
-      '</div>' +
+      '</div>' + htmlGaji(m, idx === 0) +
       (perlu ? '<button class="status galat" style="margin:12px 0 0" data-ke="#/ringkasan">' + IKON.awan + perlu + ' hal perlu ditangani sekarang</button>' : '') +
       '<button class="tautan" data-ke="#/ringkasan">Lihat ringkasan lengkap ›</button></div>';
   }
@@ -529,7 +544,7 @@
       kotakAngka('Bahan masuk', ang(m.bahanKg, 0) + ' kg') + kotakAngka('Harga bahan/kg', rp(m.hargaBahan)) +
       kotakAngka('Biaya per kg minyak', rp(m.biayaPerKg)) + kotakAngka('Total upah', rp(totalUpah(m))) +
       kotakAngka('Sulingan', ang(m.sulingan, 0) + ' kali') + kotakAngka('Hari ketel kosong', ang(m.ketelKosong, 0) + ' hari', m.ketelKosong >= 2) +
-      '</div></div>' : '';
+      '</div>' + htmlGaji(m, im === 0) + '</div>' : '';
 
     var db = daftarBulan(r);
     var ib = indeksPilihan(db, 'bulanDipilih', function (x) { return x.bulan; });

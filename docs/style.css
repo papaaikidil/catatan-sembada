@@ -263,3 +263,11 @@ textarea.masukan { min-height: 88px; resize: vertical; }
 .rincian li:last-child { border-bottom: 0; }
 .rincian li span { display: block; font-size: 12px; font-weight: 700; color: var(--teks-2); margin-bottom: 2px; }
 .rincian li b { display: block; font-size: 16px; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- upah per orang */
+.gaji { margin-top: 14px; border-top: 1px solid var(--garis); padding-top: 10px; }
+.gaji-judul { font-size: 12px; font-weight: 800; color: var(--teks-2); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+.gaji-baris { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 15px; }
+.gaji-baris b { font-variant-numeric: tabular-nums; }
+.gaji-total { border-top: 1px dashed var(--garis); font-weight: 800; }
+.gaji .catatan { font-size: 12px; color: var(--teks-2); margin: 4px 0 0; }

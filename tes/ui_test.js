@@ -75,7 +75,8 @@ async function pasangMock(page) {
       semuaBulan: [{ bulan: '10/2026', penjualan: 21204000, laba: 16978000, cicilan: 3700000, keluarga: 4838700, proyekBahan: 9047000, upahHarian: 4410000, perubahanKas: 4662300 },
         { bulan: '09/2026', penjualan: 26954000, laba: 9831000, cicilan: 3632500, keluarga: 18043500, proyekBahan: 25000, upahHarian: 0, perubahanKas: -22513000 }],
       semuaMinggu: [
-        { mulai: '19/10/2026', sampai: '25/10/2026', penjualan: 0, laba: -1230000, minyak: 0, terjual: 0, upahPengumpul: 228000, upahPenyuling: 0, upahHarian: 730000, ketelKosong: 3 },
+        { mulai: '19/10/2026', sampai: '25/10/2026', penjualan: 0, laba: -1230000, minyak: 0, terjual: 0, upahPengumpul: 228000, upahPenyuling: 0, upahHarian: 730000, ketelKosong: 3,
+          upahOrang: [{ nama: 'Rofik', upah: 176000 }, { nama: 'Pak Muh', upah: 306000 }, { nama: 'Mas Romadi', upah: 276000 }, { nama: 'Tim suling', upah: 200000 }] },
         { mulai: '12/10/2026', sampai: '18/10/2026', penjualan: 0, laba: -150000, minyak: 0, terjual: 0, upahPengumpul: 0, upahPenyuling: 0, upahHarian: 2860000, ketelKosong: 6 },
         { mulai: '05/10/2026', sampai: '11/10/2026', penjualan: 11640000, laba: 6700000, minyak: 15.3, terjual: 19.4, upahPengumpul: 990000, upahPenyuling: 835000, upahHarian: 820000, ketelKosong: 1 },
         { mulai: '28/09/2026', sampai: '04/10/2026', penjualan: 9564000, laba: 7700000, minyak: 12.5, terjual: 15.94, upahPengumpul: 900000, upahPenyuling: 700000, upahHarian: 0, ketelKosong: 2 }],
@@ -106,6 +107,8 @@ async function pasangMock(page) {
   await page.waitForSelector('#kotak-ringkas .kartu');
   assert.strictEqual(await page.locator('.tombol-catatan').count(), 5);
   await page.screenshot({ path: OUT + '/02-beranda.png', fullPage: true });
+  const beranda = await page.textContent('#kotak-ringkas');
+  assert.ok(beranda.includes('Pak Muh') && beranda.includes('Rp306.000') && beranda.includes('Rp958.000'), beranda);
   // pilih minggu sebelumnya di beranda
   await page.selectOption('#pilih-minggu', '05/10/2026');
   await page.waitForFunction(() => document.querySelector('#kotak-ringkas').textContent.includes('11.640.000'));

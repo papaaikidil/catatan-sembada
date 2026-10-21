@@ -1,7 +1,7 @@
 // Service worker: aplikasi tetap bisa dibuka tanpa sinyal.
 // Strategi "jaringan dulu": kalau ada sinyal, selalu ambil versi terbaru dari GitHub,
 // jadi perbaikan langsung sampai ke semua HP. Kalau tidak ada sinyal, pakai salinan terakhir.
-const CACHE = 'sembada-v5';
+const CACHE = 'sembada-v6';
 const ASET = ['./', './index.html', './app.js', './style.css', './config.js', './manifest.webmanifest',
   './ikon-192.png', './ikon-512.png', './logo.png'];
 
