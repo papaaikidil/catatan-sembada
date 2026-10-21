@@ -72,6 +72,13 @@ async function pasangMock(page) {
       mingguBerjalan: { mulai: '19/10/2026', sampai: '25/10/2026', penjualan: 0, laba: -1230000, minyak: 0, terjual: 0, bahanKg: 3240, hargaBahan: 430, biayaPerKg: null, upahPengumpul: 228000, upahPenyuling: 0, upahHarian: 730000, sulingan: 0, ketelKosong: 3 },
       mingguPenuh: { mulai: '12/10/2026', sampai: '18/10/2026', penjualan: 0, laba: -150000, minyak: 0, terjual: 0, bahanKg: 0, hargaBahan: null, biayaPerKg: null, upahPengumpul: 0, upahPenyuling: 0, upahHarian: 2860000, sulingan: 0, ketelKosong: 6 },
       bulanIni: { bulan: '10/2026', penjualan: 21204000, laba: 16978000, cicilan: 3700000, keluarga: 4838700, proyekBahan: 9047000, upahHarian: 4410000, perubahanKas: 4662300 },
+      semuaBulan: [{ bulan: '10/2026', penjualan: 21204000, laba: 16978000, cicilan: 3700000, keluarga: 4838700, proyekBahan: 9047000, upahHarian: 4410000, perubahanKas: 4662300 },
+        { bulan: '09/2026', penjualan: 26954000, laba: 9831000, cicilan: 3632500, keluarga: 18043500, proyekBahan: 25000, upahHarian: 0, perubahanKas: -22513000 }],
+      semuaMinggu: [
+        { mulai: '19/10/2026', sampai: '25/10/2026', penjualan: 0, laba: -1230000, minyak: 0, terjual: 0, upahPengumpul: 228000, upahPenyuling: 0, upahHarian: 730000, ketelKosong: 3 },
+        { mulai: '12/10/2026', sampai: '18/10/2026', penjualan: 0, laba: -150000, minyak: 0, terjual: 0, upahPengumpul: 0, upahPenyuling: 0, upahHarian: 2860000, ketelKosong: 6 },
+        { mulai: '05/10/2026', sampai: '11/10/2026', penjualan: 11640000, laba: 6700000, minyak: 15.3, terjual: 19.4, upahPengumpul: 990000, upahPenyuling: 835000, upahHarian: 820000, ketelKosong: 1 },
+        { mulai: '28/09/2026', sampai: '04/10/2026', penjualan: 9564000, laba: 7700000, minyak: 12.5, terjual: 15.94, upahPengumpul: 900000, upahPenyuling: 700000, upahHarian: 0, ketelKosong: 2 }],
       peringatan: [{ hal: 'Hari ketel kosong minggu berjalan', nilai: '3 hari', batas: '2 hari', status: 'PERHATIAN', saran: 'Atur jadwal supaya penyulingan tidak menunggu pekerjaan lain.' },
         { hal: 'Penjualan belum dibayar', nilai: 'Rp0', batas: 'Rp0', status: 'Aman', saran: '' }] };
     else body = { ok: false, galat: 'aksi?' };
@@ -99,6 +106,12 @@ async function pasangMock(page) {
   await page.waitForSelector('#kotak-ringkas .kartu');
   assert.strictEqual(await page.locator('.tombol-catatan').count(), 5);
   await page.screenshot({ path: OUT + '/02-beranda.png', fullPage: true });
+  // pilih minggu sebelumnya di beranda
+  await page.selectOption('#pilih-minggu', '05/10/2026');
+  await page.waitForFunction(() => document.querySelector('#kotak-ringkas').textContent.includes('11.640.000'));
+  assert.ok((await page.textContent('#kotak-ringkas')).includes('▲ 22% dari minggu sebelumnya'), await page.textContent('#kotak-ringkas'));
+  await page.screenshot({ path: OUT + '/17-pilih-minggu.png', fullPage: true });
+  await page.selectOption('#pilih-minggu', '19/10/2026');
 
   // 2. Kas
   await page.click('a[href="#/isi/kas"]');
@@ -202,6 +215,12 @@ async function pasangMock(page) {
   await page.click('a[href="#/ringkasan"]');
   await page.waitForSelector('.peringatan');
   await page.screenshot({ path: OUT + '/09-ringkasan.png', fullPage: true });
+  await page.selectOption('#pilih-bulan', '09/2026');
+  await page.waitForFunction(() => document.querySelector('.isi').textContent.includes('26.954.000'));
+  await page.selectOption('#pilih-minggu', '28/09/2026');
+  await page.waitForFunction(() => document.querySelector('.isi').textContent.includes('9.564.000'));
+  await page.screenshot({ path: OUT + '/18-ringkasan-pilih.png', fullPage: true });
+  await page.selectOption('#pilih-minggu', '19/10/2026');
 
   // 6b. Pemilik mengubah catatan dari Riwayat
   await page.click('a[href="#/terbaru"]');

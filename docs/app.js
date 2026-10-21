@@ -400,24 +400,79 @@
     isi += '<div class="judul-bagian">Isi catatan</div>' +
       (tab.length ? '<div class="grid-catatan' + (tab.length <= 2 ? ' satu' : '') + '">' + tombol + '</div>' : '<div class="kosong">PIN ini belum diberi akses ke catatan mana pun.</div>');
     kerangka('Catatan Sembada', 'Masuk sebagai ' + (sesi.peran || ''), isi, {aktif: 'beranda'});
-    if (sesi.semua) muatRingkasan().then(function (r) {
+    if (!sesi.semua) return;
+    var kotak = document.getElementById('kotak-ringkas');
+    kotak.addEventListener('change', function (ev) {
+      if (ev.target.id !== 'pilih-minggu') return;
+      simpan('mingguDipilih', ev.target.value);
+      kotak.innerHTML = htmlRingkasMini(ambil('ringkasan', null));
+    });
+    muatRingkasan().then(function (r) {
       var el = document.getElementById('kotak-ringkas');
       if (el && r) el.innerHTML = htmlRingkasMini(r);
     }, function () { /* tetap pakai data tersimpan */ });
   }
 
-  function htmlRingkasMini(r) {
-    if (!r || !r.mingguBerjalan) return '';
-    var m = r.mingguBerjalan;
-    var perlu = (r.peringatan || []).filter(function (p) { return /PERHATIAN|TAGIH|PERBAIKI|BACA/.test(p.status); }).length;
-    return '<div class="kartu"><h2>Minggu ini</h2><p class="sub">' + esc(m.mulai) + ' – ' + esc(m.sampai) + ' · data sampai ' + esc(r.dataSampai) + '</p>' +
-      '<div class="angka-grid">' +
-      kotakAngka('Penjualan', rp(m.penjualan)) + kotakAngka('Laba usaha', rp(m.laba), m.laba < 0) +
-      kotakAngka('Minyak dihasilkan', ang(m.minyak) + ' kg') + kotakAngka('Hal perlu ditangani', String(perlu), perlu > 0) +
-      '</div><button class="tautan" data-ke="#/ringkasan">Lihat ringkasan lengkap ›</button></div>';
+  // ---- pilihan minggu & bulan (dipakai di Beranda dan Ringkasan)
+  var BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  var BULAN_PANJANG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  function pecahTgl(s) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s || ''); return m ? {d: +m[1], m: +m[2], y: +m[3]} : null; }
+  function labelMinggu(mg) {
+    var a = pecahTgl(mg.mulai), b = pecahTgl(mg.sampai);
+    if (!a || !b) return mg.mulai + ' – ' + mg.sampai;
+    if (a.m === b.m && a.y === b.y) return a.d + '–' + b.d + ' ' + BULAN[b.m - 1] + ' ' + b.y;
+    return a.d + ' ' + BULAN[a.m - 1] + (a.y !== b.y ? ' ' + a.y : '') + ' – ' + b.d + ' ' + BULAN[b.m - 1] + ' ' + b.y;
   }
-  function kotakAngka(label, nilai, merah) {
-    return '<div class="angka"><span>' + esc(label) + '</span><b' + (merah ? ' class="minus"' : '') + '>' + esc(nilai) + '</b></div>';
+  function labelBulan(bl) {
+    var m = /^(\d{2})\/(\d{4})$/.exec(bl.bulan || '');
+    return m ? BULAN_PANJANG[+m[1] - 1] + ' ' + m[2] : (bl.bulan || '');
+  }
+  function daftarMinggu(r) {
+    if (r.semuaMinggu && r.semuaMinggu.length) return r.semuaMinggu;
+    var out = [];
+    [r.mingguBerjalan, r.mingguPenuh].forEach(function (m) {
+      if (m && !out.some(function (x) { return x.mulai === m.mulai; })) out.push(m);
+    });
+    return out;
+  }
+  function daftarBulan(r) { return (r.semuaBulan && r.semuaBulan.length) ? r.semuaBulan : (r.bulanIni ? [r.bulanIni] : []); }
+  function indeksPilihan(daftar, kunci, cocok) {
+    var simpanan = ambil(kunci, '');
+    for (var i = 0; i < daftar.length; i++) if (cocok(daftar[i]) === simpanan) return i;
+    return 0;
+  }
+  function selectMinggu(daftar, idx) {
+    return '<select class="masukan pilih-periode" id="pilih-minggu" aria-label="Pilih minggu">' + daftar.map(function (m, i) {
+      return '<option value="' + esc(m.mulai) + '"' + (i === idx ? ' selected' : '') + '>' + esc(labelMinggu(m)) + (i === 0 ? ' (minggu ini)' : '') + '</option>';
+    }).join('') + '</select>';
+  }
+  function banding(a, b) {
+    if (typeof a !== 'number' || typeof b !== 'number' || b === 0) return '';
+    var x = (a - b) / Math.abs(b);
+    return '<small class="banding ' + (x >= 0 ? 'naik' : 'turun') + '">' + (x >= 0 ? '▲ ' : '▼ ') + Math.round(Math.abs(x) * 100) + '% dari minggu sebelumnya</small>';
+  }
+  function kotakAngka(label, nilai, merah, tambahan) {
+    var kelas = (merah ? 'minus ' : '') + (String(nilai).length > 11 ? 'panjang' : '');
+    return '<div class="angka"><span>' + esc(label) + '</span><b class="' + kelas.trim() + '">' + esc(nilai) + '</b>' + (tambahan || '') + '</div>';
+  }
+  function totalUpah(m) { return (m.upahPengumpul || 0) + (m.upahPenyuling || 0) + (m.upahHarian || 0); }
+
+  function htmlRingkasMini(r) {
+    if (!r) return '';
+    var daftar = daftarMinggu(r);
+    if (!daftar.length) return '';
+    var idx = indeksPilihan(daftar, 'mingguDipilih', function (m) { return m.mulai; });
+    var m = daftar[idx], sebelum = daftar[idx + 1];
+    var perlu = (r.peringatan || []).filter(function (p) { return /PERHATIAN|TAGIH|PERBAIKI|BACA/.test(p.status); }).length;
+    return '<div class="kartu"><h2>Ringkasan minggu</h2>' + selectMinggu(daftar, idx) +
+      '<p class="sub">' + (idx === 0 ? 'Data sampai ' + esc(r.dataSampai) : 'Minggu yang sudah lewat') + '</p>' +
+      '<div class="angka-grid">' +
+      kotakAngka('Penjualan', rp(m.penjualan), false, sebelum ? banding(m.penjualan, sebelum.penjualan) : '') +
+      kotakAngka('Laba usaha', rp(m.laba), m.laba < 0, sebelum ? banding(m.laba, sebelum.laba) : '') +
+      kotakAngka('Minyak dihasilkan', ang(m.minyak) + ' kg') + kotakAngka('Total upah', rp(totalUpah(m))) +
+      '</div>' +
+      (perlu ? '<button class="status galat" style="margin:12px 0 0" data-ke="#/ringkasan">' + IKON.awan + perlu + ' hal perlu ditangani sekarang</button>' : '') +
+      '<button class="tautan" data-ke="#/ringkasan">Lihat ringkasan lengkap ›</button></div>';
   }
 
   function muatRingkasan() {
@@ -432,13 +487,20 @@
     if (!sesi.semua) { location.hash = '#/'; return; }
     var tersimpan = ambil('ringkasan', null);
     kerangka('Ringkasan', 'Dari Dashboard Google Sheet', tersimpan ? htmlRingkasan(tersimpan) : '<div class="memuat">Memuat ringkasan…</div>', {aktif: 'ringkasan', muat: true});
+    var isi = document.querySelector('.isi');
+    isi.addEventListener('change', function (ev) {
+      if (ev.target.id === 'pilih-minggu') simpan('mingguDipilih', ev.target.value);
+      else if (ev.target.id === 'pilih-bulan') simpan('bulanDipilih', ev.target.value);
+      else return;
+      isi.innerHTML = htmlRingkasan(ambil('ringkasan', null));
+    });
     var muat = function () {
       muatRingkasan().then(function (r) {
         if (location.hash !== '#/ringkasan') return;
-        document.querySelector('.isi').innerHTML = htmlRingkasan(r);
+        isi.innerHTML = htmlRingkasan(r);
       }, function (e) {
         if (location.hash !== '#/ringkasan') return;
-        if (!tersimpan) document.querySelector('.isi').innerHTML = '<div class="galat-kartu">' + esc(e.message) + '</div>';
+        if (!tersimpan) isi.innerHTML = '<div class="galat-kartu">' + esc(e.message) + '</div>';
         else toast(e.message);
       });
     };
@@ -446,33 +508,42 @@
     muat();
   }
 
-  function htmlMinggu(judul, m) {
-    if (!m) return '';
-    var upah = (m.upahPengumpul || 0) + (m.upahPenyuling || 0) + (m.upahHarian || 0);
-    return '<div class="kartu"><h2>' + esc(judul) + '</h2><p class="sub">' + esc(m.mulai) + ' – ' + esc(m.sampai) + '</p><div class="angka-grid">' +
-      kotakAngka('Penjualan', rp(m.penjualan)) + kotakAngka('Laba usaha', rp(m.laba), m.laba < 0) +
-      kotakAngka('Minyak dihasilkan', ang(m.minyak) + ' kg') + kotakAngka('Minyak terjual', ang(m.terjual) + ' kg') +
-      kotakAngka('Bahan masuk', ang(m.bahanKg, 0) + ' kg') + kotakAngka('Harga bahan/kg', rp(m.hargaBahan)) +
-      kotakAngka('Biaya per kg minyak', rp(m.biayaPerKg)) + kotakAngka('Total upah', rp(upah)) +
-      kotakAngka('Sulingan', ang(m.sulingan, 0) + ' kali') + kotakAngka('Hari ketel kosong', ang(m.ketelKosong, 0) + ' hari', m.ketelKosong >= 2) +
-      '</div></div>';
-  }
-
   function htmlRingkasan(r) {
+    if (!r) return '';
     var p = (r.peringatan || []).map(function (x) {
       var kelas = /PERHATIAN|TAGIH|PERBAIKI|BACA/.test(x.status) ? 'perlu' : (x.status === 'Aman' ? 'aman' : 'netral');
       return '<div class="peringatan"><span class="chip-status ' + kelas + '">' + esc(x.status || '–') + '</span><div><p>' + esc(x.hal) +
         (x.nilai ? ': <b>' + esc(x.nilai) + '</b>' : '') + '</p>' + (x.saran ? '<p class="saran">' + esc(x.saran) + '</p>' : '') + '</div></div>';
     }).join('');
-    var b = r.bulanIni;
-    var bulan = b ? '<div class="kartu"><h2>Bulan ini</h2><p class="sub">' + esc(b.bulan) + '</p><div class="angka-grid">' +
+
+    var dm = daftarMinggu(r);
+    var im = indeksPilihan(dm, 'mingguDipilih', function (m) { return m.mulai; });
+    var m = dm[im], ms = dm[im + 1];
+    var minggu = m ? '<div class="kartu"><h2>Minggu</h2>' + selectMinggu(dm, im) +
+      (ms ? '<p class="sub">Panah membandingkan dengan minggu sebelumnya (' + esc(labelMinggu(ms)) + ').</p>' : '<p class="sub"></p>') +
+      '<div class="angka-grid">' +
+      kotakAngka('Penjualan', rp(m.penjualan), false, ms ? banding(m.penjualan, ms.penjualan) : '') +
+      kotakAngka('Laba usaha', rp(m.laba), m.laba < 0, ms ? banding(m.laba, ms.laba) : '') +
+      kotakAngka('Minyak dihasilkan', ang(m.minyak) + ' kg', false, ms ? banding(m.minyak, ms.minyak) : '') +
+      kotakAngka('Minyak terjual', ang(m.terjual) + ' kg') +
+      kotakAngka('Bahan masuk', ang(m.bahanKg, 0) + ' kg') + kotakAngka('Harga bahan/kg', rp(m.hargaBahan)) +
+      kotakAngka('Biaya per kg minyak', rp(m.biayaPerKg)) + kotakAngka('Total upah', rp(totalUpah(m))) +
+      kotakAngka('Sulingan', ang(m.sulingan, 0) + ' kali') + kotakAngka('Hari ketel kosong', ang(m.ketelKosong, 0) + ' hari', m.ketelKosong >= 2) +
+      '</div></div>' : '';
+
+    var db = daftarBulan(r);
+    var ib = indeksPilihan(db, 'bulanDipilih', function (x) { return x.bulan; });
+    var b = db[ib];
+    var bulan = b ? '<div class="kartu"><h2>Bulan</h2><select class="masukan pilih-periode" id="pilih-bulan" aria-label="Pilih bulan">' +
+      db.map(function (x, i) { return '<option value="' + esc(x.bulan) + '"' + (i === ib ? ' selected' : '') + '>' + esc(labelBulan(x)) + (i === 0 ? ' (bulan ini)' : '') + '</option>'; }).join('') +
+      '</select><div class="angka-grid">' +
       kotakAngka('Penjualan', rp(b.penjualan)) + kotakAngka('Laba usaha', rp(b.laba), b.laba < 0) +
       kotakAngka('Cicilan kendaraan', rp(b.cicilan)) + kotakAngka('Keluarga & pribadi', rp(b.keluarga)) +
       kotakAngka('Proyek + upah harian', rp((b.proyekBahan || 0) + (b.upahHarian || 0))) + kotakAngka('Perubahan kas', rp(b.perubahanKas), b.perubahanKas < 0) +
       '</div></div>' : '';
-    return '<p class="sub" style="margin:0 0 12px;color:var(--teks-2)">Data sampai ' + esc(r.dataSampai) + '</p>' +
-      htmlMinggu('Minggu berjalan', r.mingguBerjalan) + htmlMinggu('Minggu penuh terakhir', r.mingguPenuh) + bulan +
-      '<div class="judul-bagian">Peringatan</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') + '</div>';
+
+    return '<p class="sub" style="margin:0 0 12px;color:var(--teks-2)">Data sampai ' + esc(r.dataSampai) + '</p>' + minggu + bulan +
+      '<div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') + '</div>';
   }
 
   // ------------------------------------------------------------ layar: isi formulir

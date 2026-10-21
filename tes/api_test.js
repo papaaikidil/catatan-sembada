@@ -215,3 +215,23 @@ assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Hapus' && /baru/.test(
 
 console.log('Semua uji fitur pemilik lulus.');
 
+// 16. Ringkasan: semua minggu dan bulan, terbaru di depan
+const rekM = buatSheet('Rekap Mingguan', [[], [], [], ['Minggu mulai']]);
+for (let i = 0; i < 4; i++) { const r = new Array(26).fill(0); r[0] = new Date(2026, 8, 28 + 7 * i); r[1] = new Date(2026, 9, 4 + 7 * i); r[19] = 1000 * (i + 1); r[20] = 100 * (i + 1); rekM.data.push(r); }
+const rekB = buatSheet('Rekap Bulanan', [[], [], [], ['Bulan']]);
+for (let i = 0; i < 2; i++) { const r = new Array(31).fill(0); r[0] = new Date(2026, 8 + i, 1); r[19] = 5000 * (i + 1); r[30] = -7; rekB.data.push(r); }
+const dash = buatSheet('Dashboard', Array.from({ length: 30 }, () => []));
+dash.data[1][1] = '21/10/2026';
+dash.data[4][13] = 8; dash.data[5][13] = 7; dash.data[7][13] = 6;
+dash.data[14] = ['Hari ketel kosong', '', '3 hari', '2 hari', 'PERHATIAN', 'Atur jadwal'];
+sheets['Rekap Mingguan'] = rekM; sheets['Rekap Bulanan'] = rekB; sheets['Dashboard'] = dash;
+r = ctx.layani_(ss, { aksi: 'ringkasan', pin: '123456' });
+assert.strictEqual(r.ok, true, JSON.stringify(r));
+assert.strictEqual(r.semuaMinggu.length, 4);
+assert.strictEqual(r.semuaMinggu[0].penjualan, 4000, 'minggu terbaru di depan');
+assert.strictEqual(r.mingguBerjalan.penjualan, 4000);
+assert.strictEqual(r.mingguPenuh.penjualan, 3000);
+assert.strictEqual(r.semuaBulan.length, 2); assert.strictEqual(r.bulanIni.penjualan, 10000); assert.strictEqual(r.bulanIni.perubahanKas, -7);
+assert.strictEqual(r.peringatan.length, 1); assert.strictEqual(r.peringatan[0].status, 'PERHATIAN');
+assert.strictEqual(ctx.layani_(ss, { aksi: 'ringkasan', pin: '4321' }).ok, false, 'pekerja tidak boleh melihat ringkasan');
+console.log('Uji ringkasan lulus.');

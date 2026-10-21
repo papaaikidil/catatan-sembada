@@ -17,7 +17,7 @@
 var API_ID_SHEET = '11erbcsOh7G0BKWFLmsGqvWNcQiyz0mSogFLX5AS_8AI';
 var API_ZONA = 'Asia/Jakarta';
 var API_TAB = ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
-var API_VERSI = 2;
+var API_VERSI = 3;
 var API_LOG = 'Log Aplikasi';   // tab tersembunyi: catatan setiap perubahan dan penghapusan
 var API_BATAS_GAGAL = 30;      // PIN salah sebanyak ini dalam 15 menit = dikunci sementara
 var API_SIMPAN_ID = 300;       // jumlah id entri terakhir yang diingat untuk mencegah dobel
@@ -240,33 +240,40 @@ function ringkasan_(ss, akses) {
   var tgl = function (d) { return adalahTanggal_(d) ? Utilities.formatDate(d, API_ZONA, 'dd/MM/yyyy') : String(d || ''); };
   var angka = function (v) { return typeof v === 'number' ? v : null; };
 
-  var minggu = function (r) {
-    if (!(r >= 5)) return null;
-    var v = rek.getRange(r, 1, 1, 26).getValues()[0];
+  var minggu = function (v) {
     return {mulai: tgl(v[0]), sampai: tgl(v[1]), trip: angka(v[2]), bahanKg: angka(v[3]), beliBahan: angka(v[4]),
       hargaBahan: angka(v[5]), biayaJalan: angka(v[6]), sulingan: angka(v[7]), ketelKosong: angka(v[8]),
       minyak: angka(v[10]), minyakPerSulingan: angka(v[11]), rendemen: angka(v[12]), upahPengumpul: angka(v[13]),
       upahPenyuling: angka(v[14]), operasional: angka(v[15]), biayaProduksi: angka(v[16]), biayaPerKg: angka(v[17]),
       terjual: angka(v[18]), penjualan: angka(v[19]), laba: angka(v[20]), upahHarian: angka(v[21])};
   };
-  var bulan = function (r) {
-    if (!(r >= 5)) return null;
-    var v = rekBln.getRange(r, 1, 1, 31).getValues()[0];
+  var bulan = function (v) {
     return {bulan: adalahTanggal_(v[0]) ? Utilities.formatDate(v[0], API_ZONA, 'MM/yyyy') : String(v[0]),
       penjualan: angka(v[19]), biayaProduksi: angka(v[16]), laba: angka(v[20]), pengembangan: angka(v[21]),
       cicilan: angka(v[22]), labaSetelahCicilan: angka(v[23]), keluarga: angka(v[24]), proyekBahan: angka(v[25]),
       upahHarian: angka(v[26]), pembiayaan: angka(v[27]), pemasukanLain: angka(v[28]), belumDibayar: angka(v[29]),
       perubahanKas: angka(v[30])};
   };
+  // Semua baris rekap dari baris 5 sampai baris periode berjalan, terbaru di depan.
+  var semua = function (sh, akhir, lebar, ubah) {
+    if (!(akhir >= 5)) return [];
+    return sh.getRange(5, 1, akhir - 4, lebar).getValues().map(ubah).reverse();
+  };
+  var rMinggu = Number(dash.getRange('N5').getValue());
+  var rPenuh = Number(dash.getRange('N6').getValue());
+  var rBulan = Number(dash.getRange('N8').getValue());
+  var semuaMinggu = semua(rek, rMinggu, 26, minggu);
+  var semuaBulan = semua(rekBln, rBulan, 31, bulan);
 
   var peringatan = dash.getRange('A15:F23').getDisplayValues().map(function (r) {
     return {hal: r[0], nilai: r[2], batas: r[3], status: r[4], saran: r[5]};
   }).filter(function (p) { return p.hal; });
 
   return {ok: true, dataSampai: dash.getRange('B2').getDisplayValue(),
-    mingguBerjalan: minggu(Number(dash.getRange('N5').getValue())),
-    mingguPenuh: minggu(Number(dash.getRange('N6').getValue())),
-    bulanIni: bulan(Number(dash.getRange('N8').getValue())),
+    mingguBerjalan: semuaMinggu[0] || null,
+    mingguPenuh: rPenuh >= 5 && rMinggu >= rPenuh ? semuaMinggu[rMinggu - rPenuh] || null : null,
+    bulanIni: semuaBulan[0] || null,
+    semuaMinggu: semuaMinggu, semuaBulan: semuaBulan,
     peringatan: peringatan};
 }
 
