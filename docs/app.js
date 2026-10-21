@@ -171,6 +171,8 @@
         if (adaKerjaLain && n['Ada kerja lain dengan upah khusus hari ini?'] === 'Tidak') {
           s.push(['Ada kerja lain dengan upah khusus hari ini?', 'Ada yang dipilih Kerja lain. Pilih Ya, lalu isi upahnya.']);
         }
+        var kisi = bidang.filter(function (b) { return b.j === 'kisiBaris'; });
+        if (kisi.length && !kisi.some(function (b) { return n[b.h]; })) s.push([kisi[0].h, 'Isi minimal satu orang.']);
         if (n['Ada kerja lain dengan upah khusus hari ini?'] === 'Ya') {
           var adaUpah = bidang.some(function (b) { return /^Upah kerja lain/.test(b.h || '') && n[b.h] > 0; });
           if (!adaUpah) s.push(['_upah', 'Isi upah kerja lain untuk minimal satu orang.']);
@@ -226,16 +228,24 @@
     return t ? t.upah : 0;
   }
 
+  // Kelompok absensi untuk PIN ini (Pengumpul / Tim suling). Kosong = boleh mengabsen semua.
+  function kelompokSaya() { return (sesi && sesi.kelompokAbsensi) || ''; }
+  var JOBDESK = {'Pengumpul': 'Pengumpulan', 'Tim suling': 'Penyulingan'};
+
   // Bidang lengkap sebuah tab. Baris absensi dan upah kerja lain mengikuti judul kolom di Sheet.
   function bidangLengkap(tab) {
     var kepala = (konfig && konfig.kepala && konfig.kepala[tab]) || [];
+    var kelompok = tab === 'Absensi' ? kelompokSaya() : '';
     var out = [];
     FORM[tab].bidang.forEach(function (b) {
       if (b.j === 'kisi') {
         kepala.forEach(function (h) {
           var m = /^(.+) \[(.+)\]$/.exec(h);
-          if (m) out.push({j: 'kisiBaris', h: h, kelompok: m[1], label: m[2]});
+          // Mandor/pemilik: baris orang boleh kosong, karena jobdesk sudah diabsen timnya sendiri.
+          if (m && (!kelompok || m[1] === kelompok)) out.push({j: 'kisiBaris', h: h, kelompok: m[1], label: m[2], wajib: !!kelompok});
         });
+      } else if (kelompok && (b.syarat === 'kerjaLain' || b.h === 'Ada kerja lain dengan upah khusus hari ini?')) {
+        // Kerja di luar jobdesk diisi mandor atau pemilik.
       } else if (b.j === 'upahLain') {
         kepala.forEach(function (h) {
           var m = /^Upah kerja lain (.+) \(Rp\)$/.exec(h);
@@ -252,8 +262,13 @@
   function opsiBidang(b) {
     if (b.opsi) return b.opsi;
     if (b.j === 'kisiBaris') {
-      return (konfig && konfig.tarif || []).filter(function (t) { return t.untuk === b.kelompok || t.untuk === 'Semua'; })
-        .map(function (t) { return t.pilihan; });
+      var kelompok = kelompokSaya();
+      return (konfig && konfig.tarif || []).filter(function (t) {
+        if (t.untuk !== b.kelompok && t.untuk !== 'Semua') return false;
+        if (!kelompok) return true;
+        if (t.jenis) return t.jenis === 'Libur' || t.jenis === JOBDESK[kelompok];
+        return !/harian|kerja lain/i.test(t.pilihan);
+      }).map(function (t) { return t.pilihan; });
     }
     return (konfig && konfig.daftar && konfig.daftar[b.daftar]) || [];
   }
@@ -366,7 +381,7 @@
       sesi = sementara;
       panggil('masuk', {pin: pin}).then(function (r) {
         if (!r.ok) { sesi = null; layarMasuk(r.galat || 'PIN salah.'); return; }
-        sesi = {pin: pin, peran: r.peran, tab: r.tab, semua: r.semua};
+        sesi = {pin: pin, peran: r.peran, tab: r.tab, semua: r.semua, kelompokAbsensi: r.kelompokAbsensi || ''};
         simpan('sesi', sesi);
         return muatKonfig().then(function () { location.hash = '#/'; tampilkan(); });
       }).catch(function (e) { sesi = null; layarMasuk(e.message); });
@@ -382,7 +397,7 @@
     return panggil('config').then(function (r) {
       if (r && r.ok) {
         konfig = r; simpan('konfig', r);
-        if (sesi) { sesi.tab = r.tab; sesi.semua = r.semua; sesi.peran = r.peran; simpan('sesi', sesi); }
+        if (sesi) { sesi.tab = r.tab; sesi.semua = r.semua; sesi.peran = r.peran; sesi.kelompokAbsensi = r.kelompokAbsensi || ''; simpan('sesi', sesi); }
       }
       return r;
     });
@@ -393,7 +408,8 @@
     var tab = (sesi.tab || []).filter(function (t) { return FORM[t]; });
     var tombol = tab.map(function (t) {
       var f = FORM[t];
-      return '<a class="tombol-catatan" href="#/isi/' + f.kunci + '"><span class="lingkar">' + IKON[f.ikon] + '</span><b>' + esc(t) + '</b><small>' + esc(f.ket) + '</small></a>';
+      var ket = (t === 'Absensi' && kelompokSaya()) ? 'Absensi ' + kelompokSaya().toLowerCase() + ' saja.' : f.ket;
+      return '<a class="tombol-catatan" href="#/isi/' + f.kunci + '"><span class="lingkar">' + IKON[f.ikon] + '</span><b>' + esc(t) + '</b><small>' + esc(ket) + '</small></a>';
     }).join('');
     var isi = '<div id="kotak-status">' + htmlStatus() + '</div>';
     if (sesi.semua) isi += '<div id="kotak-ringkas">' + htmlRingkasMini(ambil('ringkasan', null)) + '</div>';
@@ -578,12 +594,19 @@
     }
     var bidang = bidangLengkap(tab);
     var draf = ubah ? mentahDariNilai(bidang, ubah.nilai) : ambil('draf.' + kunci, {});
-    var html = (ubah ? '<div class="pratinjau awas">Mengubah catatan yang sudah masuk Google Sheet. Perubahan dicatat di tab Log Aplikasi.</div>' : '') +
+    var catatanAtas = ubah ? '<div class="pratinjau awas">Mengubah catatan yang sudah masuk Google Sheet. Perubahan dicatat di tab Log Aplikasi.</div>'
+      : (tab === 'Absensi' && !kelompokSaya()) ? '<div class="pratinjau">Pekerja yang sudah absen sendiri lewat HP-nya (pengumpul: trip, tim suling: sulingan) biarkan <b>Tidak diisi</b>. Isi hanya yang kerja harian atau kerja lain.</div>' : '';
+    var html = catatanAtas +
       bidang.map(function (b, i) { return htmlBidang(b, i, draf); }).join('') +
       '<div class="bidang" data-h="_upah" hidden><div class="pesan-salah"></div></div>' +
       '<div class="pratinjau" id="pratinjau" hidden></div>';
     var tglLama = ubah ? (ubah.nilai['Tanggal'] || ubah.nilai['Tanggal saring'] || '') : '';
-    kerangka(ubah ? 'Ubah ' + tab : tab, ubah ? 'Catatan tanggal ' + tglIndo(tglLama) : FORM[tab].ket,
+    var judulForm = (tab === 'Absensi' && kelompokSaya() && !ubah) ? 'Absensi ' + kelompokSaya() : tab;
+    var subjudul = ubah ? 'Catatan tanggal ' + tglIndo(tglLama)
+      : judulForm !== tab ? 'Hanya pekerjaan ' + kelompokSaya().toLowerCase() + '. Kerja lain diisi mandor.'
+      : tab === 'Absensi' ? 'Untuk kerja harian dan kerja lain.'
+      : FORM[tab].ket;
+    kerangka(ubah ? 'Ubah ' + tab : judulForm, subjudul,
       '<form id="formulir" novalidate>' + html + '</form>', {kembali: kembali, tanpaNav: true});
     app.insertAdjacentHTML('beforeend', '<div class="aksi-bawah"><button class="tombol kedua" id="tombol-kosong" type="button">' + (ubah ? 'Batal' : 'Kosongkan') + '</button>' +
       '<button class="tombol utama" id="tombol-simpan" type="button">' + (ubah ? 'Simpan perubahan' : 'Simpan') + '</button></div>');
@@ -674,7 +697,7 @@
       };
       if (tab !== 'Absensi') { lanjut(); return; }
       tombolSimpan.disabled = true;
-      cekAbsensiDobel(hasil.nilai['Tanggal']).then(function (boleh) {
+      cekAbsensiDobel(hasil.nilai).then(function (boleh) {
         tombolSimpan.disabled = false;
         if (boleh) lanjut();
       });
@@ -695,22 +718,39 @@
     return out;
   }
 
-  // Absensi cukup sekali sehari. Kalau tanggalnya sudah ada, upah akan terhitung dua kali.
-  function cekAbsensiDobel(iso) {
-    var tgl = tglIndo(iso);
-    var pesan = function (asal) {
-      return 'Absensi tanggal ' + tgl + ' sudah ' + asal + '.\n\nKalau disimpan lagi, upah hari itu terhitung dua kali. Tetap simpan?';
-    };
-    var diHp = antrian.some(function (a) { return a.tab === 'Absensi' && a.nilai['Tanggal'] === iso; });
-    if (diHp) return Promise.resolve(confirm(pesan('tersimpan di HP ini dan menunggu dikirim')));
+  // Satu tanggal = satu baris absensi. Isian kelompok lain digabung, tapi orang yang sama
+  // tidak boleh diabsen dua kali dengan isi berbeda (upah bisa dobel).
+  function cekAbsensiDobel(nilai) {
+    var iso = nilai['Tanggal'], tgl = tglIndo(iso);
+    var orang = Object.keys(nilai).filter(function (h) { return /^(.+) \[(.+)\]$/.test(h); });
+    var nama = function (h) { return /\[(.+)\]$/.exec(h)[1]; };
+    var diHp = antrian.some(function (a) {
+      return a.tab === 'Absensi' && a.nilai['Tanggal'] === iso && orang.some(function (h) { return a.nilai[h]; });
+    });
+    if (diHp) return Promise.resolve(confirm('Absensi tanggal ' + tgl + ' untuk orang yang sama sudah tersimpan di HP ini dan menunggu dikirim.\n\nTetap simpan?'));
     if (!navigator.onLine) return Promise.resolve(true);
     toast('Memeriksa absensi tanggal ' + tgl + '…', 2500);
     return panggil('terbaru', {tab: 'Absensi', n: 15}, 12000).then(function (r) {
       if (!r || !r.ok) return true;
-      var iT = r.kepala.indexOf('Tanggal'), iW = r.kepala.indexOf('Timestamp');
-      var sama = r.baris.filter(function (row) { return row[iT] === tgl; })[0];
-      if (!sama) return true;
-      return confirm(pesan('diisi (dikirim ' + sama[iW] + ')'));
+      var iT = r.kepala.indexOf('Tanggal');
+      var baris = r.baris.filter(function (row) { return row[iT] === tgl; })[0];
+      if (!baris) return true;
+      var bentrok = [], sama = 0;
+      orang.forEach(function (h) {
+        var i = r.kepala.indexOf(h);
+        if (i < 0 || !baris[i] || baris[i] === '-') return;
+        if (baris[i] === nilai[h]) sama++;
+        else bentrok.push(nama(h) + ' sudah tercatat "' + baris[i] + '"');
+      });
+      if (bentrok.length) {
+        alert('Absensi ' + tgl + ': ' + bentrok.join('; ') + '.\n\nKalau salah, pemilik bisa mengubahnya lewat Riwayat.');
+        return false;
+      }
+      if (orang.length && sama === orang.length && !nilai['Keterangan'] && !nilai['Pekerjaan lain']) {
+        toast('Absensi tanggal ' + tgl + ' ini sudah tercatat sebelumnya.', 4000);
+        return false;
+      }
+      return true;
     }, function () { return true; });
   }
 
@@ -735,6 +775,9 @@
       (b.lainnya ? '<label class="chip"><input type="' + tipe + '" name="' + id + '" value="__lain" data-lainnya="' + i + '"' + (lainTeks ? ' checked' : '') + '><span>Lainnya…</span></label>' : '') +
       '</div>' +
       (b.lainnya ? '<input class="masukan lainnya-teks" id="lt' + i + '" placeholder="Tulis ' + esc(label.toLowerCase()) + ' lainnya" value="' + esc(lainTeks) + '"' + (lainTeks ? '' : ' hidden') + '>' : '');
+      if (b.j === 'kisiBaris' && b.wajib === false && pilihan.length) {
+        isi = isi.replace('<div class="chips">', '<div class="chips"><label class="chip lewati"><input type="radio" name="' + id + '" value=""' + (terpilih.length ? '' : ' checked') + '><span>Tidak diisi</span></label>');
+      }
       if (!pilihan.length) isi = '<div class="galat-kartu">Daftar pilihan kosong. Buka Akun > Perbarui pilihan.</div>';
     } else if (b.j === 'daftar') {
       isi = '<select class="masukan" name="' + id + '"><option value="">Pilih…</option>' + opsiBidang(b).map(function (o) {

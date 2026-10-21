@@ -151,6 +151,8 @@ textarea.masukan { min-height: 88px; resize: vertical; }
   border: 1.5px solid var(--garis); background: var(--kartu); cursor: pointer; font-size: 15px; user-select: none;
 }
 .chip input:checked + span { background: var(--hijau); border-color: var(--hijau); color: var(--di-hijau); font-weight: 700; }
+.chip.lewati span { border-style: dashed; color: var(--teks-2); }
+.chip.lewati input:checked + span { background: var(--latar); border-color: var(--teks-2); color: var(--teks); font-weight: 600; }
 .chip input:focus-visible + span { box-shadow: 0 0 0 3px var(--hijau-muda); }
 .bidang.salah .chip span { border-color: var(--merah); }
 .lainnya-teks { margin-top: 8px; }

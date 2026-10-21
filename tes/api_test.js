@@ -52,7 +52,11 @@ function muat(sheets) {
       base64Encode: b => Buffer.from(b).toString('base64'),
       DigestAlgorithm: { MD5: 'md5' }, Charset: { UTF_8: 'utf8' },
       parseDate: (s) => new Date(s + 'T00:00:00+07:00'),
-      formatDate: (d, z, f) => f === 'MM/yyyy' ? `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` : d.toISOString().slice(0, 10)
+      formatDate: (d, z, f) => {
+        const w = new Date(d.getTime() + 7 * 3600e3).toISOString();   // WIB
+        const Y = w.slice(0, 4), M = w.slice(5, 7), D = w.slice(8, 10), jam = w.slice(11, 16);
+        return f.replace('yyyy', Y).replace('MM', M).replace('dd', D).replace('HH:mm', jam);
+      }
     },
     CacheService: { getScriptCache: () => ({ get: k => cache[k], put: (k, v) => { cache[k] = v; } }) },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k], setProperty: (k, v) => { props[k] = v; } }) },
@@ -237,3 +241,41 @@ assert.strictEqual(r.semuaBulan.length, 2); assert.strictEqual(r.bulanIni.penjua
 assert.strictEqual(r.peringatan.length, 1); assert.strictEqual(r.peringatan[0].status, 'PERHATIAN');
 assert.strictEqual(ctx.layani_(ss, { aksi: 'ringkasan', pin: '4321' }).ok, false, 'pekerja tidak boleh melihat ringkasan');
 console.log('Uji ringkasan lulus.');
+
+// 17. Absensi per kelompok: digabung ke satu baris per tanggal
+pengaturan.data[20] = ['Pengumpul', '4321', 'Ambil Bahan, Absensi', '', 'Pengumpul'];
+pengaturan.data[22] = ['Tim suling', '6125', 'Absensi', '', 'Tim suling'];
+tarif.data = [['Pilihan', 'Untuk', 'Upah', 'Jenis kerja'], ['Libur', 'Semua', 0, 'Libur'], ['1 trip', 'Pengumpul', 76000, 'Pengumpulan'],
+  ['Harian kenek', 'Pengumpul', 100000, 'Kerja harian'], ['2x suling', 'Tim suling', 180000, 'Penyulingan'], ['3x suling', 'Tim suling', 295000, 'Penyulingan'],
+  ['Kerja lain', 'Semua', 0, 'Kerja lain']];
+r = ctx.layani_(ss, { aksi: 'masuk', pin: '6125' });
+assert.strictEqual(r.kelompokAbsensi, 'Tim suling'); assert.deepStrictEqual(Array.from(r.tab), ['Absensi']);
+assert.strictEqual(ctx.layani_(ss, { aksi: 'masuk', pin: '123456' }).kelompokAbsensi, '', 'pemilik tidak dibatasi');
+const barisAbsensi = () => absensi.data.length;
+const awal = barisAbsensi();
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '6125', tab: 'Absensi', id: 'k1', nilai: { 'Tanggal': '2026-10-22', 'Tim suling [Eko & Pak Gatot]': '2x suling', 'Keterangan': 'ketel aman' } });
+assert.strictEqual(r.ok, true, JSON.stringify(r)); assert.strictEqual(barisAbsensi(), awal + 1, 'tanggal baru = baris baru');
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '4321', tab: 'Absensi', id: 'k2', nilai: { 'Tanggal': '2026-10-22', 'Pengumpul [Rofik]': '1 trip', 'Keterangan': 'bahan basah' } });
+assert.strictEqual(r.ok, true, JSON.stringify(r)); assert.strictEqual(r.gabung, true); assert.strictEqual(barisAbsensi(), awal + 1, 'digabung, tidak menambah baris');
+const hari22 = absensi.data.filter(x => Object.prototype.toString.call(x[2]) === '[object Date]' && new Date(x[2].getTime() + 7 * 3600e3).toISOString().startsWith('2026-10-22'));
+assert.strictEqual(hari22.length, 1);
+assert.strictEqual(hari22[0][3], '1 trip'); assert.strictEqual(hari22[0][5], '2x suling'); assert.strictEqual(hari22[0][6], 'ketel aman | bahan basah');
+// pengumpul tidak boleh isi harian atau kolom tim suling
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '4321', tab: 'Absensi', id: 'k3', nilai: { 'Tanggal': '2026-10-23', 'Pengumpul [Pak Muh]': 'Harian kenek' } });
+assert.strictEqual(r.ok, false); assert.ok(/bukan pekerjaan/.test(r.galat), r.galat);
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '4321', tab: 'Absensi', id: 'k4', nilai: { 'Tanggal': '2026-10-23', 'Tim suling [Eko & Pak Gatot]': '2x suling' } });
+assert.strictEqual(r.ok, false); assert.ok(/hanya untuk absensi Pengumpul/.test(r.galat), r.galat);
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '6125', tab: 'Absensi', id: 'k5', nilai: { 'Tanggal': '2026-10-23', 'Tim suling [Eko & Pak Gatot]': '2x suling', 'Ada kerja lain dengan upah khusus hari ini?': 'Ya' } });
+assert.strictEqual(r.ok, false, 'tim suling tidak boleh isi kerja lain');
+// bentrok dan dobel
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '6125', tab: 'Absensi', id: 'k6', nilai: { 'Tanggal': '2026-10-22', 'Tim suling [Eko & Pak Gatot]': '3x suling' } });
+assert.strictEqual(r.kode, 'SUDAH'); assert.ok(/Eko & Pak Gatot sudah tercatat "2x suling"/.test(r.galat), r.galat);
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '6125', tab: 'Absensi', id: 'k7', nilai: { 'Tanggal': '2026-10-22', 'Tim suling [Eko & Pak Gatot]': '2x suling' } });
+assert.strictEqual(r.ok, true); assert.strictEqual(r.dobel, true);
+// pemilik/mandor mengisi kerja lain di baris yang sama
+r = ctx.layani_(ss, { aksi: 'simpan', pin: '123456', tab: 'Absensi', id: 'k8', nilai: { 'Tanggal': '2026-10-22', 'Pengumpul [Pak Muh]': 'Kerja lain',
+  'Ada kerja lain dengan upah khusus hari ini?': 'Ya', 'Pekerjaan lain': 'tambal kolam', 'Kerja lain untuk': 'Proyek bangunan & lainnya', 'Upah kerja lain Pak Muh (Rp)': 115000 } });
+assert.strictEqual(r.ok, true, JSON.stringify(r)); assert.strictEqual(r.gabung, true);
+assert.strictEqual(hari22[0][4], 'Kerja lain'); assert.strictEqual(hari22[0][7], 'Ya'); assert.strictEqual(hari22[0][11], 115000);
+assert.strictEqual(barisAbsensi(), awal + 1);
+console.log('Uji absensi per kelompok lulus.');

@@ -25,16 +25,18 @@ const DAFTAR = {
   'Kerja lain untuk': ['Perawatan alat suling', 'Proyek bangunan & lainnya']
 };
 const TARIF = [
-  { pilihan: 'Libur', untuk: 'Semua', upah: 0 }, { pilihan: '1 trip', untuk: 'Pengumpul', upah: 76000 },
-  { pilihan: '2 trip', untuk: 'Pengumpul', upah: 126000 }, { pilihan: 'Harian kenek', untuk: 'Pengumpul', upah: 100000 },
-  { pilihan: '2x suling', untuk: 'Tim suling', upah: 180000 }, { pilihan: 'Harian 1 orang', untuk: 'Tim suling', upah: 100000 },
-  { pilihan: 'Kerja lain', untuk: 'Semua', upah: 0 }
+  { pilihan: 'Libur', untuk: 'Semua', upah: 0, jenis: 'Libur' }, { pilihan: '1 trip', untuk: 'Pengumpul', upah: 76000, jenis: 'Pengumpulan' },
+  { pilihan: '2 trip', untuk: 'Pengumpul', upah: 126000, jenis: 'Pengumpulan' }, { pilihan: 'Harian kenek', untuk: 'Pengumpul', upah: 100000, jenis: 'Kerja harian' },
+  { pilihan: '1x suling', untuk: 'Tim suling', upah: 90000, jenis: 'Penyulingan' },
+  { pilihan: '2x suling', untuk: 'Tim suling', upah: 180000, jenis: 'Penyulingan' }, { pilihan: 'Harian 1 orang', untuk: 'Tim suling', upah: 100000, jenis: 'Kerja harian' },
+  { pilihan: 'Kerja lain', untuk: 'Semua', upah: 0, jenis: 'Kerja lain' }
 ];
 
 let terima = [];
 const kelola = [];   // ubah / hapus / pinUbah yang masuk          // simpan yang masuk
 let jaringanMati = false;
 let absensiHariIni = false;
+let absensiTimSuling = '1x suling';   // isi kolom tim suling pada baris absensi hari ini (mock)
 const dialog = [];
 const tglHariIni = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(); };
 
@@ -44,8 +46,8 @@ async function pasangMock(page) {
     if (jaringanMati) return route.abort('internetdisconnected');
     const req = JSON.parse(route.request().postData() || '{}');
     const akses = req.pin === '123456' ? { peran: 'Pemilik', tab: SEMUA, semua: true }
-      : req.pin === '1111' ? { peran: 'Pengumpul', tab: ['Ambil Bahan'], semua: false }
-      : req.pin === '6125' ? { peran: 'Tim suling', tab: ['Absensi'], semua: false } : null;
+      : req.pin === '1111' ? { peran: 'Pengumpul', tab: ['Ambil Bahan', 'Absensi'], semua: false, kelompokAbsensi: 'Pengumpul' }
+      : req.pin === '6125' ? { peran: 'Tim suling', tab: ['Absensi'], semua: false, kelompokAbsensi: 'Tim suling' } : null;
     let body;
     if (!akses) body = { ok: false, kode: 'PIN', galat: 'PIN salah.' };
     else if (req.aksi === 'masuk') body = Object.assign({ ok: true }, akses);
@@ -55,8 +57,8 @@ async function pasangMock(page) {
         arahKas: { 'Proyek bangunan': 'Keluar', 'Pinjaman masuk': 'Masuk' } }, akses);
     } else if (req.aksi === 'simpan') { terima.push(req); body = { ok: true }; }
     else if (req.aksi === 'terbaru' && req.tab === 'Absensi') body = { ok: true, tab: 'Absensi',
-      kepala: ['Hari', 'Timestamp', 'Tanggal', 'Pengumpul [Rofik]', 'Keterangan'],
-      baris: [['Rabu', absensiHariIni ? tglHariIni() + ' 06:34' : '20/10/2026 08:00', absensiHariIni ? tglHariIni() : '20/10/2026', '1 trip', '']] };
+      kepala: ['Hari', 'Timestamp', 'Tanggal', 'Pengumpul [Rofik]', 'Tim suling [Eko & Pak Gatot]', 'Keterangan'],
+      baris: [['Rabu', absensiHariIni ? tglHariIni() + ' 06:34' : '20/10/2026 08:00', absensiHariIni ? tglHariIni() : '20/10/2026', '1 trip', absensiTimSuling, '']] };
     else if (req.aksi === 'terbaru') {
       body = { ok: true, tab: req.tab, kepala: ['Hari', 'Timestamp', 'Tanggal', 'Kategori', 'Jumlah (Rp)', 'Keterangan', 'Kelompok', 'Arah'],
         baris: [['Rabu', '21/10/2026 06:42', '21/10/2026', 'Proyek bangunan', 'Rp200,000', 'service disel dan beli bensin buat ngisi kolam', 'Proyek lain', 'Keluar']] };
@@ -144,6 +146,10 @@ async function pasangMock(page) {
   const pilihChip = async (h, nilai) => {
     await page.locator(`.bidang[data-h="${h}"] label.chip`, { hasText: nilai }).first().click();
   };
+  // Pemilik/mandor: baris orang boleh "Tidak diisi", tapi minimal satu orang.
+  assert.strictEqual(await page.locator('.chip.lewati input:checked').count(), 4, 'baris orang awalnya Tidak diisi');
+  await page.click('#tombol-simpan');
+  assert.strictEqual(await page.locator('.bidang.salah', { hasText: 'minimal satu orang' }).count(), 1);
   await pilihChip('Pengumpul [Rofik]', '1 trip');
   await pilihChip('Pengumpul [Pak Muh]', 'Kerja lain');
   await pilihChip('Pengumpul [Mas Romadi]', 'Harian kenek');
@@ -283,18 +289,38 @@ async function pasangMock(page) {
   await page.click('.kepala [data-ke="#/akun"]');
   await page.waitForSelector('#keluar');
 
-  // 7. PIN pengumpul: hanya Ambil Bahan
+  // 7. PIN pengumpul: Ambil Bahan + absensi pengumpul saja
   await page.click('#keluar');
   await page.fill('#pin', '1111'); await page.click('button[type=submit]');
   await page.waitForSelector('.grid-catatan');
-  assert.strictEqual(await page.locator('.tombol-catatan').count(), 1);
+  assert.strictEqual(await page.locator('.tombol-catatan').count(), 2);
   assert.strictEqual(await page.locator('a[href="#/ringkasan"]').count(), 0);
+  assert.ok((await page.textContent('a[href="#/isi/absensi"]')).includes('pengumpul saja'));
   await page.screenshot({ path: OUT + '/10-pengumpul.png' });
+  await page.click('a[href="#/isi/absensi"]');
+  await page.waitForSelector('#formulir');
+  assert.ok((await page.textContent('h1')).includes('Absensi Pengumpul'), await page.textContent('h1'));
+  assert.strictEqual(await page.locator('.baris-kisi').count(), 3, 'hanya baris pengumpul');
+  assert.strictEqual(await page.locator('.bidang[data-h="Tim suling [Eko & Pak Gatot]"]').count(), 0);
+  assert.strictEqual(await page.locator('.bidang[data-h="Ada kerja lain dengan upah khusus hari ini?"]').count(), 0);
+  assert.strictEqual(await page.locator('.chip.lewati').count(), 0, 'baris tim sendiri wajib diisi');
+  const opsiPengumpul = await page.locator('.bidang[data-h="Pengumpul [Rofik]"] .chip span').allTextContents();
+  assert.deepStrictEqual(opsiPengumpul, ['Libur', '1 trip', '2 trip'], 'tanpa harian / kerja lain: ' + opsiPengumpul);
+  await pilihChip('Pengumpul [Rofik]', '1 trip');
+  await pilihChip('Pengumpul [Pak Muh]', 'Libur');
+  await pilihChip('Pengumpul [Mas Romadi]', '2 trip');
+  await page.screenshot({ path: OUT + '/10b-absensi-pengumpul.png', fullPage: true });
+  await page.click('#tombol-simpan');
+  await page.waitForSelector('.lembar');
+  await page.click('[data-aksi=kirim]');
+  await page.waitForFunction(() => document.querySelector('.status.aman'));
+  const absP = terima.pop();
+  assert.deepStrictEqual(Object.keys(absP.nilai).sort(), ['Pengumpul [Mas Romadi]', 'Pengumpul [Pak Muh]', 'Pengumpul [Rofik]', 'Tanggal'], JSON.stringify(absP.nilai));
   await page.click('a[href="#/terbaru"]');
   await page.waitForSelector('.entri');
   assert.strictEqual(await page.locator('[data-ubah-entri]').count(), 0, 'pekerja tidak bisa mengubah');
 
-  // 7b. PIN tim suling: hanya Absensi, dan diperingatkan kalau absensi hari ini sudah ada
+  // 7b. PIN tim suling: hanya absensi tim suling; bentrok dengan isian yang sudah ada ditolak
   await page.click('a[href="#/akun"]');
   await page.click('#keluar');
   await page.fill('#pin', '6125'); await page.click('button[type=submit]');
@@ -305,15 +331,31 @@ async function pasangMock(page) {
   absensiHariIni = true;
   await page.click('a[href="#/isi/absensi"]');
   await page.waitForSelector('#formulir');
-  for (const h of ['Pengumpul [Rofik]', 'Pengumpul [Pak Muh]', 'Pengumpul [Mas Romadi]']) await pilihChip(h, '1 trip');
+  assert.strictEqual(await page.locator('.baris-kisi').count(), 1, 'hanya baris tim suling');
+  assert.strictEqual(await page.locator('.bidang[data-h="Ada kerja lain dengan upah khusus hari ini?"]').count(), 0);
+  const opsiSuling = await page.locator('.bidang[data-h="Tim suling [Eko & Pak Gatot]"] .chip span').allTextContents();
+  assert.deepStrictEqual(opsiSuling, ['Libur', '1x suling', '2x suling'], 'tanpa harian / kerja lain: ' + opsiSuling);
   await pilihChip('Tim suling [Eko & Pak Gatot]', '2x suling');
-  await pilihChip('Ada kerja lain dengan upah khusus hari ini?', 'Tidak');
+  await page.screenshot({ path: OUT + '/12-timsuling.png', fullPage: true });
+  // (a) sudah tercatat "1x suling" untuk tanggal yang sama: ditolak
   const sebelum = dialog.length;
   await page.click('#tombol-simpan');
+  await page.waitForFunction(() => !document.getElementById('tombol-simpan').disabled);
+  assert.ok(dialog.length === sebelum + 1 && /Eko & Pak Gatot sudah tercatat "1x suling"/.test(dialog[dialog.length - 1]), 'bentrok: ' + dialog.slice(-1));
+  assert.strictEqual(await page.locator('.lembar').count(), 0, 'tidak lanjut ke konfirmasi');
+  // (b) isian sama persis: tidak dikirim dobel
+  absensiTimSuling = '2x suling';
+  await page.click('#tombol-simpan');
+  await page.waitForFunction(() => /sudah tercatat sebelumnya/.test(document.getElementById('toast').textContent));
+  assert.strictEqual(await page.locator('.lembar').count(), 0, 'isian sama tidak dikirim lagi');
+  // (c) kolom tim suling masih kosong (baru pengumpul yang absen): boleh, nanti digabung di Sheet
+  absensiTimSuling = '';
+  await page.click('#tombol-simpan');
   await page.waitForSelector('.lembar');
-  assert.ok(dialog.length === sebelum + 1 && /sudah diisi/.test(dialog[dialog.length - 1]), 'peringatan absensi dobel: ' + dialog.slice(-1));
-  await page.click('[data-aksi=ubah]');
-  await page.screenshot({ path: OUT + '/12-timsuling.png' });
+  await page.click('[data-aksi=kirim]');
+  await page.waitForFunction(() => document.querySelector('.status.aman'));
+  const absS = terima.pop();
+  assert.deepStrictEqual(Object.keys(absS.nilai).sort(), ['Tanggal', 'Tim suling [Eko & Pak Gatot]'], JSON.stringify(absS.nilai));
 
   // 8. Mode gelap
   const gelap = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', deviceScaleFactor: 2 });
