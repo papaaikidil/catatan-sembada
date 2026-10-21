@@ -38,7 +38,7 @@ assert.strictEqual(r.kode, 'PERBARUI', 'aplikasi lama (PIN) diminta memperbarui'
 assert.ok(!sheets['Akun Aplikasi'], 'akun belum dibuat sebelum ada yang masuk');
 r = panggil({ aksi: 'masuk', pengguna: 'Wildan', sandi: '250610' });
 assert.strictEqual(r.ok, true, JSON.stringify(r));
-const tokPemilik = r.token;
+let tokPemilik = r.token;
 assert.strictEqual(r.akses.pemilik, true); assert.strictEqual(r.akses.admin, true); assert.strictEqual(r.akses.nama, 'Mas Wildan');
 assert.strictEqual(r.akses.tab.length, 6); assert.strictEqual(r.versiApi, 7);
 const akun = objek('Akun Aplikasi');
@@ -304,7 +304,21 @@ r = panggil({ aksi: 'penggunaSimpan', token: tokPemilik, pengguna: 'wildan', nam
 assert.ok(/minimal satu pemilik/.test(r.galat));
 r = panggil({ aksi: 'penggunaSimpan', token: tokPemilik, pengguna: 'rofik', nama: 'Rofik', peran: 'Pencatat', boleh: ['Ambil Bahan'], aktif: false });
 assert.ok(r.ok); assert.strictEqual(panggil({ aksi: 'config', token: tokRofik }).kode, 'SESI', 'akun nonaktif langsung keluar');
-cek('Pengguna: daftar, tambah, wajib ganti sandi, sandi minimal 4, nonaktif');
+r = panggil({ aksi: 'penggunaSimpan', token: tokPemilik, pengguna: 'wildan', penggunaBaru: 'eko', nama: 'Mas Wildan', peran: 'Pemilik', boleh: 'Semua', aktif: true });
+assert.ok(/sudah dipakai/.test(r.galat));
+r = panggil({ aksi: 'penggunaSimpan', token: tokPemilik, pengguna: 'wildan', penggunaBaru: 'Mas Wildan', nama: 'Mas Wildan', peran: 'Pemilik', boleh: 'Semua', aktif: true });
+assert.ok(/huruf kecil/.test(r.galat));
+r = panggil({ aksi: 'penggunaSimpan', token: tokPemilik, pengguna: 'wildan', penggunaBaru: 'SKW.Wildan', nama: 'Mas Wildan', peran: 'Pemilik', boleh: 'Semua', mengatur: true, aktif: true });
+assert.ok(r.ok && r.token && r.pengguna === 'skw.wildan', JSON.stringify(r));
+assert.strictEqual(panggil({ aksi: 'config', token: tokPemilik }).kode, 'SESI', 'token dengan nama lama tidak berlaku');
+tokPemilik = r.token;
+assert.strictEqual(panggil({ aksi: 'config', token: tokPemilik }).akses.pengguna, 'skw.wildan', 'HP pemilik tetap masuk dengan sesi baru');
+assert.strictEqual(panggil({ aksi: 'masuk', pengguna: 'wildan', sandi: '250610' }).kode, 'SALAH');
+assert.ok(panggil({ aksi: 'masuk', pengguna: 'skw.wildan', sandi: '250610' }).ok, 'sandi tetap sama');
+r = panggil({ aksi: 'penggunaSimpan', token: tokPemilik, pengguna: 'pakmuh', penggunaBaru: 'muh', nama: 'Pak Muh', peran: 'Pencatat', boleh: ['Ambil Bahan'], aktif: true });
+assert.ok(r.ok && !r.token, 'ganti nama pengguna orang lain tidak memberi token');
+assert.ok(panggil({ aksi: 'masuk', pengguna: 'muh', sandi: '9912' }).ok);
+cek('Pengguna: daftar, tambah, wajib ganti sandi, sandi minimal 4, nonaktif, ganti nama pengguna');
 
 // ------------------------------------------------------------------ 9. Ringkasan
 r = panggil({ aksi: 'ringkasan', token: tokPemilik });

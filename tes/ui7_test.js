@@ -322,12 +322,25 @@ function pngPolos(w, h) {
   await isi(page, '.tirai [name=u6]', '2468');
   await page.click('.tirai [data-aksi="simpan"]');
   await page.waitForFunction(() => /Tata/.test(document.getElementById('daftar-pengguna').textContent));
-  cek('daftar akun hasil PIN lama tampil; pemilik menambah pengguna baru');
+  // Pemilik mengganti nama penggunanya sendiri dan tetap masuk.
+  await page.evaluate(() => [...document.querySelectorAll('#daftar-pengguna .teks')].find(x => /\(Anda\)/.test(x.textContent)).click());
+  await page.waitForSelector('.tirai form');
+  assert.strictEqual(await page.inputValue('.tirai [name=u1]'), 'wildan');
+  await isi(page, '.tirai [name=u1]', 'skw.wildan');
+  await foto(page, '16b-ganti-nama-pengguna', true);
+  await page.click('.tirai [data-aksi="simpan"]');
+  await page.waitForFunction(() => /skw\.wildan ·/.test(document.getElementById('daftar-pengguna').textContent));
+  assert.ok(objek('Akun Aplikasi').some(a => a['Nama pengguna'] === 'skw.wildan'));
+  await page.goto(ASAL + '#/akun');
+  await page.waitForSelector('#keluar');
+  assert.ok((await page.textContent('.isi')).includes('skw.wildan'), 'masih masuk dengan nama pengguna baru');
+  cek('daftar akun hasil PIN lama tampil; pemilik menambah pengguna dan mengganti nama penggunanya sendiri');
 
   await page.goto(ASAL + '#/akun');
   await page.click('#keluar');
   await page.waitForSelector('#form-masuk');
   assert.strictEqual(await page.textContent('.layar-masuk h1'), 'Catatan SKW', 'nama aplikasi juga di layar masuk');
+  assert.strictEqual(await page.inputValue('#pengguna'), 'skw.wildan', 'nama pengguna baru sudah terisi di layar masuk');
   await isi(page, '#pengguna', 'eko');
   await isi(page, '#sandi', '9937');
   await page.click('#form-masuk button[type=submit]');

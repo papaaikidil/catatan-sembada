@@ -478,18 +478,34 @@ function penggunaSimpan_(ss, akses, req) {
       return {ok: false, galat: 'Harus ada minimal satu pemilik yang aktif.'};
     }
     var ubah = {'Nama': nama, 'Peran': peran, 'Boleh mengisi': boleh, 'Boleh mengatur': req.mengatur ? 'Ya' : 'Tidak', 'Aktif': aktif ? 'Ya' : 'Tidak'};
+    var versiBaru = p.versi;
+    // Ganti nama pengguna (dipakai saat masuk). HP yang sedang masuk dengan nama lama diminta masuk lagi.
+    var uBaru = req.penggunaBaru === undefined ? u : normalNama_(req.penggunaBaru);
+    if (uBaru !== u) {
+      if (!/^[a-z0-9._-]{3,30}$/.test(uBaru)) return {ok: false, galat: 'Nama pengguna 3–30 huruf kecil, angka, titik, atau garis bawah. Tanpa spasi.'};
+      if (semua.some(function (x) { return x.pengguna === uBaru; })) return {ok: false, galat: 'Nama pengguna "' + uBaru + '" sudah dipakai.'};
+      ubah['Nama pengguna'] = uBaru;
+      versiBaru = p.versi + 1;
+      ubah['Versi sesi'] = versiBaru;
+    }
     if (req.sandiBaru) {
       var cek2 = cekSandiBaru_(req.sandiBaru);
       if (cek2) return {ok: false, galat: cek2};
       var garam2 = idBaru_();
       ubah['Sandi (terenkripsi)'] = hashSandi_(garam2, req.sandiBaru);
       ubah['Garam'] = garam2;
-      ubah['Versi sesi'] = p.versi + 1;          // HP yang masuk dengan sandi lama diminta masuk lagi
+      versiBaru = p.versi + 1;
+      ubah['Versi sesi'] = versiBaru;              // HP yang masuk dengan sandi lama diminta masuk lagi
       ubah['Wajib ganti sandi'] = req.wajibGanti ? 'Ya' : 'Tidak';
     }
     tulisPengguna_(ss, p.baris, ubah);
-    catatLog_(ss, 'Ubah pengguna', SH_AKUN, p.baris, '', u + (req.sandiBaru ? ' (sandi diganti)' : ''), akses.pengguna);
-    return {ok: true};
+    catatLog_(ss, 'Ubah pengguna', SH_AKUN, p.baris, '', u + (uBaru !== u ? ' -> ' + uBaru : '') + (req.sandiBaru ? ' (sandi diganti)' : ''), akses.pengguna);
+    // Akun sendiri: HP ini tetap masuk dengan sesi baru.
+    if (u === akses.pengguna && versiBaru !== p.versi) {
+      var diri = bacaPengguna_(ss).filter(function (x) { return x.pengguna === uBaru; })[0];
+      return {ok: true, token: buatSesi_(diri), akses: aksesDari_(diri), pengguna: uBaru};
+    }
+    return {ok: true, pengguna: uBaru};
   });
 }
 

@@ -2001,7 +2001,8 @@
 
   function lembarPengguna(p, selesai) {
     var bidang = [{j: 'teks', h: 'Nama', bantuan: 'Nama yang tercatat di kolom "Diisi oleh".'}];
-    if (!p) bidang.push({j: 'teks', h: 'Nama pengguna', bantuan: 'Dipakai saat masuk. Huruf kecil tanpa spasi, contoh: sri atau mandor'});
+    bidang.push({j: 'teks', h: 'Nama pengguna', bantuan: p ? 'Dipakai saat masuk. Kalau diganti, HP yang sedang masuk dengan nama lama diminta masuk lagi.'
+      : 'Dipakai saat masuk. Huruf kecil tanpa spasi, contoh: sri atau mandor'});
     bidang = bidang.concat([
       {j: 'pilih', h: 'Peran', opsi: PERAN_PENGGUNA, bantuan: 'Pemilik boleh semuanya, termasuk mengatur pengguna dan tampilan.'},
       {j: 'centang', h: 'Boleh mengisi', opsi: URUTAN_TAB, wajib: false, bantuan: 'Catatan yang boleh diisi orang ini.'},
@@ -2011,7 +2012,7 @@
         bantuan: p ? 'Isi hanya kalau mau mengganti sandinya. Minimal 4 huruf atau angka.' : 'Minimal 4 huruf atau angka. Berikan ke orangnya.'},
       {j: 'pilih', h: 'Minta ganti sandi saat masuk', opsi: ['Ya', 'Tidak']}
     ]);
-    var draf = p ? {'Nama': p.nama, 'Peran': p.peran, 'Boleh mengisi': p.boleh === 'Semua' ? URUTAN_TAB.slice() : p.boleh,
+    var draf = p ? {'Nama': p.nama, 'Nama pengguna': p.pengguna, 'Peran': p.peran, 'Boleh mengisi': p.boleh === 'Semua' ? URUTAN_TAB.slice() : p.boleh,
       'Boleh mengatur': p.mengatur ? 'Ya' : 'Tidak', 'Aktif': p.aktif ? 'Ya' : 'Tidak', 'Minta ganti sandi saat masuk': 'Tidak'}
       : {'Peran': 'Pencatat', 'Boleh mengisi': URUTAN_TAB.slice(), 'Boleh mengatur': 'Tidak', 'Aktif': 'Ya', 'Minta ganti sandi saat masuk': 'Tidak'};
     var div = bukaLembar('<h2>' + (p ? 'Ubah ' + esc(p.nama) : 'Tambah pengguna') + '</h2><p class="sub">' + (p ? 'Nama pengguna: ' + esc(p.pengguna) : 'Untuk pencatat, mandor, atau keluarga') + '</p>' +
@@ -2025,12 +2026,12 @@
       if (a.dataset.aksi === 'batal') { div.remove(); return; }
       var h = bacaIsian(bidang, false, 'u', form);
       var n = h.nilai, salah = h.salah;
-      if (!p && n['Nama pengguna'] && !/^[a-z0-9._-]{3,30}$/.test(n['Nama pengguna'].toLowerCase())) salah.push(['Nama pengguna', '3–30 huruf kecil, angka, titik, atau garis bawah. Tanpa spasi.']);
+      if (n['Nama pengguna'] && !/^[a-z0-9._-]{3,30}$/.test(n['Nama pengguna'].toLowerCase())) salah.push(['Nama pengguna', '3–30 huruf kecil, angka, titik, atau garis bawah. Tanpa spasi.']);
       if (n['Sandi'] && n['Sandi'].length < 4) salah.push(['Sandi', 'Minimal 4 huruf atau angka.']);
       tandaiSalah(salah, form);
       if (salah.length) return;
       var bolehIsi = n['Boleh mengisi'] || [];
-      var data = {baru: !p, pengguna: p ? p.pengguna : n['Nama pengguna'].toLowerCase(), nama: n['Nama'], peran: n['Peran'],
+      var data = {baru: !p, pengguna: p ? p.pengguna : n['Nama pengguna'].toLowerCase(), penggunaBaru: n['Nama pengguna'].toLowerCase(), nama: n['Nama'], peran: n['Peran'],
         boleh: bolehIsi.length === URUTAN_TAB.length ? 'Semua' : bolehIsi, mengatur: n['Boleh mengatur'] === 'Ya', aktif: n['Aktif'] === 'Ya',
         wajibGanti: n['Minta ganti sandi saat masuk'] === 'Ya'};
       if (n['Sandi']) data.sandiBaru = n['Sandi'];
@@ -2039,8 +2040,14 @@
         a.disabled = false; a.textContent = 'Simpan';
         if (!r.ok) { toast(r.galat || 'Gagal menyimpan.', 5000); return; }
         div.remove();
-        toast(p ? 'Pengguna diperbarui.' : 'Pengguna ditambahkan. Berikan nama pengguna dan sandinya ke orangnya.', 5000);
-        if (p && p.saya) muatKonfig();
+        var ganti = p && r.pengguna && r.pengguna !== p.pengguna;
+        toast(!p ? 'Pengguna ditambahkan. Berikan nama pengguna dan sandinya ke orangnya.'
+          : ganti ? 'Nama pengguna sekarang "' + r.pengguna + '". Pakai nama ini saat masuk.' : 'Pengguna diperbarui.', 5000);
+        if (p && p.saya) {
+          if (r.token) { sesi.token = r.token; sesi.akses = r.akses; simpan('sesi', sesi); }
+          if (ganti) simpan('penggunaTerakhir', r.pengguna);
+          muatKonfig();
+        }
         selesai();
       }, function (e) {
         a.disabled = false; a.textContent = 'Simpan';
