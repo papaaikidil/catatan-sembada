@@ -31,7 +31,8 @@ const TARIF = [
   { pilihan: 'Kerja lain', untuk: 'Semua', upah: 0 }
 ];
 
-let terima = [];          // simpan yang masuk
+let terima = [];
+const kelola = [];   // ubah / hapus / pinUbah yang masuk          // simpan yang masuk
 let jaringanMati = false;
 let absensiHariIni = false;
 const dialog = [];
@@ -50,14 +51,23 @@ async function pasangMock(page) {
     else if (req.aksi === 'masuk') body = Object.assign({ ok: true }, akses);
     else if (req.aksi === 'config') {
       const kepala = {}; akses.tab.forEach(t => kepala[t] = KEPALA[t]);
-      body = Object.assign({ ok: true, daftar: DAFTAR, tarif: TARIF, kepala, satuanProduk: { 'Minyak jeruk purut (campur)': 'kg', 'Hidrosol jeruk purut': 'liter' },
+      body = Object.assign({ ok: true, versiApi: 2, daftar: DAFTAR, tarif: TARIF, kepala, satuanProduk: { 'Minyak jeruk purut (campur)': 'kg', 'Hidrosol jeruk purut': 'liter' },
         arahKas: { 'Proyek bangunan': 'Keluar', 'Pinjaman masuk': 'Masuk' } }, akses);
     } else if (req.aksi === 'simpan') { terima.push(req); body = { ok: true }; }
     else if (req.aksi === 'terbaru' && req.tab === 'Absensi') body = { ok: true, tab: 'Absensi',
       kepala: ['Hari', 'Timestamp', 'Tanggal', 'Pengumpul [Rofik]', 'Keterangan'],
       baris: [['Rabu', absensiHariIni ? tglHariIni() + ' 06:34' : '20/10/2026 08:00', absensiHariIni ? tglHariIni() : '20/10/2026', '1 trip', '']] };
-    else if (req.aksi === 'terbaru') body = { ok: true, tab: req.tab, kepala: ['Hari', 'Timestamp', 'Tanggal', 'Kategori', 'Jumlah (Rp)', 'Keterangan', 'Kelompok', 'Arah'],
-      baris: [['Rabu', '21/10/2026 06:42', '21/10/2026', 'Proyek bangunan', 'Rp200,000', 'service disel dan beli bensin buat ngisi kolam', 'Proyek lain', 'Keluar']] };
+    else if (req.aksi === 'terbaru') {
+      body = { ok: true, tab: req.tab, kepala: ['Hari', 'Timestamp', 'Tanggal', 'Kategori', 'Jumlah (Rp)', 'Keterangan', 'Kelompok', 'Arah'],
+        baris: [['Rabu', '21/10/2026 06:42', '21/10/2026', 'Proyek bangunan', 'Rp200,000', 'service disel dan beli bensin buat ngisi kolam', 'Proyek lain', 'Keluar']] };
+      if (akses.semua) body.data = [{ nomor: 2, tanda: 'T1', nilai: { 'Tanggal': '2026-10-21', 'Kategori': 'Proyek bangunan', 'Jumlah (Rp)': 200000, 'Keterangan': 'service disel dan beli bensin buat ngisi kolam' } }];
+    }
+    else if (req.aksi === 'ubah' || req.aksi === 'hapus' || req.aksi === 'pinUbah') { kelola.push(req); body = akses.semua ? { ok: true } : { ok: false, galat: 'tidak boleh' }; }
+    else if (req.aksi === 'pinDaftar') body = akses.semua ? { ok: true, daftar: [
+      { baris: 20, peran: 'Pemilik', pin: '123456', boleh: 'Semua', saya: true },
+      { baris: 21, peran: 'Pengumpul', pin: '1111', boleh: 'Ambil Bahan', saya: false },
+      { baris: 22, peran: 'Tim suling', pin: '6125', boleh: 'Absensi', saya: false },
+      { baris: 23, peran: 'Mandor', pin: '', boleh: 'Absensi', saya: false }] } : { ok: false, galat: 'tidak boleh' };
     else if (req.aksi === 'ringkasan') body = { ok: true, dataSampai: '21/10/2026',
       mingguBerjalan: { mulai: '19/10/2026', sampai: '25/10/2026', penjualan: 0, laba: -1230000, minyak: 0, terjual: 0, bahanKg: 3240, hargaBahan: 430, biayaPerKg: null, upahPengumpul: 228000, upahPenyuling: 0, upahHarian: 730000, sulingan: 0, ketelKosong: 3 },
       mingguPenuh: { mulai: '12/10/2026', sampai: '18/10/2026', penjualan: 0, laba: -150000, minyak: 0, terjual: 0, bahanKg: 0, hargaBahan: null, biayaPerKg: null, upahPengumpul: 0, upahPenyuling: 0, upahHarian: 2860000, sulingan: 0, ketelKosong: 6 },
@@ -193,14 +203,65 @@ async function pasangMock(page) {
   await page.waitForSelector('.peringatan');
   await page.screenshot({ path: OUT + '/09-ringkasan.png', fullPage: true });
 
-  // 7. PIN pengumpul: hanya Ambil Bahan
+  // 6b. Pemilik mengubah catatan dari Riwayat
+  await page.click('a[href="#/terbaru"]');
+  await page.click('.pilih-tab button:has-text("Kas")');
+  await page.waitForSelector('[data-ubah-entri]');
+  await page.screenshot({ path: OUT + '/13-riwayat-kelola.png', fullPage: true });
+  await page.click('[data-ubah-entri="0"]');
+  await page.waitForSelector('#formulir');
+  assert.strictEqual(await page.inputValue('select.masukan'), 'Proyek bangunan');
+  assert.strictEqual(await page.inputValue('#formulir input[inputmode=numeric]'), '200000');
+  await page.fill('#formulir input[inputmode=numeric]', '250000');
+  await page.screenshot({ path: OUT + '/14-ubah.png', fullPage: true });
+  await page.click('#tombol-simpan');
+  await page.click('[data-aksi=kirim]');
+  await page.waitForSelector('.pilih-tab');
+  const u = kelola.pop();
+  assert.strictEqual(u.aksi, 'ubah'); assert.strictEqual(u.nomor, 2); assert.strictEqual(u.tanda, 'T1');
+  assert.strictEqual(u.nilai['Jumlah (Rp)'], 250000);
+  assert.deepStrictEqual(Object.keys(u.nilai).sort(), ['Jumlah (Rp)', 'Kategori', 'Keterangan', 'Tanggal']);
+  assert.strictEqual(terima.length, 0, 'ubah tidak masuk antrian simpan');
+
+  // 6c. Hapus catatan
+  await page.waitForSelector('[data-hapus-entri="0"]');
+  await page.click('[data-hapus-entri="0"]');
+  await page.waitForSelector('.lembar');
+  await page.screenshot({ path: OUT + '/15-hapus.png' });
+  await page.click('[data-aksi=hapus]');
+  await page.waitForFunction(() => true);
+  for (let i = 0; i < 20 && !kelola.length; i++) await page.waitForTimeout(100);
+  const h = kelola.pop();
+  assert.strictEqual(h.aksi, 'hapus'); assert.strictEqual(h.tanda, 'T1');
+
+  // 6d. Kelola PIN
   await page.click('a[href="#/akun"]');
+  await page.click('[data-ke="#/pin"]');
+  await page.waitForSelector('[data-baris="22"]');
+  await page.fill('[data-baris="22"] .pin-baru', '12');
+  await page.click('[data-baris="22"] [data-simpan-pin]');
+  assert.strictEqual(kelola.length, 0, 'PIN terlalu pendek ditolak di aplikasi');
+  await page.fill('[data-baris="22"] .pin-baru', '7777');
+  await page.click('[data-baris="22"] [data-simpan-pin]');
+  for (let i = 0; i < 20 && !kelola.length; i++) await page.waitForTimeout(100);
+  const pinReq = kelola.pop();
+  assert.strictEqual(pinReq.aksi, 'pinUbah'); assert.strictEqual(pinReq.baris, 22); assert.strictEqual(pinReq.pinBaru, '7777');
+  assert.strictEqual(pinReq.pin, '123456', 'PIN sesi tidak tertimpa');
+  assert.strictEqual(await page.locator('[data-baris="20"] [data-matikan-pin]').count(), 0, 'PIN pemilik tidak bisa dimatikan');
+  await page.screenshot({ path: OUT + '/16-pin.png', fullPage: true });
+  await page.click('.kepala [data-ke="#/akun"]');
+  await page.waitForSelector('#keluar');
+
+  // 7. PIN pengumpul: hanya Ambil Bahan
   await page.click('#keluar');
   await page.fill('#pin', '1111'); await page.click('button[type=submit]');
   await page.waitForSelector('.grid-catatan');
   assert.strictEqual(await page.locator('.tombol-catatan').count(), 1);
   assert.strictEqual(await page.locator('a[href="#/ringkasan"]').count(), 0);
   await page.screenshot({ path: OUT + '/10-pengumpul.png' });
+  await page.click('a[href="#/terbaru"]');
+  await page.waitForSelector('.entri');
+  assert.strictEqual(await page.locator('[data-ubah-entri]').count(), 0, 'pekerja tidak bisa mengubah');
 
   // 7b. PIN tim suling: hanya Absensi, dan diperingatkan kalau absensi hari ini sudah ada
   await page.click('a[href="#/akun"]');

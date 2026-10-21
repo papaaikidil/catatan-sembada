@@ -242,3 +242,8 @@ textarea.masukan { min-height: 88px; resize: vertical; }
 .info-baris:first-child { border-top: 0; }
 .info-baris span { color: var(--teks-2); }
 .tumpuk > * + * { margin-top: 10px; }
+
+/* ---------- tombol ubah / hapus di riwayat */
+.aksi-entri { display: flex; gap: 10px; margin-top: 12px; }
+.aksi-entri .tombol { flex: 1; min-height: 44px; font-size: 15px; padding: 8px 12px; }
+.pin-baru { text-align: center; font-size: 22px; letter-spacing: .25em; font-weight: 800; }

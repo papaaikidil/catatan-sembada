@@ -26,12 +26,17 @@ function buatSheet(nama, data, rumusKepala) {
         getDisplayValues: () => ambil().map(r => r.map(v => v instanceof Date ? v.toISOString().slice(0, 10) : String(v))),
         getDisplayValue: () => String(ambil()[0][0]),
         getFormulas: () => ambil().map((r, i) => r.map((v, j) => (row - 1 + i === 0 && self.rumus.includes(colI - 1 + j)) ? '=X' : '')),
+        setValue(v) { while (self.data.length < row) self.data.push([]); self.data[row - 1][colI - 1] = v; },
+        setNumberFormat() {},
         setValues(vals) { vals.forEach((r, i) => { while (self.data.length < row + i) self.data.push([]); r.forEach((v, j) => { self.data[row - 1 + i][colI - 1 + j] = v; }); }); },
         copyTo() {}
       };
     },
     getDataRange() { return this.getRange(1, 1, this.data.length, this.getLastColumn()); },
-    insertRowBefore(r) { this.data.splice(r - 1, 0, []); this.disisipkan++; }
+    insertRowBefore(r) { this.data.splice(r - 1, 0, []); this.disisipkan++; },
+    deleteRow(r) { this.data.splice(r - 1, 1); },
+    appendRow(r) { this.data.push(r.slice()); },
+    setFrozenRows() {}, hideSheet() {}
   };
   return sh;
 }
@@ -43,6 +48,9 @@ function muat(sheets) {
     SpreadsheetApp: { openById: () => ss, flush() {}, CopyPasteType: { PASTE_FORMAT: 1 } },
     ContentService: { createTextOutput: s => ({ setMimeType: () => s }), MimeType: { JSON: 1 } },
     Utilities: {
+      computeDigest: (alg, teks) => require('crypto').createHash('md5').update(teks).digest(),
+      base64Encode: b => Buffer.from(b).toString('base64'),
+      DigestAlgorithm: { MD5: 'md5' }, Charset: { UTF_8: 'utf8' },
       parseDate: (s) => new Date(s + 'T00:00:00+07:00'),
       formatDate: (d, z, f) => f === 'MM/yyyy' ? `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` : d.toISOString().slice(0, 10)
     },
@@ -50,11 +58,11 @@ function muat(sheets) {
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k], setProperty: (k, v) => { props[k] = v; } }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) }
   };
-  const ss = { getSheetByName: n => sheets[n] };
+  const ss = { getSheetByName: n => sheets[n], insertSheet: n => (sheets[n] = buatSheet(n, [])) };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(__dirname + '/../apps-script/api.gs', 'utf8'), ctx);
   ctx.urutkanTab_ = sh => { sh.diurutkan++; };
-  return { ctx, ss, cache, props };
+  return { ctx, ss, cache, props, sheets };
 }
 
 const kas = buatSheet('Kas', [
@@ -74,9 +82,10 @@ const daftar = buatSheet('Daftar', [
   ['Rofik', '', 'Minyak', 'kg', 'Proyek bangunan', 'Keluar'],
   ['Pak Muh', '', 'Hidrosol', 'liter', 'Pinjaman masuk', 'Masuk']
 ]);
+const ambilBahan = buatSheet('Ambil Bahan', [['Hari', 'Timestamp', 'Tanggal', 'Pengumpul', 'Uang beli bahan (Rp)'], ['Rabu', new Date(), new Date(), 'Rofik', 1]], [0, 4]);
 const tarif = buatSheet('Tarif Upah', [['Pilihan', 'Untuk', 'Upah'], ['Libur', 'Semua', 0], ['1 trip', 'Pengumpul', 76000]]);
 
-const { ctx, ss, cache, props } = muat({ Kas: kas, Absensi: absensi, Pengaturan: pengaturan, Daftar: daftar, 'Tarif Upah': tarif });
+const { ctx, ss, cache, props, sheets } = muat({ Kas: kas, 'Ambil Bahan': ambilBahan, Absensi: absensi, Pengaturan: pengaturan, Daftar: daftar, 'Tarif Upah': tarif });
 
 // 1. PIN
 let r = ctx.layani_(ss, { aksi: 'masuk', pin: '123456' });
@@ -146,3 +155,63 @@ const out = ctx.doPost({ postData: { contents: '{rusak' } });
 assert.strictEqual(JSON.parse(out).ok, false);
 
 console.log('Semua uji api.gs lulus.');
+
+// 12. Kelola PIN (pemilik)
+// buka kunci dulu (uji 10 sengaja mengunci)
+cache.pinGagal = '0';
+r = ctx.layani_(ss, { aksi: 'pinDaftar', pin: '123456' });
+assert.strictEqual(r.ok, true); assert.strictEqual(r.daftar.length, 3);
+assert.strictEqual(r.daftar[0].saya, true); assert.strictEqual(r.daftar[1].pin, '1111');
+r = ctx.layani_(ss, { aksi: 'pinDaftar', pin: '1111' });
+assert.strictEqual(r.ok, false, 'pekerja tidak boleh melihat PIN');
+r = ctx.layani_(ss, { aksi: 'pinUbah', pin: '123456', baris: 21, pinBaru: '123456' });
+assert.strictEqual(r.ok, false); assert.ok(/sudah dipakai/.test(r.galat));
+r = ctx.layani_(ss, { aksi: 'pinUbah', pin: '123456', baris: 21, pinBaru: '12a' });
+assert.strictEqual(r.ok, false);
+r = ctx.layani_(ss, { aksi: 'pinUbah', pin: '123456', baris: 20, pinBaru: '' });
+assert.strictEqual(r.ok, false, 'PIN pemilik tidak boleh dikosongkan');
+r = ctx.layani_(ss, { aksi: 'pinUbah', pin: '123456', baris: 21, pinBaru: '4321' });
+assert.strictEqual(r.ok, true, JSON.stringify(r));
+assert.strictEqual(pengaturan.data[20][1], '4321');
+assert.strictEqual(ctx.layani_(ss, { aksi: 'masuk', pin: '4321' }).ok, true);
+assert.strictEqual(ctx.layani_(ss, { aksi: 'masuk', pin: '1111' }).ok, false);
+assert.ok(sheets['Log Aplikasi'] && sheets['Log Aplikasi'].data.length === 2, 'log tercatat');
+assert.ok(!/4321/.test(JSON.stringify(sheets['Log Aplikasi'].data)), 'PIN tidak ditulis di log');
+
+// 13. Terbaru untuk pemilik membawa nilai mentah dan tanda
+r = ctx.layani_(ss, { aksi: 'terbaru', pin: '123456', tab: 'Kas', n: 5 });
+assert.strictEqual(r.data.length, 2);
+assert.strictEqual(r.data[0].nilai['Tanggal'], '2026-10-21'.length === 10 ? r.data[0].nilai['Tanggal'] : '');
+assert.match(r.data[0].nilai['Tanggal'], /^\d{4}-\d{2}-\d{2}$/);
+assert.strictEqual(r.data[0].nilai['Jumlah (Rp)'], 200000);
+const pekerja = ctx.layani_(ss, { aksi: 'terbaru', pin: '4321', tab: 'Ambil Bahan', n: 5 });
+assert.strictEqual(pekerja.data, undefined, 'pekerja tidak menerima data mentah');
+
+// 14. Ubah catatan (baris bergeser karena ada catatan baru)
+const target = r.data[0];
+ctx.layani_(ss, { aksi: 'simpan', pin: '123456', tab: 'Kas', id: 'c1', nilai: { 'Tanggal': '2026-10-21', 'Kategori': 'Pinjaman masuk', 'Jumlah (Rp)': 5, 'Keterangan': 'baru' } });
+r = ctx.layani_(ss, { aksi: 'ubah', pin: '123456', tab: 'Kas', nomor: target.nomor, tanda: target.tanda,
+  nilai: { 'Tanggal': '2026-10-21', 'Kategori': 'Proyek bangunan', 'Jumlah (Rp)': 250000, 'Keterangan': 'diperbaiki' } });
+assert.strictEqual(r.ok, true, JSON.stringify(r));
+const diubah = kas.data.filter(x => x[5] === 'diperbaiki')[0];
+assert.ok(diubah, 'baris yang benar diubah'); assert.strictEqual(diubah[4], 250000);
+assert.ok(isDate(diubah[1]), 'Timestamp asli dipertahankan');
+assert.strictEqual(kas.data.filter(x => x[5] === 'baru').length, 1, 'baris lain tidak tersentuh');
+// tanda lama sudah tidak berlaku
+r = ctx.layani_(ss, { aksi: 'ubah', pin: '123456', tab: 'Kas', nomor: target.nomor, tanda: target.tanda, nilai: { 'Keterangan': 'x' } });
+assert.strictEqual(r.kode, 'BERUBAH');
+r = ctx.layani_(ss, { aksi: 'ubah', pin: '4321', tab: 'Kas', nomor: 2, tanda: 'x', nilai: {} });
+assert.strictEqual(r.ok, false, 'pekerja tidak boleh mengubah');
+
+// 15. Hapus catatan
+r = ctx.layani_(ss, { aksi: 'terbaru', pin: '123456', tab: 'Kas', n: 10 });
+const hapusIni = r.data.filter(d => d.nilai['Keterangan'] === 'baru')[0];
+const sebelum = kas.data.length;
+r = ctx.layani_(ss, { aksi: 'hapus', pin: '123456', tab: 'Kas', nomor: hapusIni.nomor, tanda: hapusIni.tanda });
+assert.strictEqual(r.ok, true);
+assert.strictEqual(kas.data.length, sebelum - 1);
+assert.strictEqual(kas.data.filter(x => x[5] === 'baru').length, 0);
+assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Hapus' && /baru/.test(x[4])), 'isi yang dihapus tersimpan di log');
+
+console.log('Semua uji fitur pemilik lulus.');
+

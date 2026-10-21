@@ -22,6 +22,8 @@
   var antrian = ambil('antrian', []);      // isian yang belum terkirim
   var mengirim = false;
   var promptPasang = null;
+  var sedangDiubah = null;                 // catatan yang sedang diubah pemilik
+  var jumlahRiwayat = {};                  // berapa catatan ditampilkan per tab di Riwayat
 
   // ------------------------------------------------------------ alat bantu
   function esc(s) {
@@ -105,7 +107,7 @@
         {j: 'centang', h: 'Pengumpul', daftar: 'Pengumpul', bantuan: 'Pilih semua yang ikut trip ini.'},
         {j: 'centang', h: 'Daerah', daftar: 'Daerah', lainnya: true},
         {j: 'pilih', h: 'Kondisi bahan', daftar: 'Kondisi bahan'},
-        {j: 'desimal', h: 'Berat bahan (kg)', bantuan: 'Hasil timbang, contoh 1075.'},
+        {j: 'desimal', h: 'Berat bahan (kg)', ribuan: true, bantuan: 'Hasil timbang, contoh 1075.'},
         {j: 'rupiah', h: 'Uang dibawa (Rp)'},
         {j: 'rupiah', h: 'Uang sisa (Rp)', bantuan: 'Uang yang kembali setelah beli bahan.'},
         {j: 'rupiah', h: 'Biaya lain di jalan (Rp)', bawaan: '0', bantuan: 'Es, tali rafia, tambal ban. Isi 0 kalau tidak ada.'},
@@ -474,25 +476,31 @@
   }
 
   // ------------------------------------------------------------ layar: isi formulir
-  function layarIsi(kunci) {
+  // Formulir isi baru, atau ubah catatan lama (ubah = {tab, nomor, tanda, nilai}) khusus pemilik.
+  function layarIsi(kunci, ubah) {
     var tab = tabDariKunci(kunci);
     if (!tab || (sesi.tab || []).indexOf(tab) < 0) { location.hash = '#/'; return; }
+    if (ubah && ubah.tab !== tab) ubah = null;
+    var kembali = ubah ? '#/terbaru/' + kunci : '#/';
     if (!konfig || !konfig.kepala || !konfig.kepala[tab]) {
       kerangka(tab, '', '<div class="galat-kartu">Daftar pilihan belum termuat. Sambungkan ke internet sekali, lalu buka lagi.</div>' +
-        '<div style="margin-top:12px"><button class="tombol utama penuh" id="coba-muat">Muat daftar pilihan</button></div>', {kembali: '#/', tanpaNav: true});
+        '<div style="margin-top:12px"><button class="tombol utama penuh" id="coba-muat">Muat daftar pilihan</button></div>', {kembali: kembali, tanpaNav: true});
       document.getElementById('coba-muat').addEventListener('click', function () {
         muatKonfig().then(function () { tampilkan(); }, function (e) { toast(e.message); });
       });
       return;
     }
     var bidang = bidangLengkap(tab);
-    var draf = ambil('draf.' + kunci, {});
-    var html = bidang.map(function (b, i) { return htmlBidang(b, i, draf); }).join('') +
+    var draf = ubah ? mentahDariNilai(bidang, ubah.nilai) : ambil('draf.' + kunci, {});
+    var html = (ubah ? '<div class="pratinjau awas">Mengubah catatan yang sudah masuk Google Sheet. Perubahan dicatat di tab Log Aplikasi.</div>' : '') +
+      bidang.map(function (b, i) { return htmlBidang(b, i, draf); }).join('') +
       '<div class="bidang" data-h="_upah" hidden><div class="pesan-salah"></div></div>' +
       '<div class="pratinjau" id="pratinjau" hidden></div>';
-    kerangka(tab, FORM[tab].ket, '<form id="formulir" novalidate>' + html + '</form>', {kembali: '#/', tanpaNav: true});
-    app.insertAdjacentHTML('beforeend', '<div class="aksi-bawah"><button class="tombol kedua" id="tombol-kosong" type="button">Kosongkan</button>' +
-      '<button class="tombol utama" id="tombol-simpan" type="button">Simpan</button></div>');
+    var tglLama = ubah ? (ubah.nilai['Tanggal'] || ubah.nilai['Tanggal saring'] || '') : '';
+    kerangka(ubah ? 'Ubah ' + tab : tab, ubah ? 'Catatan tanggal ' + tglIndo(tglLama) : FORM[tab].ket,
+      '<form id="formulir" novalidate>' + html + '</form>', {kembali: kembali, tanpaNav: true});
+    app.insertAdjacentHTML('beforeend', '<div class="aksi-bawah"><button class="tombol kedua" id="tombol-kosong" type="button">' + (ubah ? 'Batal' : 'Kosongkan') + '</button>' +
+      '<button class="tombol utama" id="tombol-simpan" type="button">' + (ubah ? 'Simpan perubahan' : 'Simpan') + '</button></div>');
 
     var form = document.getElementById('formulir');
     var segarkan = function () {
@@ -509,7 +517,7 @@
         var pet = document.getElementById('pet' + i);
         if (pet) pet.textContent = n[b.h] > 0 ? rp(n[b.h]) : '';
       });
-      simpan('draf.' + kunci, bacaMentah(bidang));
+      if (!ubah) simpan('draf.' + kunci, bacaMentah(bidang));
     };
     var hapusSalah = function (t) {
       var b = t.closest('.bidang');
@@ -535,6 +543,7 @@
     segarkan();
 
     document.getElementById('tombol-kosong').addEventListener('click', function () {
+      if (ubah) { location.hash = kembali; return; }
       if (!confirm('Kosongkan semua isian di formulir ini?')) return;
       buang('draf.' + kunci); layarIsi(kunci);
     });
@@ -547,6 +556,26 @@
       var asing = Object.keys(hasil.nilai).filter(function (h) { return kepala.indexOf(h) < 0; });
       if (asing.length) { toast('Aplikasi perlu diperbarui (kolom ' + asing.join(', ') + ' tidak ada). Buka Akun > Perbarui pilihan.', 6000); return; }
       var tombolSimpan = document.getElementById('tombol-simpan');
+
+      if (ubah) {
+        // Kirim semua kolom formulir: yang kosong atau tersembunyi ikut dikosongkan di Sheet.
+        var nilaiUbah = {};
+        bidang.forEach(function (b) { if (b.h) nilaiUbah[b.h] = hasil.nilai[b.h] !== undefined ? hasil.nilai[b.h] : ''; });
+        konfirmasi(tab, bidang, hasil.nilai, function () {
+          tombolSimpan.disabled = true; tombolSimpan.textContent = 'Menyimpan…';
+          panggil('ubah', {tab: tab, nomor: ubah.nomor, tanda: ubah.tanda, nilai: nilaiUbah}).then(function (r) {
+            if (r && r.ok) { sedangDiubah = null; toast('Catatan sudah diperbarui di Google Sheet.'); location.hash = kembali; return; }
+            tombolSimpan.disabled = false; tombolSimpan.textContent = 'Simpan perubahan';
+            toast((r && r.galat) || 'Gagal menyimpan perubahan.', 6000);
+            if (r && r.kode === 'BERUBAH') { sedangDiubah = null; location.hash = kembali; }
+          }, function (e) {
+            tombolSimpan.disabled = false; tombolSimpan.textContent = 'Simpan perubahan';
+            toast(e.jaringan ? 'Perlu sinyal untuk mengubah catatan. Coba lagi nanti.' : e.message, 6000);
+          });
+        }, 'Benar, simpan perubahan');
+        return;
+      }
+
       var lanjut = function () {
         konfirmasi(tab, bidang, hasil.nilai, function () {
           antrian.push({id: idBaru(), tab: tab, nilai: hasil.nilai, waktu: Date.now(), status: 'menunggu'});
@@ -564,6 +593,20 @@
         if (boleh) lanjut();
       });
     });
+  }
+
+  // Nilai dari Sheet menjadi isian formulir (untuk mode ubah).
+  function mentahDariNilai(bidang, nilai) {
+    var out = {};
+    bidang.forEach(function (b) {
+      if (!b.h) return;
+      var v = nilai[b.h];
+      if (v === undefined || v === null || v === '') return;
+      if (b.j === 'centang') out[b.h] = String(v).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+      else if (b.j === 'desimal') out[b.h] = String(v).replace('.', ',');
+      else out[b.h] = String(v);
+    });
+    return out;
   }
 
   // Absensi cukup sekali sehari. Kalau tanggalnya sudah ada, upah akan terhitung dua kali.
@@ -647,10 +690,11 @@
   }
 
   function angkaBulat(s) { var t = String(s || '').replace(/[^\d]/g, ''); return t ? parseInt(t, 10) : NaN; }
-  function angkaDesimal(s) {
+  function angkaDesimal(s, ribuan) {
     var t = String(s || '').trim().replace(/\s/g, '');
     if (!t) return NaN;
-    if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');   // 1.075,5
+    if (t.indexOf('.') >= 0 && t.indexOf(',') >= 0) t = t.replace(/\./g, '').replace(',', '.');   // 1.075,5
+    else if (ribuan && /^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');                    // 1.075 (berat)
     else t = t.replace(',', '.');
     return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN;
   }
@@ -673,7 +717,7 @@
         if (isNaN(x)) { salah.push([b.h, 'Tulis angka saja.']); return; }
         nilai[b.h] = x;
       } else if (b.j === 'desimal') {
-        var y = angkaDesimal(v);
+        var y = angkaDesimal(v, b.ribuan);
         if (isNaN(y)) { salah.push([b.h, 'Tulis angka, contoh 3,28.']); return; }
         nilai[b.h] = y;
       } else if (b.j === 'tanggal') {
@@ -713,7 +757,7 @@
     return String(v);
   }
 
-  function konfirmasi(tab, bidang, nilai, lanjut) {
+  function konfirmasi(tab, bidang, nilai, lanjut, labelKirim) {
     var baris = bidang.filter(function (b) { return b.h && nilai[b.h] !== undefined && nilai[b.h] !== ''; }).map(function (b) {
       var label = b.j === 'kisiBaris' ? b.label : (b.label || b.h);
       return '<li><span>' + esc(label) + '</span><b>' + esc(tampilNilai(b, nilai[b.h])) + '</b></li>';
@@ -724,7 +768,7 @@
     div.innerHTML = '<div class="lembar" role="dialog" aria-modal="true"><h2>Periksa lagi</h2><p class="sub">' + esc(tab) + '</p>' +
       '<ul class="ringkas">' + baris + '</ul>' +
       (p ? '<div class="pratinjau">' + p.map(function (x) { return '<div>' + esc(x) + '</div>'; }).join('') + '</div>' : '') +
-      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="ubah">Ubah</button><button class="tombol utama" data-aksi="kirim">Benar, simpan</button></div></div>';
+      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="ubah">Ubah</button><button class="tombol utama" data-aksi="kirim">' + esc(labelKirim || 'Benar, simpan') + '</button></div></div>';
     document.body.appendChild(div);
     div.addEventListener('click', function (ev) {
       var a = ev.target.closest('[data-aksi]');
@@ -734,24 +778,30 @@
   }
 
   // ------------------------------------------------------------ layar: riwayat (entri terakhir)
+  function bisaKelola() { return !!(sesi && sesi.semua && konfig && konfig.versiApi >= 2); }
+
   function layarTerbaru(kunci) {
     var tabBoleh = (sesi.tab || []).filter(function (t) { return FORM[t]; });
     var tab = tabDariKunci(kunci) || tabBoleh[0];
     if (!tab) { kerangka('Riwayat', '', '<div class="kosong">Tidak ada catatan.</div>', {aktif: 'terbaru'}); return; }
+    var k = FORM[tab].kunci;
+    var n = jumlahRiwayat[k] || 10;
     var pilih = '<div class="pilih-tab">' + tabBoleh.map(function (t) {
       return '<button data-ke="#/terbaru/' + FORM[t].kunci + '" class="' + (t === tab ? 'aktif' : '') + '">' + esc(t) + '</button>';
     }).join('') + '</div>';
     var tunggu = antrian.filter(function (a) { return a.tab === tab; });
     var htmlTunggu = tunggu.length ? '<div class="pratinjau awas">' + tunggu.length + ' catatan ' + esc(tab) + ' masih di HP, belum masuk Sheet.</div>' : '';
-    var cache = ambil('terbaru.' + FORM[tab].kunci, null);
-    kerangka('Riwayat', '10 catatan terakhir di Google Sheet', pilih + htmlTunggu + '<div id="daftar-entri">' +
-      (cache ? htmlEntri(tab, cache) : '<div class="memuat">Memuat…</div>') + '</div>', {aktif: 'terbaru', muat: true});
+    var cache = ambil('terbaru.' + k, null);
+    var data = cache;
+    kerangka('Riwayat', n + ' catatan terakhir di Google Sheet', pilih + htmlTunggu + '<div id="daftar-entri">' +
+      (cache ? htmlEntri(tab, cache, n) : '<div class="memuat">Memuat…</div>') + '</div>', {aktif: 'terbaru', muat: true});
     var muat = function () {
-      panggil('terbaru', {tab: tab, n: 10}).then(function (r) {
+      panggil('terbaru', {tab: tab, n: n}).then(function (r) {
         if (!r.ok) throw new Error(r.galat || 'Gagal memuat.');
-        simpan('terbaru.' + FORM[tab].kunci, r);
+        data = r;
+        simpan('terbaru.' + k, r);
         var el = document.getElementById('daftar-entri');
-        if (el && location.hash.indexOf('#/terbaru') === 0) el.innerHTML = htmlEntri(tab, r);
+        if (el && location.hash.indexOf('#/terbaru') === 0) el.innerHTML = htmlEntri(tab, r, n);
       }).catch(function (e) {
         var el = document.getElementById('daftar-entri');
         if (!el) return;
@@ -760,44 +810,89 @@
       });
     };
     document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
+    document.getElementById('daftar-entri').addEventListener('click', function (ev) {
+      var lebih = ev.target.closest('[data-lebih]');
+      if (lebih) { jumlahRiwayat[k] = Math.min(n + 20, 60); layarTerbaru(k); return; }
+      var tUbah = ev.target.closest('[data-ubah-entri]'), tHapus = ev.target.closest('[data-hapus-entri]');
+      var el = tUbah || tHapus;
+      if (!el || !data || !data.data) return;
+      var d = data.data[Number(el.dataset.ubahEntri || el.dataset.hapusEntri)];
+      if (!d) return;
+      if (tUbah) {
+        sedangDiubah = {tab: tab, nomor: d.nomor, tanda: d.tanda, nilai: d.nilai};
+        location.hash = '#/ubah/' + k;
+        return;
+      }
+      var kartu = el.closest('.entri');
+      tanyaHapus(tab, kartu ? kartu.querySelector('h3 span').textContent : '', function () {
+        el.disabled = true; el.textContent = 'Menghapus…';
+        panggil('hapus', {tab: tab, nomor: d.nomor, tanda: d.tanda}).then(function (r) {
+          if (r && r.ok) { toast('Catatan dihapus dari Google Sheet.'); muat(); return; }
+          toast((r && r.galat) || 'Gagal menghapus.', 6000); muat();
+        }, function (e) {
+          el.disabled = false; el.textContent = 'Hapus';
+          toast(e.jaringan ? 'Perlu sinyal untuk menghapus catatan.' : e.message, 6000);
+        });
+      });
+    });
     muat();
   }
 
-  function htmlEntri(tab, r) {
+  function tanyaHapus(tab, judul, lanjut) {
+    var div = document.createElement('div');
+    div.className = 'tirai';
+    div.innerHTML = '<div class="lembar" role="dialog" aria-modal="true"><h2>Hapus catatan ini?</h2>' +
+      '<p class="sub">' + esc(tab) + ' · ' + esc(judul) + '</p>' +
+      '<p style="margin:0 0 16px;font-size:14px">Catatan akan hilang dari Google Sheet dan semua rekap ikut berubah. Isinya tetap tersimpan di tab Log Aplikasi kalau perlu dikembalikan.</p>' +
+      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol bahaya" data-aksi="hapus">Ya, hapus</button></div></div>';
+    document.body.appendChild(div);
+    div.addEventListener('click', function (ev) {
+      var a = ev.target.closest('[data-aksi]');
+      if (ev.target === div || (a && a.dataset.aksi === 'batal')) { div.remove(); return; }
+      if (a && a.dataset.aksi === 'hapus') { div.remove(); lanjut(); }
+    });
+  }
+
+  function htmlEntri(tab, r, n) {
     if (!r.baris || !r.baris.length) return '<div class="kosong">Belum ada catatan.</div>';
     var k = r.kepala;
-    return r.baris.map(function (row) {
+    var kelola = bisaKelola() && r.data && r.data.length === r.baris.length;
+    var html = r.baris.map(function (row, idx) {
       var g = function (h) { var i = k.indexOf(h); return i >= 0 ? row[i] : ''; };
+      var e = function (h) { return esc(g(h)); };
       var judul = '', baris = [], ket = g('Keterangan');
       if (tab === 'Ambil Bahan') {
         judul = g('Tanggal') + ' · ' + g('Pengumpul');
-        baris.push(g('Berat bahan (kg)') + ' kg · ' + g('Kondisi bahan'));
-        baris.push('Beli bahan ' + g('Uang beli bahan (Rp)') + ' · ' + g('Harga bahan per kg (Rp)') + '/kg');
-        baris.push('<span class="redup">' + esc(g('Daerah')) + '</span>');
+        baris.push(e('Berat bahan (kg)') + ' kg · ' + e('Kondisi bahan'));
+        baris.push('Beli bahan ' + e('Uang beli bahan (Rp)') + ' · ' + e('Harga bahan per kg (Rp)') + '/kg');
+        baris.push('<span class="redup">' + e('Daerah') + '</span>');
       } else if (tab === 'Saring Minyak') {
         judul = g('Tanggal saring');
-        baris.push(g('Minyak (kg)') + ' kg dari ' + g('Jumlah sulingan yang disaring') + ' sulingan (' + g('Minyak per sulingan (kg)') + ' kg/sulingan)');
-        baris.push('Alat: ' + g('Kondisi alat') + ' · Bahan: ' + g('Kondisi bahan'));
+        baris.push(e('Minyak (kg)') + ' kg dari ' + e('Jumlah sulingan yang disaring') + ' sulingan (' + e('Minyak per sulingan (kg)') + ' kg/sulingan)');
+        baris.push('Alat: ' + e('Kondisi alat') + ' · Bahan: ' + e('Kondisi bahan'));
       } else if (tab === 'Absensi') {
         judul = g('Tanggal');
-        k.forEach(function (h, i) { var m = /^(.+) \[(.+)\]$/.exec(h); if (m && row[i]) baris.push(m[2] + ': ' + row[i]); });
-        var upah = ['Upah pengumpulan', 'Upah penyulingan', 'Upah kerja harian & lain'].map(g);
-        baris.push('<span class="redup">Upah: pengumpulan ' + esc(upah[0]) + ' · suling ' + esc(upah[1]) + ' · harian & lain ' + esc(upah[2]) + '</span>');
-        if (g('Pekerjaan lain')) baris.push('Kerja lain: ' + g('Pekerjaan lain'));
+        k.forEach(function (h, i) { var m = /^(.+) \[(.+)\]$/.exec(h); if (m && row[i]) baris.push(esc(m[2]) + ': ' + esc(row[i])); });
+        baris.push('<span class="redup">Upah: pengumpulan ' + e('Upah pengumpulan') + ' · suling ' + e('Upah penyulingan') + ' · harian & lain ' + e('Upah kerja harian & lain') + '</span>');
+        if (g('Pekerjaan lain')) baris.push('Kerja lain: ' + e('Pekerjaan lain'));
       } else if (tab === 'Penjualan') {
         judul = g('Tanggal') + ' · ' + g('Pembeli');
-        baris.push(g('Jumlah') + ' ' + g('Satuan') + ' ' + g('Produk'));
-        baris.push(g('Harga satuan (Rp)') + ' × ' + g('Jumlah') + ' = <b>' + esc(g('Total (Rp)')) + '</b> · ' + g('Status bayar'));
+        baris.push(e('Jumlah') + ' ' + e('Satuan') + ' ' + e('Produk'));
+        baris.push(e('Harga satuan (Rp)') + ' × ' + e('Jumlah') + ' = <b>' + e('Total (Rp)') + '</b> · ' + e('Status bayar'));
       } else if (tab === 'Kas') {
         judul = g('Tanggal') + ' · ' + g('Kategori');
-        baris.push((g('Arah') === 'Masuk' ? 'Masuk ' : 'Keluar ') + '<b>' + esc(g('Jumlah (Rp)')) + '</b>');
+        baris.push((g('Arah') === 'Masuk' ? 'Masuk ' : 'Keluar ') + '<b>' + e('Jumlah (Rp)') + '</b>');
         if (ket) { baris.push(esc(ket)); ket = ''; }
       }
-      var waktu = g('Timestamp');
-      return '<div class="kartu entri"><h3><span>' + esc(judul) + '</span><small>' + esc(String(waktu).slice(-5)) + '</small></h3>' +
-        baris.map(function (x) { return '<p>' + (/[<]/.test(x) ? x : esc(x)) + '</p>'; }).join('') +
-        (ket ? '<div class="ket">' + esc(ket) + '</div>' : '') + '</div>';
+      return '<div class="kartu entri"><h3><span>' + esc(judul) + '</span><small>' + esc(String(g('Timestamp')).slice(-5)) + '</small></h3>' +
+        baris.map(function (x) { return '<p>' + x + '</p>'; }).join('') +
+        (ket ? '<div class="ket">' + esc(ket) + '</div>' : '') +
+        (kelola ? '<div class="aksi-entri"><button class="tombol kedua" data-ubah-entri="' + idx + '">Ubah</button>' +
+          '<button class="tombol bahaya" data-hapus-entri="' + idx + '">Hapus</button></div>' : '') +
+        '</div>';
     }).join('');
+    if (r.baris.length >= (n || 10) && (n || 10) < 60) html += '<button class="tombol kedua penuh" style="margin-top:12px" data-lebih="1">Tampilkan lebih banyak</button>';
+    return html;
   }
 
   // ------------------------------------------------------------ layar: antrian
@@ -837,6 +932,8 @@
       '<div class="info-baris"><span>Belum terkirim</span><b>' + antrian.length + ' catatan</b></div>' +
       '<div class="info-baris"><span>Versi aplikasi</span><b>' + esc(VERSI) + (DI_APK ? ' (APK)' : '') + '</b></div>' +
       '</div><div class="tumpuk" style="margin-top:16px">' +
+      (sesi.semua ? (bisaKelola() ? '<button class="tombol utama penuh" data-ke="#/pin">Kelola PIN pekerja</button>'
+        : '<div class="pratinjau awas">Fitur kelola PIN dan ubah catatan butuh API versi baru di Apps Script.</div>') : '') +
       '<button class="tombol kedua penuh" id="perbarui">Perbarui pilihan (nama, daerah, kategori)</button>' +
       (promptPasang && !DI_APK ? '<button class="tombol utama penuh" id="pasang">Pasang aplikasi di HP ini</button>' : '') +
       '<button class="tombol bahaya penuh" id="keluar">Keluar / ganti PIN</button></div>';
@@ -854,6 +951,54 @@
     });
   }
 
+  // ------------------------------------------------------------ layar: kelola PIN (pemilik)
+  function layarPin() {
+    if (!bisaKelola()) { location.hash = '#/akun'; return; }
+    kerangka('Kelola PIN', 'Hanya pemilik yang bisa melihat halaman ini', '<div id="daftar-pin"><div class="memuat">Memuat…</div></div>', {kembali: '#/akun', tanpaNav: true});
+    var tulis = function (daftar) {
+      var el = document.getElementById('daftar-pin');
+      if (!el) return;
+      el.innerHTML = daftar.map(function (d) {
+        return '<div class="kartu" data-baris="' + d.baris + '"><h2>' + esc(d.peran) + (d.saya ? ' (Anda)' : '') + '</h2>' +
+          '<p class="sub">Boleh mengisi: ' + esc(d.boleh || '–') + (d.pin ? '' : ' · <b>tidak aktif</b>') + '</p>' +
+          '<input class="masukan pin-baru" type="text" inputmode="numeric" maxlength="8" value="' + esc(d.pin) + '" placeholder="4–8 angka" aria-label="PIN ' + esc(d.peran) + '">' +
+          '<div class="aksi-entri"><button class="tombol utama" data-simpan-pin="1">Simpan PIN</button>' +
+          (d.saya ? '' : '<button class="tombol bahaya" data-matikan-pin="1"' + (d.pin ? '' : ' disabled') + '>Matikan</button>') + '</div></div>';
+      }).join('') +
+      '<p class="sub" style="color:var(--teks-2);margin-top:14px;font-size:13px">PIN baru langsung berlaku. Pekerja yang sedang masuk dengan PIN lama akan diminta memasukkan PIN baru. Hak isi (kolom "Boleh mengisi") diubah di tab Pengaturan.</p>';
+    };
+    var muat = function () {
+      panggil('pinDaftar').then(function (r) {
+        if (!r.ok) throw new Error(r.galat || 'Gagal memuat PIN.');
+        tulis(r.daftar);
+      }).catch(function (e) {
+        var el = document.getElementById('daftar-pin');
+        if (el) el.innerHTML = '<div class="galat-kartu">' + esc(e.message) + '</div>';
+      });
+    };
+    document.getElementById('daftar-pin').addEventListener('click', function (ev) {
+      var tombol = ev.target.closest('[data-simpan-pin],[data-matikan-pin]');
+      if (!tombol) return;
+      var kartu = tombol.closest('[data-baris]');
+      var baris = Number(kartu.dataset.baris);
+      var matikan = tombol.hasAttribute('data-matikan-pin');
+      var pinBaru = matikan ? '' : kartu.querySelector('.pin-baru').value.trim();
+      if (!matikan && !/^\d{4,8}$/.test(pinBaru)) { toast('PIN harus 4 sampai 8 angka.'); return; }
+      if (matikan && !confirm('Matikan PIN ini? Orang yang memakainya tidak bisa masuk lagi sampai diberi PIN baru.')) return;
+      tombol.disabled = true;
+      panggil('pinUbah', {baris: baris, pinBaru: pinBaru}).then(function (r) {
+        if (r && r.ok) {
+          if (kartu.querySelector('h2').textContent.indexOf('(Anda)') >= 0 && pinBaru) { sesi.pin = pinBaru; simpan('sesi', sesi); }
+          toast(matikan ? 'PIN dimatikan.' : 'PIN sudah diganti.');
+          muat();
+        } else {
+          tombol.disabled = false; toast((r && r.galat) || 'Gagal menyimpan PIN.', 5000);
+        }
+      }, function (e) { tombol.disabled = false; toast(e.jaringan ? 'Perlu sinyal untuk mengganti PIN.' : e.message, 5000); });
+    });
+    muat();
+  }
+
   // ------------------------------------------------------------ router
   function tampilkan() {
     var tirai = document.querySelector('.tirai'); if (tirai) tirai.remove();
@@ -861,6 +1006,8 @@
     var h = location.hash || '#/';
     var bagian = h.replace(/^#\/?/, '').split('/');
     if (bagian[0] === 'isi') layarIsi(bagian[1]);
+    else if (bagian[0] === 'ubah') { if (sedangDiubah && bisaKelola()) layarIsi(bagian[1], sedangDiubah); else location.hash = '#/terbaru/' + (bagian[1] || ''); }
+    else if (bagian[0] === 'pin') layarPin();
     else if (bagian[0] === 'terbaru') layarTerbaru(bagian[1]);
     else if (bagian[0] === 'ringkasan') layarRingkasan();
     else if (bagian[0] === 'antrian') layarAntrian();

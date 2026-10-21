@@ -7,6 +7,9 @@
 //   - Jalankan sebagai: Saya
 //   - Yang memiliki akses: Siapa saja
 //
+// Kalau kode ini diperbarui: Terapkan > Kelola deployment > ikon pensil >
+// Versi: "Versi baru" > Terapkan. Alamat /exec tetap sama.
+//
 // Aplikasi mengirim semua permintaan lewat POST dengan PIN.
 // PIN dan hak isi diatur di tab Pengaturan, baris 20 sampai 29.
 // =====================================================================
@@ -14,7 +17,8 @@
 var API_ID_SHEET = '11erbcsOh7G0BKWFLmsGqvWNcQiyz0mSogFLX5AS_8AI';
 var API_ZONA = 'Asia/Jakarta';
 var API_TAB = ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
-var API_VERSI = 1;
+var API_VERSI = 2;
+var API_LOG = 'Log Aplikasi';   // tab tersembunyi: catatan setiap perubahan dan penghapusan
 var API_BATAS_GAGAL = 30;      // PIN salah sebanyak ini dalam 15 menit = dikunci sementara
 var API_SIMPAN_ID = 300;       // jumlah id entri terakhir yang diingat untuk mencegah dobel
 
@@ -47,6 +51,10 @@ function layani_(ss, req) {
   if (req.aksi === 'simpan') return simpan_(ss, akses, req);
   if (req.aksi === 'terbaru') return terbaru_(ss, akses, req);
   if (req.aksi === 'ringkasan') return ringkasan_(ss, akses);
+  if (req.aksi === 'pinDaftar') return pinDaftar_(ss, akses);
+  if (req.aksi === 'pinUbah') return pinUbah_(ss, akses, req);
+  if (req.aksi === 'ubah') return ubah_(ss, akses, req);
+  if (req.aksi === 'hapus') return hapus_(ss, akses, req);
   return {ok: false, galat: 'Aksi tidak dikenal: ' + req.aksi};
 }
 
@@ -67,7 +75,7 @@ function cekPin_(ss, pin) {
         var semua = boleh.toLowerCase() === 'semua';
         var tab = semua ? API_TAB.slice() : boleh.split(',').map(function (t) { return t.trim(); })
           .filter(function (t) { return API_TAB.indexOf(t) >= 0; });
-        return {peran: String(baris[i][0]).trim(), tab: tab, semua: semua};
+        return {peran: String(baris[i][0]).trim(), tab: tab, semua: semua, baris: 20 + i};
       }
     }
   }
@@ -205,12 +213,21 @@ function ubahNilai_(judul, v) {
 function terbaru_(ss, akses, req) {
   var tab = String(req.tab || '');
   if (akses.tab.indexOf(tab) < 0) return {ok: false, galat: 'PIN ini tidak boleh melihat ' + tab + '.'};
-  var n = Math.max(1, Math.min(Number(req.n) || 10, 30));
+  var n = Math.max(1, Math.min(Number(req.n) || 10, 60));
   var sh = ss.getSheetByName(tab);
   var lastCol = sh.getLastColumn();
   var kepala = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
-  var baris = sh.getRange(2, 1, n, lastCol).getDisplayValues().filter(function (r) { return r[1] || r[2]; });
-  return {ok: true, tab: tab, kepala: kepala, baris: baris};
+  var tampil = sh.getRange(2, 1, n, lastCol).getDisplayValues();
+  var hasil = {ok: true, tab: tab, kepala: kepala, baris: []};
+  var info = akses.semua ? kolomForm_(sh) : null;
+  var mentah = akses.semua ? sh.getRange(2, 2, n, info.kepala.length).getValues() : null;
+  if (akses.semua) hasil.data = [];
+  for (var i = 0; i < tampil.length; i++) {
+    if (!tampil[i][1] && !tampil[i][2]) continue;
+    hasil.baris.push(tampil[i]);
+    if (akses.semua) hasil.data.push({nomor: i + 2, tanda: tandaBaris_(mentah[i]), nilai: nilaiMentah_(info.kepala, mentah[i])});
+  }
+  return hasil;
 }
 
 // ---------------------------------------------------------------- RINGKASAN
@@ -220,7 +237,7 @@ function ringkasan_(ss, akses) {
   var dash = ss.getSheetByName('Dashboard');
   var rek = ss.getSheetByName('Rekap Mingguan');
   var rekBln = ss.getSheetByName('Rekap Bulanan');
-  var tgl = function (d) { return d instanceof Date ? Utilities.formatDate(d, API_ZONA, 'dd/MM/yyyy') : String(d || ''); };
+  var tgl = function (d) { return adalahTanggal_(d) ? Utilities.formatDate(d, API_ZONA, 'dd/MM/yyyy') : String(d || ''); };
   var angka = function (v) { return typeof v === 'number' ? v : null; };
 
   var minggu = function (r) {
@@ -235,7 +252,7 @@ function ringkasan_(ss, akses) {
   var bulan = function (r) {
     if (!(r >= 5)) return null;
     var v = rekBln.getRange(r, 1, 1, 31).getValues()[0];
-    return {bulan: v[0] instanceof Date ? Utilities.formatDate(v[0], API_ZONA, 'MM/yyyy') : String(v[0]),
+    return {bulan: adalahTanggal_(v[0]) ? Utilities.formatDate(v[0], API_ZONA, 'MM/yyyy') : String(v[0]),
       penjualan: angka(v[19]), biayaProduksi: angka(v[16]), laba: angka(v[20]), pengembangan: angka(v[21]),
       cicilan: angka(v[22]), labaSetelahCicilan: angka(v[23]), keluarga: angka(v[24]), proyekBahan: angka(v[25]),
       upahHarian: angka(v[26]), pembiayaan: angka(v[27]), pemasukanLain: angka(v[28]), belumDibayar: angka(v[29]),
@@ -251,4 +268,145 @@ function ringkasan_(ss, akses) {
     mingguPenuh: minggu(Number(dash.getRange('N6').getValue())),
     bulanIni: bulan(Number(dash.getRange('N8').getValue())),
     peringatan: peringatan};
+}
+
+// ---------------------------------------------------------------- PEMILIK: PIN
+
+function pinDaftar_(ss, akses) {
+  if (!akses.semua) return {ok: false, galat: 'Hanya pemilik yang boleh mengatur PIN.'};
+  var data = ss.getSheetByName('Pengaturan').getRange('A20:C29').getDisplayValues();
+  var daftar = [];
+  for (var i = 0; i < data.length; i++) {
+    if (!String(data[i][0]).trim()) continue;
+    daftar.push({baris: 20 + i, peran: String(data[i][0]).trim(), pin: String(data[i][1]).trim(),
+      boleh: String(data[i][2]).trim(), saya: akses.baris === 20 + i});
+  }
+  return {ok: true, daftar: daftar};
+}
+
+function pinUbah_(ss, akses, req) {
+  if (!akses.semua) return {ok: false, galat: 'Hanya pemilik yang boleh mengatur PIN.'};
+  var baris = Number(req.baris);
+  var pin = String(req.pinBaru === undefined || req.pinBaru === null ? '' : req.pinBaru).trim();
+  if (!(baris >= 20 && baris <= 29)) return {ok: false, galat: 'Baris PIN tidak dikenal.'};
+  if (pin && !/^\d{4,8}$/.test(pin)) return {ok: false, galat: 'PIN harus 4 sampai 8 angka.'};
+  if (!pin && baris === akses.baris) return {ok: false, galat: 'PIN pemilik tidak boleh dikosongkan.'};
+  var sh = ss.getSheetByName('Pengaturan');
+  var data = sh.getRange('A20:C29').getDisplayValues();
+  if (!String(data[baris - 20][0]).trim()) return {ok: false, galat: 'Baris PIN tidak dikenal.'};
+  for (var i = 0; i < data.length; i++) {
+    if (20 + i !== baris && pin && String(data[i][1]).trim() === pin) {
+      return {ok: false, galat: 'PIN itu sudah dipakai ' + data[i][0] + '. Pilih angka lain.'};
+    }
+  }
+  var lama = String(data[baris - 20][1]).trim();
+  var sel = sh.getRange(baris, 2);
+  sel.setNumberFormat('@');
+  sel.setValue(pin);
+  catatLog_(ss, 'Ubah PIN', 'Pengaturan', baris, data[baris - 20][0] + ': ' + (lama ? 'ada' : 'kosong'),
+    data[baris - 20][0] + ': ' + (pin ? 'diganti' : 'dimatikan'), akses.peran);
+  return {ok: true};
+}
+
+// ---------------------------------------------------------------- PEMILIK: UBAH & HAPUS CATATAN
+
+function ubah_(ss, akses, req) {
+  if (!akses.semua) return {ok: false, galat: 'Hanya pemilik yang boleh mengubah catatan.'};
+  var tab = String(req.tab || '');
+  if (API_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Tab tidak dikenal.'};
+  var nilai = req.nilai || {};
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sh = ss.getSheetByName(tab);
+    var info = kolomForm_(sh);
+    var r = cariBaris_(sh, info, Number(req.nomor), String(req.tanda || ''));
+    if (!r) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah berubah atau terhapus. Muat ulang Riwayat, lalu coba lagi.'};
+    var lama = sh.getRange(r, 2, 1, info.kepala.length).getValues()[0];
+    var baru = lama.slice();
+    var asing = [];
+    Object.keys(nilai).forEach(function (k) {
+      var j = info.kepala.indexOf(k);
+      if (j >= 1) baru[j] = ubahNilai_(k, nilai[k]);
+      else asing.push(k);
+    });
+    if (asing.length) return {ok: false, galat: 'Kolom tidak ditemukan di tab ' + tab + ': ' + asing.join(', ') + '.'};
+    sh.getRange(r, 2, 1, baru.length).setValues([baru]);
+    SpreadsheetApp.flush();
+    if (typeof urutkanTab_ === 'function') urutkanTab_(sh);
+    catatLog_(ss, 'Ubah', tab, r, JSON.stringify(nilaiMentah_(info.kepala, lama)), JSON.stringify(nilaiMentah_(info.kepala, baru)), akses.peran);
+    return {ok: true};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function hapus_(ss, akses, req) {
+  if (!akses.semua) return {ok: false, galat: 'Hanya pemilik yang boleh menghapus catatan.'};
+  var tab = String(req.tab || '');
+  if (API_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Tab tidak dikenal.'};
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sh = ss.getSheetByName(tab);
+    var info = kolomForm_(sh);
+    var r = cariBaris_(sh, info, Number(req.nomor), String(req.tanda || ''));
+    if (!r) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah berubah atau terhapus. Muat ulang Riwayat, lalu coba lagi.'};
+    var lama = sh.getRange(r, 2, 1, info.kepala.length).getValues()[0];
+    sh.deleteRow(r);
+    catatLog_(ss, 'Hapus', tab, r, JSON.stringify(nilaiMentah_(info.kepala, lama)), '', akses.peran);
+    return {ok: true};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Mencari baris yang isinya sama persis dengan saat dilihat di aplikasi.
+// Nomor baris bisa bergeser karena ada catatan baru, jadi dicocokkan lewat "tanda" isinya.
+function cariBaris_(sh, info, nomor, tanda) {
+  if (!tanda) return 0;
+  var n = info.kepala.length;
+  var akhir = sh.getLastRow();
+  if (nomor >= 2 && nomor <= akhir && tandaBaris_(sh.getRange(nomor, 2, 1, n).getValues()[0]) === tanda) return nomor;
+  if (akhir < 2) return 0;
+  var semua = sh.getRange(2, 2, akhir - 1, n).getValues();
+  for (var i = 0; i < semua.length; i++) {
+    if (tandaBaris_(semua[i]) === tanda) return i + 2;
+  }
+  return 0;
+}
+
+function tandaBaris_(nilai) {
+  var teks = JSON.stringify(nilai.map(function (v) { return adalahTanggal_(v) ? 'D' + v.getTime() : v; }));
+  return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, teks, Utilities.Charset.UTF_8));
+}
+
+// Nilai baris untuk diisi ulang di formulir: tanggal jadi yyyy-mm-dd, angka tetap angka.
+function nilaiMentah_(kepala, nilai) {
+  var out = {};
+  for (var j = 1; j < kepala.length; j++) {
+    var v = nilai[j];
+    if (adalahTanggal_(v)) v = /^Tanggal/.test(kepala[j]) ? Utilities.formatDate(v, API_ZONA, 'yyyy-MM-dd') : Utilities.formatDate(v, API_ZONA, 'dd/MM/yyyy HH:mm');
+    out[kepala[j]] = v;
+  }
+  return out;
+}
+
+function catatLog_(ss, aksi, tab, baris, lama, baru, oleh) {
+  try {
+    var sh = ss.getSheetByName(API_LOG);
+    if (!sh) {
+      sh = ss.insertSheet(API_LOG);
+      sh.getRange(1, 1, 1, 7).setValues([['Waktu', 'Aksi', 'Tab', 'Baris', 'Isi lama', 'Isi baru', 'Oleh']]);
+      sh.setFrozenRows(1);
+      sh.hideSheet();
+    }
+    sh.appendRow([new Date(), aksi, tab, baris, lama, baru, oleh]);
+  } catch (e) {
+    // Log gagal tidak boleh menggagalkan perubahan.
+  }
+}
+
+function adalahTanggal_(v) {
+  return Object.prototype.toString.call(v) === '[object Date]';
 }
