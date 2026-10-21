@@ -33,6 +33,9 @@ const TARIF = [
 
 let terima = [];          // simpan yang masuk
 let jaringanMati = false;
+let absensiHariIni = false;
+const dialog = [];
+const tglHariIni = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear(); };
 
 async function pasangMock(page) {
   await page.route('**/config.js', r => r.fulfill({ contentType: 'application/javascript', body: `window.SEMBADA_CONFIG={API_URL:'${API}',VERSI:'tes'};` }));
@@ -40,7 +43,8 @@ async function pasangMock(page) {
     if (jaringanMati) return route.abort('internetdisconnected');
     const req = JSON.parse(route.request().postData() || '{}');
     const akses = req.pin === '123456' ? { peran: 'Pemilik', tab: SEMUA, semua: true }
-      : req.pin === '1111' ? { peran: 'Pengumpul', tab: ['Ambil Bahan'], semua: false } : null;
+      : req.pin === '1111' ? { peran: 'Pengumpul', tab: ['Ambil Bahan'], semua: false }
+      : req.pin === '6125' ? { peran: 'Tim suling', tab: ['Absensi'], semua: false } : null;
     let body;
     if (!akses) body = { ok: false, kode: 'PIN', galat: 'PIN salah.' };
     else if (req.aksi === 'masuk') body = Object.assign({ ok: true }, akses);
@@ -49,6 +53,9 @@ async function pasangMock(page) {
       body = Object.assign({ ok: true, daftar: DAFTAR, tarif: TARIF, kepala, satuanProduk: { 'Minyak jeruk purut (campur)': 'kg', 'Hidrosol jeruk purut': 'liter' },
         arahKas: { 'Proyek bangunan': 'Keluar', 'Pinjaman masuk': 'Masuk' } }, akses);
     } else if (req.aksi === 'simpan') { terima.push(req); body = { ok: true }; }
+    else if (req.aksi === 'terbaru' && req.tab === 'Absensi') body = { ok: true, tab: 'Absensi',
+      kepala: ['Hari', 'Timestamp', 'Tanggal', 'Pengumpul [Rofik]', 'Keterangan'],
+      baris: [['Rabu', absensiHariIni ? tglHariIni() + ' 06:34' : '20/10/2026 08:00', absensiHariIni ? tglHariIni() : '20/10/2026', '1 trip', '']] };
     else if (req.aksi === 'terbaru') body = { ok: true, tab: req.tab, kepala: ['Hari', 'Timestamp', 'Tanggal', 'Kategori', 'Jumlah (Rp)', 'Keterangan', 'Kelompok', 'Arah'],
       baris: [['Rabu', '21/10/2026 06:42', '21/10/2026', 'Proyek bangunan', 'Rp200,000', 'service disel dan beli bensin buat ngisi kolam', 'Proyek lain', 'Keluar']] };
     else if (req.aksi === 'ringkasan') body = { ok: true, dataSampai: '21/10/2026',
@@ -68,7 +75,7 @@ async function pasangMock(page) {
   const page = await ctx.newPage();
   const galatHalaman = [];
   page.on('pageerror', e => galatHalaman.push(e.message));
-  page.on('dialog', d => d.accept());
+  page.on('dialog', d => { dialog.push(d.message()); d.accept(); });
   await pasangMock(page);
   await page.goto('http://localhost:8123/');
 
@@ -194,6 +201,27 @@ async function pasangMock(page) {
   assert.strictEqual(await page.locator('.tombol-catatan').count(), 1);
   assert.strictEqual(await page.locator('a[href="#/ringkasan"]').count(), 0);
   await page.screenshot({ path: OUT + '/10-pengumpul.png' });
+
+  // 7b. PIN tim suling: hanya Absensi, dan diperingatkan kalau absensi hari ini sudah ada
+  await page.click('a[href="#/akun"]');
+  await page.click('#keluar');
+  await page.fill('#pin', '6125'); await page.click('button[type=submit]');
+  await page.waitForSelector('.grid-catatan');
+  assert.strictEqual(await page.locator('.tombol-catatan').count(), 1);
+  assert.strictEqual(await page.locator('a[href="#/isi/absensi"]').count(), 1);
+  assert.strictEqual(await page.locator('a[href="#/isi/saring"]').count(), 0);
+  absensiHariIni = true;
+  await page.click('a[href="#/isi/absensi"]');
+  await page.waitForSelector('#formulir');
+  for (const h of ['Pengumpul [Rofik]', 'Pengumpul [Pak Muh]', 'Pengumpul [Mas Romadi]']) await pilihChip(h, '1 trip');
+  await pilihChip('Tim suling [Eko & Pak Gatot]', '2x suling');
+  await pilihChip('Ada kerja lain dengan upah khusus hari ini?', 'Tidak');
+  const sebelum = dialog.length;
+  await page.click('#tombol-simpan');
+  await page.waitForSelector('.lembar');
+  assert.ok(dialog.length === sebelum + 1 && /sudah diisi/.test(dialog[dialog.length - 1]), 'peringatan absensi dobel: ' + dialog.slice(-1));
+  await page.click('[data-aksi=ubah]');
+  await page.screenshot({ path: OUT + '/12-timsuling.png' });
 
   // 8. Mode gelap
   const gelap = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', deviceScaleFactor: 2 });

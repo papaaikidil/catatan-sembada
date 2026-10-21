@@ -342,7 +342,7 @@
   // ------------------------------------------------------------ layar: masuk
   function layarMasuk(pesan) {
     app.innerHTML = '<div class="layar-masuk">' +
-      '<img class="logo" src="ikon-192.png" alt="">' +
+      '<img class="logo" src="logo.png" alt="Logo PT. Sembada Karya Wangi">' +
       '<h1>Catatan Sembada</h1>' +
       '<p>Masukkan PIN dari Mas Wildan.</p>' +
       '<form id="form-pin" class="tumpuk" autocomplete="off">' +
@@ -546,15 +546,43 @@
       var kepala = konfig.kepala[tab] || [];
       var asing = Object.keys(hasil.nilai).filter(function (h) { return kepala.indexOf(h) < 0; });
       if (asing.length) { toast('Aplikasi perlu diperbarui (kolom ' + asing.join(', ') + ' tidak ada). Buka Akun > Perbarui pilihan.', 6000); return; }
-      konfirmasi(tab, bidang, hasil.nilai, function () {
-        antrian.push({id: idBaru(), tab: tab, nilai: hasil.nilai, waktu: Date.now(), status: 'menunggu'});
-        simpanAntrian();
-        buang('draf.' + kunci);
-        location.hash = '#/';
-        toast(navigator.onLine ? 'Tersimpan. Sedang dikirim…' : 'Tersimpan di HP. Akan dikirim saat ada sinyal.');
-        kirimAntrian();
+      var tombolSimpan = document.getElementById('tombol-simpan');
+      var lanjut = function () {
+        konfirmasi(tab, bidang, hasil.nilai, function () {
+          antrian.push({id: idBaru(), tab: tab, nilai: hasil.nilai, waktu: Date.now(), status: 'menunggu'});
+          simpanAntrian();
+          buang('draf.' + kunci);
+          location.hash = '#/';
+          toast(navigator.onLine ? 'Tersimpan. Sedang dikirim…' : 'Tersimpan di HP. Akan dikirim saat ada sinyal.');
+          kirimAntrian();
+        });
+      };
+      if (tab !== 'Absensi') { lanjut(); return; }
+      tombolSimpan.disabled = true;
+      cekAbsensiDobel(hasil.nilai['Tanggal']).then(function (boleh) {
+        tombolSimpan.disabled = false;
+        if (boleh) lanjut();
       });
     });
+  }
+
+  // Absensi cukup sekali sehari. Kalau tanggalnya sudah ada, upah akan terhitung dua kali.
+  function cekAbsensiDobel(iso) {
+    var tgl = tglIndo(iso);
+    var pesan = function (asal) {
+      return 'Absensi tanggal ' + tgl + ' sudah ' + asal + '.\n\nKalau disimpan lagi, upah hari itu terhitung dua kali. Tetap simpan?';
+    };
+    var diHp = antrian.some(function (a) { return a.tab === 'Absensi' && a.nilai['Tanggal'] === iso; });
+    if (diHp) return Promise.resolve(confirm(pesan('tersimpan di HP ini dan menunggu dikirim')));
+    if (!navigator.onLine) return Promise.resolve(true);
+    toast('Memeriksa absensi tanggal ' + tgl + '…', 2500);
+    return panggil('terbaru', {tab: 'Absensi', n: 15}, 12000).then(function (r) {
+      if (!r || !r.ok) return true;
+      var iT = r.kepala.indexOf('Tanggal'), iW = r.kepala.indexOf('Timestamp');
+      var sama = r.baris.filter(function (row) { return row[iT] === tgl; })[0];
+      if (!sama) return true;
+      return confirm(pesan('diisi (dikirim ' + sama[iW] + ')'));
+    }, function () { return true; });
   }
 
   function htmlBidang(b, i, draf) {

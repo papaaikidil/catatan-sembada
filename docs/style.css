@@ -213,7 +213,7 @@ textarea.masukan { min-height: 88px; resize: vertical; }
 
 /* ---------- PIN */
 .layar-masuk { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 24px 20px; max-width: 420px; margin: 0 auto; }
-.layar-masuk .logo { width: 72px; height: 72px; border-radius: 20px; margin: 0 auto 16px; display: block; }
+.layar-masuk .logo { width: 132px; height: 132px; border-radius: 28px; margin: 0 auto 16px; display: block; box-shadow: var(--bayang); }
 .layar-masuk h1 { text-align: center; margin: 0; font-size: 22px; }
 .layar-masuk p { text-align: center; color: var(--teks-2); margin: 6px 0 24px; }
 .masukan.pin { text-align: center; font-size: 28px; letter-spacing: .4em; font-weight: 800; }
