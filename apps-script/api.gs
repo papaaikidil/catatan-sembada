@@ -1,49 +1,69 @@
 // =====================================================================
-// SEMBADA KARYA WANGI - API untuk aplikasi Catatan Sembada (versi 6)
+// SEMBADA KARYA WANGI - API untuk aplikasi Catatan Sembada (versi 7)
 //
-// Tempel file ini sebagai file "api" di project Apps Script "Sembada Sheet"
-// (project yang sama dengan kode form dan urut_otomatis).
+// Tempel file ini menggantikan SELURUH isi file "api" di project Apps Script "Sembada Sheet"
+// (project yang sama dengan Kode.gs, urut_otomatis.gs, ubah_kondisi_bahan.gs).
+// Jangan ditempel di Kode.gs.
 //
 // Kalau kode ini diperbarui: Terapkan > Kelola deployment > ikon pensil >
 // Versi: "Versi baru" > Terapkan. Alamat /exec tetap sama.
 //
-// Versi 6:
-//  - Pengguna (PIN per orang) di tab "Pengguna".
-//  - Karyawan dan alat suling di tab "Karyawan" dan "Alat Suling".
-//  - Absensi satu baris per orang per hari di tab "Absensi Harian".
-//    Tab "Absensi" (format lama, satu baris per hari) hanya dibaca: isian baru di
-//    sana (misalnya dari Google Form lama) otomatis dipindahkan ke "Absensi Harian".
-//  - Tampilan aplikasi (nama, logo, warna, tombol, kartu) di tab "Pengaturan Aplikasi".
-//  - Pertanyaan tambahan formulir di tab "Formulir".
-// Semua tab itu diatur dari aplikasi oleh pemilik. Jangan ubah judul kolomnya.
+// Versi 7 (tampilan dan fitur seperti Catatan Sembada Kepuh):
+//  - Masuk dengan nama pengguna dan sandi (tab "Akun Aplikasi", sandi terenkripsi).
+//    Saat pertama dipakai, akun dibuat otomatis dari tab "Pengguna": PIN lama menjadi sandi awal.
+//  - Produksi Suling: jumlah sulingan per alat per hari di tab "Produksi Suling".
+//    Upahnya dihitung dari Tarif Upah jenis Penyulingan (1x, 2x, 3x suling).
+//  - Absensi diisi sekali sehari untuk semua karyawan (tab "Absensi Harian").
+//  - Alat suling, karyawan, tarif upah, daftar pilihan, produk, dan kategori kas diatur dari aplikasi.
+//  - Catatan lama, rumus Rekap, Dashboard, dan HPP tidak diubah oleh kode ini.
 // =====================================================================
 
 var API_ID_SHEET = '11erbcsOh7G0BKWFLmsGqvWNcQiyz0mSogFLX5AS_8AI';
 var API_ZONA = 'Asia/Jakarta';
-var API_TAB = ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
-var API_VERSI = 6;
-var API_LOG = 'Log Aplikasi';   // tab tersembunyi: catatan setiap perubahan dan penghapusan
-var API_BATAS_GAGAL = 30;      // PIN salah sebanyak ini dalam 15 menit = dikunci sementara
-var API_SIMPAN_ID = 300;       // jumlah id entri terakhir yang diingat untuk mencegah dobel
+var API_VERSI = 7;
+var API_LOG = 'Log Aplikasi';     // tab tersembunyi: catatan setiap perubahan
+var API_SIMPAN_ID = 300;         // jumlah id isian terakhir yang diingat untuk mencegah dobel
+var API_SESI_HARI = 180;         // sesi masuk berlaku selama ini kalau tidak dipakai
+var API_BATAS_GAGAL = 5;         // sandi salah sebanyak ini dalam 15 menit = nama pengguna dikunci sementara
 
 var SH_ABSENSI = 'Absensi Harian';
 var SH_ABSENSI_LAMA = 'Absensi';
+var SH_PRODUKSI = 'Produksi Suling';
 var SH_KARYAWAN = 'Karyawan';
 var SH_ALAT = 'Alat Suling';
-var SH_PENGGUNA = 'Pengguna';
+var SH_TARIF = 'Tarif Upah';
+var SH_DAFTAR = 'Daftar';
+var SH_PIN_LAMA = 'Pengguna';
+var SH_AKUN = 'Akun Aplikasi';
 var SH_APLIKASI = 'Pengaturan Aplikasi';
-var SH_FORMULIR = 'Formulir';
 
+var URUTAN_TAB = ['Ambil Bahan', 'Produksi Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
 var KEPALA_ABSENSI = ['Hari', 'Timestamp', 'Tanggal', 'Nama', 'Tim', 'Pekerjaan', 'Alat', 'Jumlah sulingan', 'Upah (Rp)',
   'Pos upah', 'Pekerjaan lain', 'Kerja lain untuk', 'Keterangan', 'Diisi oleh'];
-var KEPALA_KARYAWAN = ['Nama', 'Tim', 'Alat', 'Aktif', 'Catatan'];
-var KEPALA_ALAT = ['Nama alat', 'Aktif', 'Catatan'];
-var KEPALA_PENGGUNA = ['Nama', 'PIN', 'Peran', 'Boleh mengisi', 'Absen untuk', 'Aktif', 'Catatan'];
+var KEPALA_PRODUKSI = ['Hari', 'Timestamp', 'Tanggal', 'Alat suling', 'Operator', 'Jumlah sulingan', 'Kondisi alat', 'Keterangan',
+  'Upah (Rp)', 'Diisi oleh', 'ID', 'ID isian'];
+var KEPALA_AKUN = ['Nama pengguna', 'Nama', 'Peran', 'Boleh mengisi', 'Boleh mengatur', 'Aktif', 'Wajib ganti sandi',
+  'Sandi (terenkripsi)', 'Garam', 'Versi sesi', 'Terakhir masuk'];
 var KEPALA_APLIKASI = ['Kunci', 'Nilai', 'Keterangan'];
-var KEPALA_FORMULIR = ['Tab', 'Kolom', 'Label', 'Bantuan', 'Jenis', 'Wajib', 'Pilihan', 'Tampil', 'Urutan', 'Asal'];
-var TAB_BISA_DIATUR = ['Ambil Bahan', 'Saring Minyak', 'Penjualan', 'Kas'];
-var JENIS_TAMBAHAN = ['teks', 'paragraf', 'angka', 'rupiah', 'desimal', 'pilih', 'centang', 'tanggal'];
-var PERAN = ['Pemilik', 'Mandor', 'Pekerja'];
+var PERAN_PENGGUNA = ['Pemilik', 'Pencatat', 'Mandor', 'Lainnya'];
+var JENIS_KERJA = ['Libur', 'Pengumpulan', 'Penyulingan', 'Kerja harian', 'Kerja lain'];
+var DAFTAR_PILIHAN = ['Daerah', 'Kondisi bahan', 'Kondisi alat', 'Pembeli', 'Status bayar', 'Kerja lain untuk'];
+var KELOMPOK_KAS = ['Operasional usaha', 'Pengembangan usaha', 'Cicilan kendaraan', 'Keluarga & pribadi', 'Proyek lain',
+  'Pembiayaan', 'Pemasukan lain'];
+var URUTAN_MASTER = ['Alat Suling', 'Karyawan', 'Tarif Upah', 'Pilihan', 'Produk', 'Kategori Kas'];
+
+// Dari mana setiap data induk dibaca. Semuanya tab yang sudah ada di Sheet ini.
+var SUMBER_MASTER = {
+  'Alat Suling': {sheet: SH_ALAT},
+  'Karyawan': {sheet: SH_KARYAWAN},
+  'Tarif Upah': {sheet: SH_TARIF, berhentiDiKosong: true},
+  'Pilihan': {daftar: true},
+  'Produk': {blok: [['Produk', 'Produk'], ['Satuan', 'Satuan'], ['Dihitung sebagai minyak', 'Dihitung sebagai minyak'],
+    ['Harga biasa (Rp)', 'Harga biasa (Rp)']]},
+  'Kategori Kas': {blok: [['Kategori', 'Kategori kas'], ['Arah', 'Arah'], ['Kelompok', 'Kelompok']]}
+};
+
+// ---------------------------------------------------------------- PINTU MASUK WEB
 
 function doGet() {
   return keluaranJson_({ok: true, pesan: 'API Catatan Sembada aktif.', versi: API_VERSI});
@@ -65,35 +85,35 @@ function keluaranJson_(o) {
 }
 
 function layani_(ss, req) {
-  var akses = cekPin_(ss, req.pin);
-  if (akses && akses.kunci) return {ok: false, kode: 'KUNCI', galat: 'Terlalu banyak PIN salah. Coba lagi 15 menit lagi.'};
-  if (!akses) return {ok: false, kode: 'PIN', galat: 'PIN salah.'};
-
-  var a = req.aksi;
-  if (a === 'masuk') return {ok: true, nama: akses.nama, peran: akses.peran, tab: akses.tab, semua: akses.semua,
-    mandor: akses.mandor, kelompokAbsensi: akses.kelompokAbsensi, versiApi: API_VERSI};
-  if (a === 'config') return config_(ss, akses, req);
-  if (a === 'simpan') return simpan_(ss, akses, req);
-  if (a === 'terbaru') return terbaru_(ss, akses, req);
-  if (a === 'ringkasan') return ringkasan_(ss, akses);
-  if (a === 'logo') return logo_(ss);
-  if (a === 'ubah') return ubah_(ss, akses, req);
-  if (a === 'hapus') return hapus_(ss, akses, req);
-  // Pengaturan, khusus pemilik.
-  if (!akses.semua && /^(pengguna|karyawan|alat|tampilan|formulir|pin)/.test(a)) {
-    return {ok: false, galat: 'Hanya pemilik yang boleh mengatur ini.'};
+  var aksi = teks_(req.aksi);
+  // Aplikasi versi lama (masuk dengan PIN) yang masih terbuka di HP.
+  if (req.pin !== undefined && !req.token) {
+    return {ok: false, kode: 'PERBARUI', galat: 'Aplikasi Catatan Sembada sudah diperbarui. Tutup aplikasinya, lalu buka lagi saat ada sinyal.'};
   }
-  if (a === 'penggunaDaftar') return penggunaDaftar_(ss, akses);
-  if (a === 'penggunaSimpan') return denganKunci_(function () { return penggunaSimpan_(ss, akses, req); });
-  if (a === 'penggunaHapus') return denganKunci_(function () { return penggunaHapus_(ss, akses, req); });
-  if (a === 'karyawanSimpan') return denganKunci_(function () { return karyawanSimpan_(ss, akses, req); });
-  if (a === 'alatSimpan') return denganKunci_(function () { return alatSimpan_(ss, akses, req); });
-  if (a === 'tampilanSimpan') return denganKunci_(function () { return tampilanSimpan_(ss, akses, req); });
-  if (a === 'formulirSimpan') return denganKunci_(function () { return formulirSimpan_(ss, akses, req); });
-  // Untuk aplikasi versi lama (sebelum ada tab Pengguna).
-  if (a === 'pinDaftar') return pinDaftar_(ss, akses);
-  if (a === 'pinUbah') return denganKunci_(function () { return pinUbah_(ss, akses, req); });
-  return {ok: false, galat: 'Aksi tidak dikenal: ' + a};
+  if (aksi === 'masuk') return masuk_(ss, req);
+
+  var akses = cekSesi_(ss, req.token);
+  if (!akses) return {ok: false, kode: 'SESI', galat: 'Sesi sudah berakhir. Silakan masuk lagi.'};
+  if (aksi === 'keluar') return keluarSesi_(req.token);
+  if (aksi === 'sandiUbah') return denganKunci_(function () { return sandiUbah_(ss, akses, req); });
+  if (aksi === 'config') return config_(ss, akses);
+  if (aksi === 'logo') return logo_(ss);
+  if (akses.wajibGanti) return {ok: false, kode: 'GANTI', galat: 'Ganti sandi sementara dulu sebelum mencatat.'};
+
+  switch (aksi) {
+    case 'simpan': return simpan_(ss, akses, req);
+    case 'terbaru': return terbaru_(ss, akses, req);
+    case 'ringkasan': return ringkasan_(ss, akses);
+    case 'ubah': return ubah_(ss, akses, req);
+    case 'hapus': return hapus_(ss, akses, req);
+    case 'masterSimpan': return masterSimpan_(ss, akses, req);
+    case 'masterAktif': return masterAktif_(ss, akses, req);
+    case 'masterUrut': return masterUrut_(ss, akses, req);
+    case 'penggunaDaftar': return penggunaDaftar_(ss, akses);
+    case 'penggunaSimpan': return penggunaSimpan_(ss, akses, req);
+    case 'tampilanSimpan': return tampilanSimpan_(ss, akses, req);
+  }
+  return {ok: false, galat: 'Aksi tidak dikenal: ' + aksi};
 }
 
 function denganKunci_(f) {
@@ -104,18 +124,44 @@ function denganKunci_(f) {
 
 // ---------------------------------------------------------------- ALAT BANTU
 
-function adalahTanggal_(v) {
-  return Object.prototype.toString.call(v) === '[object Date]';
-}
+function adalahTanggal_(v) { return Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime()); }
 function teks_(v) { return v === null || v === undefined ? '' : String(v).trim(); }
 function ya_(v) { return !/^(tidak|no|0|false|nonaktif)$/i.test(teks_(v)); }   // kosong dianggap Ya
 function tglIso_(d) { return Utilities.formatDate(d, API_ZONA, 'yyyy-MM-dd'); }
-function tglIndo_(iso) { return String(iso).split('-').reverse().join('/'); }
-function pecahDaftar_(s) {
-  return teks_(s).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
-}
+function hariIniIso_() { return tglIso_(new Date()); }
+function tglDariIso_(s) { return Utilities.parseDate(s, API_ZONA, 'yyyy-MM-dd'); }
+function tglIndo_(iso) { return iso ? String(iso).split('-').reverse().join('/') : ''; }
+function normalNama_(s) { return teks_(s).toLowerCase(); }
+function pecahDaftar_(s) { return teks_(s).split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x; }); }
 function namaSheet_(tab) { return tab === 'Absensi' ? SH_ABSENSI : tab; }
 function rpTeks_(n) { return 'Rp' + Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function bulat_(n, d) { var f = Math.pow(10, d === undefined ? 2 : d); return Math.round(n * f) / f; }
+function idBaru_() { return Utilities.getUuid().replace(/-/g, '').slice(0, 16); }
+
+// Tanggal apa pun menjadi 'yyyy-MM-dd' (WIB). Kosong kalau bukan tanggal.
+function tglKunci_(v) {
+  if (adalahTanggal_(v)) return tglIso_(v);
+  var s = teks_(v);
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);
+  if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  return '';
+}
+
+function angka_(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  var s = String(v === null || v === undefined ? '' : v).replace(/[^\d,.\-]/g, '');
+  if (!s || s === '-') return 0;
+  if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  else s = s.replace(',', '.');
+  var n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+
+function kepalaSheet_(sh) {
+  return sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(teks_);
+}
 
 // Membuat tab kalau belum ada (dengan judul kolom).
 function siapkanSheet_(ss, nama, kepala, sembunyi) {
@@ -128,216 +174,343 @@ function siapkanSheet_(ss, nama, kepala, sembunyi) {
   return sh;
 }
 
-// Baris data sebuah tab sederhana (judul di baris 1). Kolom dibaca sebagai teks.
-function bacaTabel_(sh, lebar) {
-  if (!sh) return [];
-  var akhir = sh.getLastRow();
-  if (akhir < 2) return [];
-  return sh.getRange(2, 1, akhir - 1, lebar).getDisplayValues().map(function (r, i) {
-    return {baris: i + 2, nilai: r.map(teks_)};
-  }).filter(function (x) { return x.nilai[0]; });
+// Kolom isian form: kolom B (Timestamp) sampai sebelum kolom rumus (abu-abu) pertama.
+function kolomForm_(sh) {
+  var lastCol = sh.getLastColumn();
+  var judul = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+  var rumus = sh.getRange(1, 1, 1, lastCol).getFormulas()[0];
+  var akhir = 2;                                   // indeks 0-based, mulai dari kolom C
+  while (akhir < lastCol && rumus[akhir] === '') akhir++;
+  return {kepala: judul.slice(1, akhir).map(function (j) { return teks_(j); }), lastCol: lastCol};
 }
 
-// ---------------------------------------------------------------- PENGGUNA & PIN
+// ---------------------------------------------------------------- PENGATURAN APLIKASI
 
-function cekPin_(ss, pin) {
-  var cache = CacheService.getScriptCache();
-  var gagal = Number(cache.get('pinGagal') || 0);
-  if (gagal >= API_BATAS_GAGAL) return {kunci: true};
-
-  pin = teks_(pin);
-  if (pin) {
-    var daftar = bacaPengguna_(ss);
-    for (var i = 0; i < daftar.length; i++) {
-      var u = daftar[i];
-      if (u.aktif && u.pin && u.pin === pin) return aksesDari_(u, ss);
-    }
-  }
-  cache.put('pinGagal', String(gagal + 1), 900);
-  return null;
-}
-
-// Daftar pengguna dari tab Pengguna. Kalau tab itu belum ada, pakai tabel PIN lama di Pengaturan.
-function bacaPengguna_(ss) {
-  var sh = ss.getSheetByName(SH_PENGGUNA);
-  if (sh) {
-    return bacaTabel_(sh, KEPALA_PENGGUNA.length).map(function (x) {
-      var v = x.nilai;
-      return {baris: x.baris, nama: v[0], pin: v[1], peran: normalPeran_(v[2]), boleh: v[3], absenUntuk: v[4],
-        aktif: ya_(v[5]), catatan: v[6], sumber: 'Pengguna'};
-    });
-  }
-  var lama = ss.getSheetByName('Pengaturan');
-  if (!lama) return [];
-  return lama.getRange('A20:E29').getDisplayValues().map(function (r, i) {
-    var boleh = teks_(r[2]);
-    var peran = /^semua$/i.test(boleh) ? 'Pemilik' : (/mandor/i.test(r[0]) ? 'Mandor' : 'Pekerja');
-    return {baris: 20 + i, nama: teks_(r[0]), pin: teks_(r[1]), peran: peran, boleh: boleh,
-      absenUntuk: teks_(r[4]) ? 'Semua ' + teks_(r[4]) : '', aktif: true, catatan: '', sumber: 'Pengaturan'};
-  }).filter(function (u) { return u.nama; });
-}
-
-function normalPeran_(p) {
-  p = teks_(p).toLowerCase();
-  if (p === 'pemilik') return 'Pemilik';
-  if (p === 'mandor') return 'Mandor';
-  return 'Pekerja';
-}
-
-function aksesDari_(u, ss) {
-  var pemilik = u.peran === 'Pemilik';
-  var mandor = u.peran === 'Mandor';
-  var tab = (pemilik || /^semua$/i.test(u.boleh)) ? API_TAB.slice()
-    : pecahDaftar_(u.boleh).filter(function (t) { return API_TAB.indexOf(t) >= 0; });
-  var absen = pecahDaftar_(u.absenUntuk);
-  if ((mandor || absen.length) && tab.indexOf('Absensi') < 0) tab.push('Absensi');
-  tab.sort(function (a, b) { return API_TAB.indexOf(a) - API_TAB.indexOf(b); });
-  var akses = {nama: u.nama, peran: u.peran, tab: tab, semua: pemilik, mandor: mandor, baris: u.baris,
-    sumber: u.sumber, jobdeskSaja: !pemilik && !mandor,
-    absenUntuk: (pemilik || mandor || !absen.length || absen.some(function (x) { return /^semua$/i.test(x); })) ? null : absen};
-  akses.kelompokAbsensi = kelompokLama_(akses, ss);
-  return akses;
-}
-
-// Untuk aplikasi versi lama: nama tim kalau PIN ini hanya mengabsen satu tim.
-function kelompokLama_(akses, ss) {
-  if (!akses.jobdeskSaja || akses.tab.indexOf('Absensi') < 0) return '';
-  var nama = akses.absenUntuk;
-  if (!nama) return '';
-  var tim = {};
-  var karyawan = bacaKaryawan_(ss);
-  nama.forEach(function (n) {
-    var m = /^Semua (.+)$/i.exec(n);
-    if (m) { tim[m[1]] = 1; return; }
-    karyawan.forEach(function (k) { if (k.nama === n) tim[k.tim] = 1; });
-  });
-  var t = Object.keys(tim);
-  return t.length === 1 ? t[0] : '';
-}
-
-// Nama karyawan yang boleh diabsen PIN ini. null = semua.
-function namaBoleh_(akses, karyawan) {
-  if (!akses.absenUntuk) return null;
-  var out = [];
-  akses.absenUntuk.forEach(function (n) {
-    var m = /^Semua (.+)$/i.exec(n);
-    karyawan.forEach(function (k) {
-      if ((m && k.tim === m[1]) || k.nama === n) { if (out.indexOf(k.nama) < 0) out.push(k.nama); }
-    });
+function bacaAplikasi_(ss) {
+  var out = {};
+  var sh = ss.getSheetByName(SH_APLIKASI);
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 2).getDisplayValues().forEach(function (r) {
+    var k = teks_(r[0]);
+    if (k) out[k] = r[1];
   });
   return out;
 }
 
-function penggunaDaftar_(ss, akses) {
-  return {ok: true, pengguna: bacaPengguna_(ss).map(function (u) {
-    return {baris: u.baris, nama: u.nama, pin: u.pin, peran: u.peran, boleh: u.boleh, absenUntuk: u.absenUntuk,
-      aktif: u.aktif, catatan: u.catatan, saya: u.baris === akses.baris && u.sumber === akses.sumber};
-  }), sumber: ss.getSheetByName(SH_PENGGUNA) ? 'Pengguna' : 'Pengaturan'};
+function simpanAplikasi_(ss, kunci, nilai, ket) {
+  var sh = siapkanSheet_(ss, SH_APLIKASI, KEPALA_APLIKASI, true);
+  sh.getRange('B:B').setNumberFormat('@');           // nilai selalu teks (JSON, logo)
+  var n = sh.getLastRow();
+  var kunciAda = n >= 2 ? sh.getRange(2, 1, n - 1, 1).getValues().map(function (r) { return teks_(r[0]); }) : [];
+  var i = kunciAda.indexOf(kunci);
+  var baris = i >= 0 ? i + 2 : Math.max(n, 1) + 1;
+  sh.getRange(baris, 1, 1, 2).setValues([[kunci, nilai]]);
+  if (i < 0 && ket) sh.getRange(baris, 3).setValue(ket);
 }
 
-// Tambah (tanpa baris) atau ubah (dengan baris) satu pengguna.
-function penggunaSimpan_(ss, akses, req) {
-  var sh = siapkanSheet_(ss, SH_PENGGUNA, KEPALA_PENGGUNA);
-  var p = req.pengguna || {};
-  var nama = teks_(p.nama), pin = teks_(p.pin), peran = normalPeran_(p.peran);
-  if (!nama) return {ok: false, galat: 'Nama wajib diisi.'};
-  if (/[,\[\]]/.test(nama)) return {ok: false, galat: 'Nama tidak boleh berisi koma atau kurung siku.'};
-  if (!/^\d{4,8}$/.test(pin)) return {ok: false, galat: 'PIN harus 4 sampai 8 angka.'};
-  var boleh = peran === 'Pemilik' ? 'Semua' : (Array.isArray(p.boleh) ? p.boleh : pecahDaftar_(p.boleh))
-    .filter(function (t) { return API_TAB.indexOf(t) >= 0 && t !== 'Absensi'; }).join(', ');
-  var absen = peran === 'Pekerja' ? (Array.isArray(p.absenUntuk) ? p.absenUntuk : pecahDaftar_(p.absenUntuk)).join(', ') : '';
-  var aktif = p.aktif === false || p.aktif === 'Tidak' ? 'Tidak' : 'Ya';
-  var semua = bacaPengguna_(ss);
-  var baris = Number(p.baris) || 0;
-  var lama = baris ? semua.filter(function (u) { return u.baris === baris; })[0] : null;
-  if (baris && !lama) return {ok: false, galat: 'Pengguna ini sudah berubah. Muat ulang daftar.'};
-  for (var i = 0; i < semua.length; i++) {
-    var u = semua[i];
-    if (u.baris === baris) continue;
-    if (u.pin === pin) return {ok: false, galat: 'PIN itu sudah dipakai ' + u.nama + '. Pilih angka lain.'};
-    if (u.nama.toLowerCase() === nama.toLowerCase()) return {ok: false, galat: 'Nama ' + nama + ' sudah ada.'};
-  }
-  var saya = lama && lama.baris === akses.baris;
-  if (saya && (peran !== 'Pemilik' || aktif !== 'Ya')) return {ok: false, galat: 'Anda tidak bisa menurunkan atau menonaktifkan akun Anda sendiri.'};
-  var isi = [nama, pin, peran, boleh, absen, aktif, teks_(p.catatan)];
-  if (lama) {
-    sh.getRange(baris, 1, 1, isi.length).setValues([isi]);
-  } else {
-    baris = Math.max(sh.getLastRow(), 1) + 1;
-    sh.getRange(baris, 1, 1, isi.length).setValues([isi]);
-  }
-  sh.getRange(baris, 2).setNumberFormat('@');
-  sh.getRange(baris, 2).setValue(pin);
-  catatLog_(ss, lama ? 'Ubah pengguna' : 'Tambah pengguna', SH_PENGGUNA, baris,
-    lama ? [lama.nama, lama.peran, lama.boleh, lama.absenUntuk, lama.aktif ? 'Ya' : 'Tidak'].join(' | ') : '',
-    [nama, peran, boleh, absen, aktif].join(' | ') + (lama && lama.pin !== pin ? ' | PIN diganti' : ''), akses.nama);
-  return {ok: true, baris: baris, pinSaya: saya ? pin : undefined};
+function jsonAman_(s, bawaan) {
+  try { var v = JSON.parse(s); return v === null || v === undefined ? bawaan : v; } catch (e) { return bawaan; }
 }
 
-function penggunaHapus_(ss, akses, req) {
-  var sh = ss.getSheetByName(SH_PENGGUNA);
-  if (!sh) return {ok: false, galat: 'Tab Pengguna belum ada.'};
-  var baris = Number(req.baris);
-  var u = bacaPengguna_(ss).filter(function (x) { return x.baris === baris; })[0];
-  if (!u || u.nama !== teks_(req.nama)) return {ok: false, galat: 'Pengguna ini sudah berubah. Muat ulang daftar.'};
-  if (baris === akses.baris) return {ok: false, galat: 'Anda tidak bisa menghapus akun Anda sendiri.'};
-  sh.deleteRow(baris);
-  catatLog_(ss, 'Hapus pengguna', SH_PENGGUNA, baris, [u.nama, u.peran, u.boleh, u.absenUntuk].join(' | '), '', akses.nama);
+function tandaLogo_(logo) {
+  return logo ? Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, logo, Utilities.Charset.UTF_8)) : '';
+}
+
+// ---------------------------------------------------------------- AKUN & SESI
+
+function hashSandi_(garam, sandi) {
+  var teks = garam + ':' + String(sandi);
+  var hasil = '';
+  for (var i = 0; i < 100; i++) {
+    hasil = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, teks, Utilities.Charset.UTF_8));
+    teks = hasil + garam;
+  }
+  return hasil;
+}
+
+function sandiAcak_() {
+  var huruf = 'abcdefghjkmnpqrstuvwxyz23456789';
+  var s = '';
+  for (var i = 0; i < 8; i++) s += huruf.charAt(Math.floor(Math.random() * huruf.length));
+  return s;
+}
+
+// Nama pengguna dari nama orang: huruf kecil tanpa spasi, "Mas" di depan dibuang. Contoh: Mas Wildan -> wildan.
+function buatNamaPengguna_(nama, dipakai) {
+  var s = normalNama_(nama).replace(/[^a-z0-9]+/g, '');
+  var t = /^mas[a-z0-9]{3,}$/.test(s) ? s.slice(3) : s;
+  if (t.length < 3) t = (t + 'usr').slice(0, 3);
+  t = t.slice(0, 24);
+  var u = t, i = 2;
+  while (dipakai[u]) u = t + (i++);
+  dipakai[u] = true;
+  return u;
+}
+
+// Tab Akun Aplikasi. Kalau belum ada, dibuat dari tab Pengguna (PIN lama = sandi awal).
+function siapkanAkun_(ss) {
+  var sh = ss.getSheetByName(SH_AKUN);
+  if (sh && sh.getLastRow() >= 2) return sh;
+  return denganKunci_(function () {
+    var s = ss.getSheetByName(SH_AKUN);
+    if (s && s.getLastRow() >= 2) return s;
+    if (!s) {
+      s = ss.insertSheet(SH_AKUN);
+      s.getRange(1, 1, 1, KEPALA_AKUN.length).setValues([KEPALA_AKUN]);
+      s.setFrozenRows(1);
+      s.hideSheet();
+    }
+    s.getRange(1, 1, Math.max(s.getMaxRows(), 2), KEPALA_AKUN.length).setNumberFormat('@');
+    var baris = akunDariPin_(ss);
+    if (!baris.length) {
+      var sandi = sandiAcak_(), garam = idBaru_();
+      baris.push(['wildan', 'Mas Wildan', 'Pemilik', 'Semua', 'Ya', 'Ya', 'Ya', hashSandi_(garam, sandi), garam, '1', '']);
+      simpanAplikasi_(ss, 'sandiSementara', 'wildan: ' + sandi, 'Sandi sementara pemilik. Hilang otomatis setelah sandi diganti.');
+    }
+    s.getRange(2, 1, baris.length, KEPALA_AKUN.length).setValues(baris);
+    catatLog_(ss, 'Buat akun aplikasi', SH_AKUN, '', '', baris.map(function (r) { return r[0] + ' (' + r[1] + ')'; }).join(', '), 'Sistem');
+    return s;
+  });
+}
+
+function akunDariPin_(ss) {
+  var sh = ss.getSheetByName(SH_PIN_LAMA);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var kepala = kepalaSheet_(sh);
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, kepala.length).getDisplayValues();
+  var g = function (r, h) { var j = kepala.indexOf(h); return j >= 0 ? teks_(r[j]) : ''; };
+  var tarif = bacaTarifApi_(ss), karyawan = bacaKaryawan_(ss);
+  var timSuling = timDenganJenis_(tarif, 'Penyulingan');
+  var dipakai = {}, out = [];
+  data.forEach(function (r) {
+    var nama = g(r, 'Nama'), pin = g(r, 'PIN'), absen = g(r, 'Absen untuk');
+    if (!nama || !pin || !ya_(g(r, 'Aktif'))) return;
+    if (/^semua\b/i.test(absen)) return;                        // PIN bersama satu tim: tidak dibuatkan akun
+    var peranLama = normalNama_(g(r, 'Peran'));
+    var pemilik = peranLama === 'pemilik' || /^semua$/i.test(g(r, 'Boleh mengisi'));
+    var peran = pemilik ? 'Pemilik' : (peranLama === 'mandor' ? 'Mandor' : 'Pencatat');
+    var tab = pecahDaftar_(g(r, 'Boleh mengisi')).filter(function (t) { return URUTAN_TAB.indexOf(t) >= 0; });
+    if (peran === 'Mandor' && tab.indexOf('Absensi') < 0) tab.push('Absensi');
+    var suling = pecahDaftar_(absen).some(function (n) {
+      return karyawan.some(function (k) { return k.nama === n && timSuling.indexOf(k.tim) >= 0; });
+    });
+    if (suling && tab.indexOf('Produksi Suling') < 0) tab.push('Produksi Suling');
+    tab.sort(function (a, b) { return URUTAN_TAB.indexOf(a) - URUTAN_TAB.indexOf(b); });
+    var garam = idBaru_();
+    out.push([buatNamaPengguna_(nama, dipakai), nama, peran, pemilik ? 'Semua' : tab.join(', '), pemilik ? 'Ya' : 'Tidak',
+      'Ya', 'Tidak', hashSandi_(garam, pin), garam, '1', '']);
+  });
+  return out;
+}
+
+function bacaPengguna_(ss) {
+  var sh = siapkanAkun_(ss);
+  if (sh.getLastRow() < 2) return [];
+  var kepala = kepalaSheet_(sh);
+  var data = sh.getRange(2, 1, sh.getLastRow() - 1, kepala.length).getValues();
+  var k = function (h) { return kepala.indexOf(h); };
+  return data.map(function (r, i) {
+    var g = function (h) { var j = k(h); return j >= 0 ? r[j] : ''; };
+    return {
+      baris: i + 2, pengguna: normalNama_(g('Nama pengguna')), nama: teks_(g('Nama')),
+      peran: teks_(g('Peran')) || 'Pencatat', boleh: teks_(g('Boleh mengisi')),
+      mengatur: /^ya$/i.test(teks_(g('Boleh mengatur'))), aktif: !/^tidak$/i.test(teks_(g('Aktif'))),
+      wajibGanti: /^ya$/i.test(teks_(g('Wajib ganti sandi'))), hash: teks_(g('Sandi (terenkripsi)')),
+      garam: teks_(g('Garam')), versi: Number(g('Versi sesi')) || 1, terakhir: teks_(g('Terakhir masuk'))
+    };
+  }).filter(function (p) { return p.pengguna; });
+}
+
+function tulisPengguna_(ss, baris, nilai) {
+  var sh = siapkanAkun_(ss);
+  var kepala = kepalaSheet_(sh);
+  if (!baris) {
+    baris = sh.getLastRow() + 1;
+    var row = kepala.map(function (h) { return nilai[h] === undefined ? '' : String(nilai[h]); });
+    sh.getRange(baris, 1, 1, row.length).setNumberFormat('@');
+    sh.getRange(baris, 1, 1, row.length).setValues([row]);
+    return;
+  }
+  Object.keys(nilai).forEach(function (h) {
+    var j = kepala.indexOf(h);
+    if (j >= 0) { var sel = sh.getRange(baris, j + 1); sel.setNumberFormat('@'); sel.setValue(String(nilai[h])); }
+  });
+}
+
+function tabBoleh_(boleh) {
+  if (/^semua$/i.test(boleh)) return URUTAN_TAB.slice();
+  return pecahDaftar_(boleh).filter(function (t) { return URUTAN_TAB.indexOf(t) >= 0; });
+}
+
+function aksesDari_(p) {
+  var pemilik = p.peran === 'Pemilik';
+  return {pengguna: p.pengguna, nama: p.nama || p.pengguna, peran: p.peran, tab: tabBoleh_(p.boleh),
+    admin: pemilik || p.mengatur, pemilik: pemilik, wajibGanti: p.wajibGanti, baris: p.baris, versi: p.versi};
+}
+
+function kunciSesi_(token) {
+  var d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token), Utilities.Charset.UTF_8);
+  return 'S_' + Utilities.base64Encode(d).replace(/[^A-Za-z0-9]/g, '').slice(0, 24);
+}
+
+function buatSesi_(p) {
+  var token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  var hari = hariIniIso_();
+  PropertiesService.getScriptProperties().setProperty(kunciSesi_(token), JSON.stringify({u: p.pengguna, v: p.versi, t: hari, a: hari}));
+  return token;
+}
+
+function cekSesi_(ss, token) {
+  if (!token) return null;
+  var props = PropertiesService.getScriptProperties();
+  var kunci = kunciSesi_(token);
+  var isi = props.getProperty(kunci);
+  if (!isi) return null;
+  var s;
+  try { s = JSON.parse(isi); } catch (e) { return null; }
+  var p = bacaPengguna_(ss).filter(function (x) { return x.pengguna === s.u; })[0];
+  if (!p || !p.aktif || p.versi !== s.v) { props.deleteProperty(kunci); return null; }
+  var hari = hariIniIso_();
+  if (s.a !== hari) { s.a = hari; props.setProperty(kunci, JSON.stringify(s)); }
+  return aksesDari_(p);
+}
+
+function bersihkanSesi_() {
+  var props = PropertiesService.getScriptProperties();
+  var batas = tglIso_(new Date(Date.now() - API_SESI_HARI * 86400000));
+  props.getKeys().forEach(function (k) {
+    if (k.indexOf('S_') !== 0) return;
+    try {
+      var s = JSON.parse(props.getProperty(k));
+      if (!s.a || s.a < batas) props.deleteProperty(k);
+    } catch (e) { props.deleteProperty(k); }
+  });
+}
+
+function masuk_(ss, req) {
+  var u = normalNama_(req.pengguna);
+  var cache = CacheService.getScriptCache();
+  var gagalSemua = Number(cache.get('gagalSemua') || 0);
+  var gagalIni = Number(cache.get('gagal_' + u) || 0);
+  if (gagalSemua >= 60 || gagalIni >= API_BATAS_GAGAL) {
+    return {ok: false, kode: 'KUNCI', galat: 'Terlalu banyak sandi salah. Coba lagi 15 menit lagi.'};
+  }
+  var p = bacaPengguna_(ss).filter(function (x) { return x.pengguna === u; })[0];
+  if (!u || !p || !p.aktif || !p.garam || hashSandi_(p.garam, String(req.sandi || '')) !== p.hash) {
+    cache.put('gagalSemua', String(gagalSemua + 1), 900);
+    if (u) cache.put('gagal_' + u, String(gagalIni + 1), 900);
+    return {ok: false, kode: 'SALAH', galat: 'Nama pengguna atau sandi salah.'};
+  }
+  bersihkanSesi_();
+  var token = buatSesi_(p);
+  tulisPengguna_(ss, p.baris, {'Terakhir masuk': Utilities.formatDate(new Date(), API_ZONA, 'dd/MM/yyyy HH:mm')});
+  return {ok: true, token: token, akses: aksesDari_(p), versiApi: API_VERSI};
+}
+
+function keluarSesi_(token) {
+  PropertiesService.getScriptProperties().deleteProperty(kunciSesi_(token));
   return {ok: true};
 }
 
-// Aplikasi versi lama: kelola PIN saja.
-function pinDaftar_(ss, akses) {
-  return {ok: true, daftar: bacaPengguna_(ss).map(function (u) {
-    return {baris: u.baris, peran: u.nama, pin: u.pin, boleh: u.peran === 'Pemilik' ? 'Semua' : u.boleh,
-      saya: u.baris === akses.baris};
+function cekSandiBaru_(s) {
+  s = String(s || '');
+  if (s.length < 4) return 'Sandi minimal 4 huruf atau angka.';
+  if (s.length > 64) return 'Sandi terlalu panjang.';
+  return '';
+}
+
+function sandiUbah_(ss, akses, req) {
+  var p = bacaPengguna_(ss).filter(function (x) { return x.pengguna === akses.pengguna; })[0];
+  if (!p) return {ok: false, galat: 'Pengguna tidak ditemukan.'};
+  if (hashSandi_(p.garam, String(req.sandiLama || '')) !== p.hash) return {ok: false, galat: 'Sandi lama salah.'};
+  var cek = cekSandiBaru_(req.sandiBaru);
+  if (cek) return {ok: false, galat: cek};
+  if (String(req.sandiBaru) === String(req.sandiLama)) return {ok: false, galat: 'Sandi baru harus berbeda dari sandi lama.'};
+  var garam = idBaru_();
+  var versi = p.versi + 1;
+  tulisPengguna_(ss, p.baris, {'Sandi (terenkripsi)': hashSandi_(garam, req.sandiBaru), 'Garam': garam, 'Versi sesi': versi,
+    'Wajib ganti sandi': 'Tidak'});
+  var app = bacaAplikasi_(ss);
+  if (teks_(app.sandiSementara).indexOf(p.pengguna + ':') === 0) simpanAplikasi_(ss, 'sandiSementara', '');
+  catatLog_(ss, 'Ganti sandi', SH_AKUN, p.baris, '', p.pengguna, akses.pengguna);
+  p.versi = versi; p.wajibGanti = false;
+  return {ok: true, token: buatSesi_(p), akses: aksesDari_(p)};
+}
+
+function penggunaDaftar_(ss, akses) {
+  if (!akses.pemilik) return {ok: false, galat: 'Hanya pemilik yang boleh mengatur pengguna.'};
+  return {ok: true, daftar: bacaPengguna_(ss).map(function (p) {
+    return {pengguna: p.pengguna, nama: p.nama, peran: p.peran, boleh: /^semua$/i.test(p.boleh) ? 'Semua' : tabBoleh_(p.boleh),
+      mengatur: p.mengatur || p.peran === 'Pemilik', aktif: p.aktif, wajibGanti: p.wajibGanti, saya: p.pengguna === akses.pengguna,
+      terakhir: p.terakhir};
   })};
 }
 
-function pinUbah_(ss, akses, req) {
-  var baris = Number(req.baris);
-  var pin = teks_(req.pinBaru);
-  if (pin && !/^\d{4,8}$/.test(pin)) return {ok: false, galat: 'PIN harus 4 sampai 8 angka.'};
-  if (!pin && baris === akses.baris) return {ok: false, galat: 'PIN pemilik tidak boleh dikosongkan.'};
-  var semua = bacaPengguna_(ss);
-  var u = semua.filter(function (x) { return x.baris === baris; })[0];
-  if (!u) return {ok: false, galat: 'Baris PIN tidak dikenal.'};
-  for (var i = 0; i < semua.length; i++) {
-    if (semua[i].baris !== baris && pin && semua[i].pin === pin) return {ok: false, galat: 'PIN itu sudah dipakai ' + semua[i].nama + '. Pilih angka lain.'};
-  }
-  var sh = ss.getSheetByName(u.sumber === 'Pengguna' ? SH_PENGGUNA : 'Pengaturan');
-  var sel = sh.getRange(baris, 2);
-  sel.setNumberFormat('@');
-  sel.setValue(pin);
-  catatLog_(ss, 'Ubah PIN', u.sumber, baris, u.nama + ': ' + (u.pin ? 'ada' : 'kosong'), u.nama + ': ' + (pin ? 'diganti' : 'dimatikan'), akses.nama);
-  return {ok: true};
+function penggunaSimpan_(ss, akses, req) {
+  if (!akses.pemilik) return {ok: false, galat: 'Hanya pemilik yang boleh mengatur pengguna.'};
+  return denganKunci_(function () {
+    var semua = bacaPengguna_(ss);
+    var u = normalNama_(req.pengguna);
+    var p = semua.filter(function (x) { return x.pengguna === u; })[0];
+    var nama = teks_(req.nama);
+    var peran = PERAN_PENGGUNA.indexOf(req.peran) >= 0 ? req.peran : 'Pencatat';
+    var boleh = req.boleh === 'Semua' ? 'Semua' : (req.boleh || []).filter(function (t) { return URUTAN_TAB.indexOf(t) >= 0; }).join(', ');
+    var aktif = req.aktif !== false;
+    if (!nama) return {ok: false, galat: 'Nama wajib diisi.'};
+    if (nama.length > 40) return {ok: false, galat: 'Nama terlalu panjang.'};
+
+    if (req.baru) {
+      if (!/^[a-z0-9._-]{3,30}$/.test(u)) return {ok: false, galat: 'Nama pengguna 3–30 huruf kecil, angka, titik, atau garis bawah. Tanpa spasi.'};
+      if (p) return {ok: false, galat: 'Nama pengguna "' + u + '" sudah dipakai.'};
+      var cek = cekSandiBaru_(req.sandiBaru);
+      if (cek) return {ok: false, galat: cek};
+      var garam = idBaru_();
+      tulisPengguna_(ss, 0, {'Nama pengguna': u, 'Nama': nama, 'Peran': peran, 'Boleh mengisi': boleh, 'Boleh mengatur': req.mengatur ? 'Ya' : 'Tidak',
+        'Aktif': aktif ? 'Ya' : 'Tidak', 'Wajib ganti sandi': req.wajibGanti ? 'Ya' : 'Tidak',
+        'Sandi (terenkripsi)': hashSandi_(garam, req.sandiBaru), 'Garam': garam, 'Versi sesi': 1, 'Terakhir masuk': ''});
+      catatLog_(ss, 'Tambah pengguna', SH_AKUN, '', '', u + ' (' + peran + ')', akses.pengguna);
+      return {ok: true};
+    }
+
+    if (!p) return {ok: false, galat: 'Pengguna tidak ditemukan.'};
+    var pemilikLain = semua.filter(function (x) { return x.peran === 'Pemilik' && x.aktif && x.pengguna !== u; }).length;
+    if (p.peran === 'Pemilik' && p.aktif && (peran !== 'Pemilik' || !aktif) && pemilikLain === 0) {
+      return {ok: false, galat: 'Harus ada minimal satu pemilik yang aktif.'};
+    }
+    var ubah = {'Nama': nama, 'Peran': peran, 'Boleh mengisi': boleh, 'Boleh mengatur': req.mengatur ? 'Ya' : 'Tidak', 'Aktif': aktif ? 'Ya' : 'Tidak'};
+    if (req.sandiBaru) {
+      var cek2 = cekSandiBaru_(req.sandiBaru);
+      if (cek2) return {ok: false, galat: cek2};
+      var garam2 = idBaru_();
+      ubah['Sandi (terenkripsi)'] = hashSandi_(garam2, req.sandiBaru);
+      ubah['Garam'] = garam2;
+      ubah['Versi sesi'] = p.versi + 1;          // HP yang masuk dengan sandi lama diminta masuk lagi
+      ubah['Wajib ganti sandi'] = req.wajibGanti ? 'Ya' : 'Tidak';
+    }
+    tulisPengguna_(ss, p.baris, ubah);
+    catatLog_(ss, 'Ubah pengguna', SH_AKUN, p.baris, '', u + (req.sandiBaru ? ' (sandi diganti)' : ''), akses.pengguna);
+    return {ok: true};
+  });
 }
 
-// ---------------------------------------------------------------- KARYAWAN & ALAT
+// ---------------------------------------------------------------- KARYAWAN, ALAT, TARIF (UNTUK HITUNGAN)
 
 function bacaKaryawan_(ss) {
-  return bacaTabel_(ss.getSheetByName(SH_KARYAWAN), KEPALA_KARYAWAN.length).map(function (x) {
-    var v = x.nilai;
-    return {baris: x.baris, nama: v[0], tim: v[1], alat: v[2], aktif: ya_(v[3]), catatan: v[4]};
+  return bacaMaster_(ss, 'Karyawan').map(function (m) {
+    return {baris: m.baris, nama: m.nilai['Nama'], tim: m.nilai['Tim'], alat: m.nilai['Alat'], aktif: m.aktif};
   });
 }
 
 function bacaAlat_(ss) {
-  return bacaTabel_(ss.getSheetByName(SH_ALAT), KEPALA_ALAT.length).map(function (x) {
-    return {baris: x.baris, nama: x.nilai[0], aktif: ya_(x.nilai[1]), catatan: x.nilai[2]};
-  });
+  return bacaMaster_(ss, 'Alat Suling').map(function (m) { return {baris: m.baris, nama: m.nilai['Nama alat'], aktif: m.aktif}; });
 }
 
 function bacaTarifApi_(ss) {
-  var tarif = [];
-  var tsh = ss.getSheetByName('Tarif Upah');
-  var tn = Math.max(tsh.getLastRow() - 1, 1);
-  tsh.getRange(2, 1, tn, 5).getValues().forEach(function (row) {
-    var pilihan = teks_(row[0]);
-    if (pilihan) tarif.push({pilihan: pilihan, untuk: teks_(row[1]), upah: Number(row[2]) || 0, jenis: teks_(row[3]),
-      sulingan: Number(row[4]) || 0});
+  return bacaMaster_(ss, 'Tarif Upah').map(function (m) {
+    var v = m.nilai;
+    return {pilihan: v['Pilihan'], untuk: v['Untuk'], upah: Number(v['Upah (Rp)']) || 0, jenis: v['Jenis kerja'],
+      sulingan: Number(v['Jumlah sulingan']) || 0, aktif: m.aktif};
   });
-  return tarif;
 }
 
 function bacaReferensi_(ss) {
@@ -352,262 +525,503 @@ function daftarTim_(ref) {
   return tim;
 }
 
-function namaAman_(nama) {
-  if (!nama) return 'Nama wajib diisi.';
-  if (nama.length > 40) return 'Nama terlalu panjang (maksimal 40 huruf).';
-  if (/[,\[\]|*?~]/.test(nama)) return 'Nama tidak boleh berisi koma, kurung siku, atau tanda * ? ~ |.';
-  if (/^semua\b/i.test(nama)) return 'Nama tidak boleh diawali kata "Semua".';
-  return '';
+function timDenganJenis_(tarif, jenis) {
+  var out = [];
+  tarif.forEach(function (t) { if (t.jenis === jenis && t.untuk && !/^semua$/i.test(t.untuk) && out.indexOf(t.untuk) < 0) out.push(t.untuk); });
+  return out;
 }
 
-// Tambah karyawan baru, atau ubah tim / alat / status aktif. Nama tidak bisa diganti (riwayat upah memakai nama).
-function karyawanSimpan_(ss, akses, req) {
-  var sh = siapkanSheet_(ss, SH_KARYAWAN, KEPALA_KARYAWAN);
-  var k = req.karyawan || {};
-  var nama = teks_(k.nama), tim = teks_(k.tim), alat = teks_(k.alat);
-  var aktif = k.aktif === false || k.aktif === 'Tidak' ? 'Tidak' : 'Ya';
+// Upah operator untuk n sulingan dalam sehari, dari Tarif Upah jenis Penyulingan (1x, 2x, 3x suling).
+// Kalau jumlahnya melebihi tarif tertinggi: tarif tertinggi + tarif 1x untuk setiap sulingan tambahan.
+function upahProduksi_(ref, operator, n) {
+  n = Number(n) || 0;
+  if (n <= 0) return 0;
+  var k = ref.karyawan.filter(function (x) { return x.nama === operator; })[0];
+  var tim = k ? k.tim : '';
+  var tingkat = ref.tarif.filter(function (t) {
+    return t.jenis === 'Penyulingan' && t.sulingan > 0 && (!tim || /^semua$/i.test(t.untuk) || t.untuk === tim);
+  });
+  if (!tingkat.length) return 0;
+  var persis = tingkat.filter(function (t) { return t.sulingan === n; })[0];
+  if (persis) return persis.upah;
+  var maks = tingkat.reduce(function (a, b) { return b.sulingan > a.sulingan ? b : a; });
+  var satu = tingkat.filter(function (t) { return t.sulingan === 1; })[0];
+  var perSuling = satu ? satu.upah : Math.round(maks.upah / maks.sulingan);
+  if (n > maks.sulingan) return maks.upah + (n - maks.sulingan) * perSuling;
+  return n * perSuling;
+}
+
+// ---------------------------------------------------------------- DATA INDUK (DIATUR DARI APLIKASI)
+
+function definisiMaster_(ss) {
   var ref = bacaReferensi_(ss);
-  var lama = ref.karyawan.filter(function (x) { return x.nama.toLowerCase() === nama.toLowerCase(); })[0];
-  if (k.baru && lama) return {ok: false, galat: 'Karyawan bernama ' + lama.nama + ' sudah ada' + (lama.aktif ? '.' : ' (nonaktif). Aktifkan saja yang lama.')};
-  if (!k.baru && !lama) return {ok: false, galat: 'Karyawan ' + nama + ' tidak ditemukan. Muat ulang daftar.'};
-  if (k.baru) { var g = namaAman_(nama); if (g) return {ok: false, galat: g}; }
-  if (!tim) return {ok: false, galat: 'Pilih tim.'};
-  if (daftarTim_(ref).indexOf(tim) < 0) return {ok: false, galat: 'Tim ' + tim + ' belum ada di Tarif Upah.'};
-  if (alat && !ref.alat.some(function (a) { return a.nama === alat; })) return {ok: false, galat: 'Alat ' + alat + ' tidak dikenal.'};
-  var isi = [lama ? lama.nama : nama, tim, alat, aktif, lama ? lama.catatan : teks_(k.catatan)];
-  var baris = lama ? lama.baris : Math.max(sh.getLastRow(), 1) + 1;
-  sh.getRange(baris, 1, 1, isi.length).setValues([isi]);
-  catatLog_(ss, lama ? 'Ubah karyawan' : 'Tambah karyawan', SH_KARYAWAN, baris,
-    lama ? [lama.tim, lama.alat, lama.aktif ? 'Ya' : 'Tidak'].join(' | ') : '', isi.slice(0, 4).join(' | '), akses.nama);
-  return {ok: true};
-}
-
-function alatSimpan_(ss, akses, req) {
-  var sh = siapkanSheet_(ss, SH_ALAT, KEPALA_ALAT);
-  var a = req.alat || {};
-  var nama = teks_(a.nama);
-  var aktif = a.aktif === false || a.aktif === 'Tidak' ? 'Tidak' : 'Ya';
-  var semua = bacaAlat_(ss);
-  var lama = semua.filter(function (x) { return x.nama.toLowerCase() === nama.toLowerCase(); })[0];
-  if (a.baru && lama) return {ok: false, galat: 'Alat ' + lama.nama + ' sudah ada.'};
-  if (!a.baru && !lama) return {ok: false, galat: 'Alat ' + nama + ' tidak ditemukan. Muat ulang daftar.'};
-  if (a.baru) { var g = namaAman_(nama); if (g) return {ok: false, galat: g.replace('Nama', 'Nama alat')}; }
-  if (lama && aktif === 'Tidak' && semua.filter(function (x) { return x.aktif && x.nama !== lama.nama; }).length === 0) {
-    return {ok: false, galat: 'Minimal harus ada satu alat suling yang aktif.'};
-  }
-  var isi = [lama ? lama.nama : nama, aktif, lama ? lama.catatan : teks_(a.catatan)];
-  var baris = lama ? lama.baris : Math.max(sh.getLastRow(), 1) + 1;
-  sh.getRange(baris, 1, 1, isi.length).setValues([isi]);
-  catatLog_(ss, lama ? 'Ubah alat' : 'Tambah alat', SH_ALAT, baris, lama ? (lama.aktif ? 'Aktif' : 'Nonaktif') : '', isi.slice(0, 2).join(' | '), akses.nama);
-  return {ok: true};
-}
-
-// ---------------------------------------------------------------- PENGATURAN APLIKASI (TAMPILAN)
-
-function bacaAplikasi_(ss) {
-  var out = {};
-  bacaTabel_(ss.getSheetByName(SH_APLIKASI), 2).forEach(function (x) { out[x.nilai[0]] = x.nilai[1]; });
-  return out;
-}
-
-function simpanAplikasi_(ss, kunci, nilai, ket) {
-  var sh = siapkanSheet_(ss, SH_APLIKASI, KEPALA_APLIKASI, true);
-  sh.getRange('B:B').setNumberFormat('@');           // nilai selalu teks (warna, JSON, logo)
-  var data = bacaTabel_(sh, 1);
-  var ada = data.filter(function (x) { return x.nilai[0] === kunci; })[0];
-  var baris = ada ? ada.baris : Math.max(sh.getLastRow(), 1) + 1;
-  sh.getRange(baris, 1, 1, 2).setValues([[kunci, nilai]]);
-  if (!ada && ket) sh.getRange(baris, 3).setValue(ket);
-}
-
-function jsonAman_(s, bawaan) {
-  try { var v = JSON.parse(s); return v === null || v === undefined ? bawaan : v; } catch (e) { return bawaan; }
-}
-
-function tampilan_(ss) {
-  var a = bacaAplikasi_(ss);
-  var logo = a.logo || '';
-  return {namaUsaha: a.namaUsaha || '', namaAplikasi: a.namaAplikasi || '', warna: a.warna || '',
-    menuBeranda: jsonAman_(a.menuBeranda, null), kartuRingkasan: jsonAman_(a.kartuRingkasan, null),
-    kartuBeranda: jsonAman_(a.kartuBeranda, null),
-    logoTanda: logo ? Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, logo, Utilities.Charset.UTF_8)) : ''};
-}
-
-function logo_(ss) {
-  var a = bacaAplikasi_(ss);
-  return {ok: true, logo: a.logo || '', tanda: tampilan_(ss).logoTanda};
-}
-
-function tampilanSimpan_(ss, akses, req) {
-  var t = req.tampilan || {};
-  var ket = {namaUsaha: 'Nama usaha di aplikasi', namaAplikasi: 'Judul aplikasi', warna: 'Warna utama (#RRGGBB)',
-    logo: 'Logo (gambar kecil, diunggah dari aplikasi)', menuBeranda: 'Urutan tombol catatan di Beranda',
-    kartuRingkasan: 'Kartu yang tampil di Ringkasan', kartuBeranda: 'Kartu yang tampil di Beranda'};
-  var diubah = [];
-  if (t.namaUsaha !== undefined) { if (teks_(t.namaUsaha).length > 60) return {ok: false, galat: 'Nama usaha terlalu panjang.'}; simpanAplikasi_(ss, 'namaUsaha', teks_(t.namaUsaha), ket.namaUsaha); diubah.push('nama usaha'); }
-  if (t.namaAplikasi !== undefined) { if (teks_(t.namaAplikasi).length > 40) return {ok: false, galat: 'Judul aplikasi terlalu panjang.'}; simpanAplikasi_(ss, 'namaAplikasi', teks_(t.namaAplikasi), ket.namaAplikasi); diubah.push('judul'); }
-  if (t.warna !== undefined) {
-    if (t.warna && !/^#[0-9a-fA-F]{6}$/.test(t.warna)) return {ok: false, galat: 'Kode warna tidak valid.'};
-    simpanAplikasi_(ss, 'warna', t.warna || '', ket.warna); diubah.push('warna');
-  }
-  if (t.logo !== undefined) {
-    if (t.logo && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(t.logo)) return {ok: false, galat: 'Gambar logo tidak valid.'};
-    if (t.logo.length > 45000) return {ok: false, galat: 'Gambar logo terlalu besar.'};
-    simpanAplikasi_(ss, 'logo', t.logo || '', ket.logo); diubah.push('logo');
-  }
-  ['menuBeranda', 'kartuRingkasan', 'kartuBeranda'].forEach(function (k) {
-    if (t[k] === undefined) return;
-    var v = t[k] === null ? '' : JSON.stringify((t[k] || []).map(teks_).filter(function (x) { return x; }).slice(0, 60));
-    simpanAplikasi_(ss, k, v, ket[k]); diubah.push(k);
+  var tim = daftarTim_(ref);
+  var kelompok = KELOMPOK_KAS.slice();
+  bacaMaster_(ss, 'Kategori Kas').forEach(function (m) {
+    var k = m.nilai['Kelompok'];
+    if (k && kelompok.indexOf(k) < 0) kelompok.push(k);
   });
-  catatLog_(ss, 'Ubah tampilan', SH_APLIKASI, '', '', diubah.join(', '), akses.nama);
-  return {ok: true, tampilan: tampilan_(ss)};
+  return {
+    'Alat Suling': {kunci: 'alat', judul: 'Alat suling', utama: 'Nama alat', kolom: [
+      {h: 'Nama alat', j: 'teks', wajib: true, bantuan: 'Contoh: Ketel 1, Ketel 2.'},
+      {h: 'Catatan', j: 'teks'}]},
+    'Karyawan': {kunci: 'karyawan', judul: 'Karyawan', utama: 'Nama', keluar: true, kolom: [
+      {h: 'Nama', j: 'teks', wajib: true, bantuan: 'Regu yang upahnya dihitung bersama boleh satu nama, contoh: Eko & Pak Gatot.'},
+      {h: 'Tim', j: 'pilih', opsi: tim, lainnya: true, wajib: true, bantuan: 'Menentukan pilihan absensi dan upahnya.'},
+      {h: 'Alat', j: 'alat', bantuan: 'Untuk tim suling: alat yang biasa dipegang. Otomatis terpilih sebagai operator di Produksi Suling.'},
+      {h: 'No HP', j: 'teks'},
+      {h: 'Catatan', j: 'teks'}]},
+    'Tarif Upah': {kunci: 'tarif', judul: 'Tarif upah', utama: 'Pilihan', kolom: [
+      {h: 'Pilihan', j: 'teks', wajib: true, bantuan: 'Yang dipilih saat absensi, contoh: 1 trip, Harian kenek, Libur.'},
+      {h: 'Untuk', j: 'pilih', opsi: ['Semua'].concat(tim), lainnya: true, wajib: true},
+      {h: 'Upah (Rp)', j: 'rupiah', bantuan: 'Untuk kerja lain biarkan 0: upahnya diisi saat absensi.'},
+      {h: 'Jenis kerja', j: 'pilih', opsi: JENIS_KERJA, wajib: true,
+        bantuan: 'Menentukan pos upah di Rekap. Libur = tidak dihitung hari kerja. Penyulingan dengan jumlah sulingan = tarif borongan di Produksi Suling.'},
+      {h: 'Jumlah sulingan', j: 'angka', bantuan: 'Hanya untuk tarif borongan suling (1, 2, 3). Selain itu isi 0.'}]},
+    'Pilihan': {kunci: 'pilihan', judul: 'Daftar pilihan', utama: 'Pilihan', kelompok: 'Daftar', hapus: true, kolom: [
+      {h: 'Daftar', j: 'pilih', opsi: DAFTAR_PILIHAN, wajib: true},
+      {h: 'Pilihan', j: 'teks', wajib: true}]},
+    'Produk': {kunci: 'produk', judul: 'Produk', utama: 'Produk', hapus: true, kolom: [
+      {h: 'Produk', j: 'teks', wajib: true},
+      {h: 'Satuan', j: 'pilih', opsi: ['kg', 'liter', 'botol', 'pcs'], wajib: true},
+      {h: 'Dihitung sebagai minyak', j: 'pilih', opsi: ['Ya', 'Tidak'], wajib: true, bantuan: 'Ya = ikut dihitung sebagai minyak terjual (kg) di Rekap.'},
+      {h: 'Harga biasa (Rp)', j: 'rupiah', bantuan: 'Otomatis terisi saat mencatat penjualan. Boleh kosong.'}]},
+    'Kategori Kas': {kunci: 'kategori', judul: 'Kategori kas', utama: 'Kategori', hapus: true, kolom: [
+      {h: 'Kategori', j: 'teks', wajib: true},
+      {h: 'Arah', j: 'pilih', opsi: ['Keluar', 'Masuk'], wajib: true},
+      {h: 'Kelompok', j: 'pilih', opsi: kelompok, lainnya: true, wajib: true,
+        bantuan: 'Menentukan kolom di Rekap. Operasional usaha ikut dihitung sebagai biaya produksi.'}]}
+  };
 }
 
-// ---------------------------------------------------------------- FORMULIR (PERTANYAAN)
+// Kolom (judul) yang dibaca untuk setiap data induk, tanpa perlu membaca Sheet.
+var KOLOM_MASTER = {
+  'Alat Suling': [['Nama alat', 'teks'], ['Catatan', 'teks']],
+  'Karyawan': [['Nama', 'teks'], ['Tim', 'teks'], ['Alat', 'teks'], ['No HP', 'teks'], ['Catatan', 'teks']],
+  'Tarif Upah': [['Pilihan', 'teks'], ['Untuk', 'teks'], ['Upah (Rp)', 'rupiah'], ['Jenis kerja', 'teks'], ['Jumlah sulingan', 'angka']],
+  'Produk': [['Produk', 'teks'], ['Satuan', 'teks'], ['Dihitung sebagai minyak', 'teks'], ['Harga biasa (Rp)', 'rupiah']],
+  'Kategori Kas': [['Kategori', 'teks'], ['Arah', 'teks'], ['Kelompok', 'teks']]
+};
+var UTAMA_MASTER = {'Alat Suling': 'Nama alat', 'Karyawan': 'Nama', 'Tarif Upah': 'Pilihan', 'Pilihan': 'Pilihan', 'Produk': 'Produk',
+  'Kategori Kas': 'Kategori'};
 
-function bacaFormulir_(ss) {
-  var out = {};
-  bacaTabel_(ss.getSheetByName(SH_FORMULIR), KEPALA_FORMULIR.length).forEach(function (x) {
-    var v = x.nilai;
-    if (!out[v[0]]) out[v[0]] = [];
-    out[v[0]].push({kolom: v[1], label: v[2], bantuan: v[3], jenis: v[4], wajib: ya_(v[5]) && v[5] !== '',
-      pilihan: v[6] ? v[6].split(';').map(function (s) { return s.trim(); }).filter(function (s) { return s; }) : [],
-      tampil: ya_(v[7]), urutan: Number(v[8]) || 0, asal: v[9] || 'Bawaan'});
-  });
-  return out;
+function nilaiMaster_(jenis, v) {
+  if (jenis === 'rupiah' || jenis === 'angka' || jenis === 'desimal') {
+    if (typeof v === 'number') return v;
+    var s = teks_(v);
+    return s === '' || s === '-' ? '' : angka_(s);
+  }
+  if (jenis === 'tanggal') return tglKunci_(v);
+  if (adalahTanggal_(v)) return tglIso_(v);
+  return teks_(v);
 }
 
-// Mengganti pengaturan pertanyaan satu tab. Pertanyaan tambahan baru dibuatkan kolom di tab tujuan.
-function formulirSimpan_(ss, akses, req) {
-  var tab = teks_(req.tab);
-  if (TAB_BISA_DIATUR.indexOf(tab) < 0) return {ok: false, galat: 'Pertanyaan tab ' + tab + ' tidak bisa diatur dari aplikasi.'};
-  var bidang = Array.isArray(req.bidang) ? req.bidang : [];
-  var sh = ss.getSheetByName(tab);
-  var info = kolomForm_(sh);
-  var dipakai = {};
-  var baris = [], kolomBaru = [];
-  for (var i = 0; i < bidang.length; i++) {
-    var b = bidang[i] || {};
-    var kolom = teks_(b.kolom), asal = b.asal === 'Tambahan' ? 'Tambahan' : 'Bawaan';
-    if (!kolom) return {ok: false, galat: 'Ada pertanyaan tanpa nama.'};
-    if (dipakai[kolom.toLowerCase()]) return {ok: false, galat: 'Pertanyaan "' + kolom + '" ada dua kali.'};
-    dipakai[kolom.toLowerCase()] = 1;
-    var label = teks_(b.label);
-    if (label.length > 80 || teks_(b.bantuan).length > 200) return {ok: false, galat: 'Tulisan pertanyaan "' + kolom + '" terlalu panjang.'};
-    var jenis = '', pilihan = '', wajib = '';
-    if (asal === 'Tambahan') {
-      if (/[\[\]\n]/.test(kolom) || kolom.length > 60) return {ok: false, galat: 'Nama pertanyaan "' + kolom + '" tidak boleh berisi kurung siku dan maksimal 60 huruf.'};
-      if (/^(hari|timestamp)$/i.test(kolom) || /^tanggal$/i.test(kolom)) return {ok: false, galat: 'Nama "' + kolom + '" sudah dipakai aplikasi.'};
-      jenis = teks_(b.jenis);
-      if (JENIS_TAMBAHAN.indexOf(jenis) < 0) return {ok: false, galat: 'Jenis isian "' + jenis + '" tidak dikenal.'};
-      pilihan = (Array.isArray(b.pilihan) ? b.pilihan : []).map(teks_).filter(function (x) { return x; });
-      if ((jenis === 'pilih' || jenis === 'centang') && pilihan.length < 2) return {ok: false, galat: 'Pertanyaan "' + kolom + '" perlu minimal 2 pilihan.'};
-      if (pilihan.some(function (x) { return x.indexOf(';') >= 0; })) return {ok: false, galat: 'Pilihan tidak boleh berisi tanda titik koma.'};
-      pilihan = pilihan.join('; ');
-      wajib = b.wajib ? 'Ya' : 'Tidak';
-      var ada = info.kepala.indexOf(kolom) >= 0;
-      var adaLain = !ada && sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].some(function (h) { return teks_(h) === kolom; });
-      if (adaLain) return {ok: false, galat: 'Nama "' + kolom + '" sudah dipakai kolom rumus di tab ' + tab + '.'};
-      if (!ada) kolomBaru.push(kolom);
-    } else if (info.kepala.indexOf(kolom) < 0) {
-      return {ok: false, galat: 'Kolom "' + kolom + '" tidak ada di tab ' + tab + '.'};
+// Semua baris satu data induk: [{id, nilai, aktif, baris}] sesuai urutan di Sheet.
+function bacaMaster_(ss, tab) {
+  var src = SUMBER_MASTER[tab];
+  var sh = ss.getSheetByName(src.sheet || SH_DAFTAR);
+  if (!sh) return [];
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+  var kepala = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(teks_);
+  var data = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var out = [];
+
+  if (src.daftar) {
+    DAFTAR_PILIHAN.forEach(function (d) {
+      var j = kepala.indexOf(d);
+      if (j < 0) return;
+      for (var i = 0; i < data.length; i++) {
+        var v = teks_(data[i][j]);
+        if (v) out.push({id: d + '|' + v, nilai: {'Daftar': d, 'Pilihan': v}, aktif: true, baris: i + 2, kolom: j + 1});
+      }
+    });
+    return out;
+  }
+
+  if (src.blok) {
+    var idx = src.blok.map(function (p) { return kepala.indexOf(p[1]); });
+    if (idx[0] < 0) return [];
+    for (var b = 0; b < data.length; b++) {
+      var u = teks_(data[b][idx[0]]);
+      if (!u) continue;
+      var nb = {};
+      KOLOM_MASTER[tab].forEach(function (c, k) { nb[c[0]] = idx[k] >= 0 ? nilaiMaster_(c[1], data[b][idx[k]]) : ''; });
+      out.push({id: u, nilai: nb, aktif: true, baris: b + 2});
     }
-    baris.push([tab, kolom, label, teks_(b.bantuan), jenis, wajib, pilihan, b.tampil === false ? 'Tidak' : 'Ya', Number(b.urutan) || (i + 1) * 10, asal]);
+    return out;
   }
-  // Kolom baru disisipkan setelah kolom isian terakhir (sebelum kolom rumus abu-abu).
-  kolomBaru.forEach(function (kolom) {
-    var akhir = kolomForm_(sh).kepala.length + 1;     // kolom isian terakhir (1 = A)
-    sh.insertColumnAfter(akhir);
-    sh.getRange(1, akhir).copyTo(sh.getRange(1, akhir + 1), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
-    sh.getRange(1, akhir + 1).setValue(kolom);
+
+  var utama = UTAMA_MASTER[tab];
+  var iUtama = kepala.indexOf(utama), iAktif = kepala.indexOf('Aktif'), iKeluar = kepala.indexOf('Tanggal keluar');
+  if (iUtama < 0) return [];
+  for (var r = 0; r < data.length; r++) {
+    var v2 = teks_(data[r][iUtama]);
+    if (!v2) { if (src.berhentiDiKosong) break; continue; }
+    var n = {};
+    KOLOM_MASTER[tab].forEach(function (c) { var j = kepala.indexOf(c[0]); n[c[0]] = j >= 0 ? nilaiMaster_(c[1], data[r][j]) : ''; });
+    if (tab === 'Karyawan') n['Tanggal keluar'] = iKeluar >= 0 ? tglKunci_(data[r][iKeluar]) : '';
+    out.push({id: v2, nilai: n, aktif: iAktif >= 0 ? ya_(data[r][iAktif]) : true, baris: r + 2});
+  }
+  return out;
+}
+
+function skemaMaster_(defs) {
+  var out = {};
+  URUTAN_MASTER.forEach(function (t) {
+    var d = defs[t];
+    out[t] = {kunci: d.kunci, judul: d.judul, utama: d.utama, kelompok: d.kelompok || '', keluar: !!d.keluar, hapus: !!d.hapus, kolom: d.kolom};
   });
-  var f = siapkanSheet_(ss, SH_FORMULIR, KEPALA_FORMULIR, true);
-  var lama = bacaTabel_(f, KEPALA_FORMULIR.length).filter(function (x) { return x.nilai[0] === tab; });
-  for (var j = lama.length - 1; j >= 0; j--) f.deleteRow(lama[j].baris);
-  if (baris.length) {
-    var mulai = Math.max(f.getLastRow(), 1) + 1;
-    f.getRange(mulai, 1, baris.length, KEPALA_FORMULIR.length).setValues(baris);
+  return out;
+}
+
+function masterAkses_(akses) { return akses.admin ? '' : 'Hanya pemilik atau pengguna yang boleh mengatur.'; }
+
+// Indeks kolom (1-based) berjudul nama. Kalau belum ada, dibuat di kolom kosong pertama di kanan.
+function pastikanKolom_(sh, nama, coba) {
+  var kepala = kepalaSheet_(sh);
+  var j = kepala.indexOf(nama);
+  if (j >= 0) return j + 1;
+  var kolom = 0;
+  (coba || []).forEach(function (c) { if (!kolom && !teks_(kepala[c - 1])) kolom = c; });
+  if (!kolom) kolom = kepala.length + 1;
+  if (kolom > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), kolom - sh.getMaxColumns());
+  sh.getRange(1, kolom).setValue(nama);
+  return kolom;
+}
+
+function pastikanBaris_(sh, baris) {
+  if (baris > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), baris - sh.getMaxRows() + 20);
+}
+
+function nilaiKeSheet_(jenis, v) {
+  if (jenis === 'rupiah' || jenis === 'angka' || jenis === 'desimal') return v === '' || v === null || v === undefined ? 0 : Number(v) || 0;
+  if (jenis === 'tanggal') return v ? tglDariIso_(tglKunci_(v)) : '';
+  return v === null || v === undefined ? '' : v;
+}
+
+function masterSimpan_(ss, akses, req) {
+  var larang = masterAkses_(akses);
+  if (larang) return {ok: false, galat: larang};
+  var tab = teks_(req.tab);
+  if (!SUMBER_MASTER[tab]) return {ok: false, galat: 'Data tidak dikenal.'};
+  return denganKunci_(function () {
+    var def = definisiMaster_(ss)[tab];
+    var nilai = {};
+    for (var i = 0; i < def.kolom.length; i++) {
+      var c = def.kolom[i];
+      var v = req.nilai ? req.nilai[c.h] : '';
+      if (v === undefined || v === null) v = '';
+      if (c.j === 'rupiah' || c.j === 'desimal' || c.j === 'angka') v = v === '' ? '' : angka_(v);
+      else v = teks_(v);
+      if (c.wajib && v === '') return {ok: false, galat: c.h + ' wajib diisi.'};
+      if (c.opsi && !c.lainnya && v !== '' && c.opsi.indexOf(v) < 0) return {ok: false, galat: c.h + ' tidak dikenal: ' + v};
+      if (c.j === 'angka' && v !== '' && (v < 0 || Math.floor(v) !== v)) return {ok: false, galat: c.h + ' harus angka bulat.'};
+      if ((c.j === 'rupiah') && v !== '' && v < 0) return {ok: false, galat: c.h + ' tidak boleh minus.'};
+      if (typeof v === 'string' && v.length > 80) return {ok: false, galat: c.h + ' terlalu panjang.'};
+      nilai[c.h] = v;
+    }
+    var utama = def.utama;
+    if (/[,\[\]|*?~]/.test(nilai[utama])) return {ok: false, galat: utama + ' tidak boleh berisi koma, kurung siku, atau tanda | * ? ~.'};
+    if (tab === 'Karyawan' && /[,\[\]|]/.test(nilai['Tim'])) return {ok: false, galat: 'Nama tim tidak boleh berisi koma.'};
+    var semua = bacaMaster_(ss, tab);
+    if (tab === 'Karyawan' && nilai['Alat'] && !bacaAlat_(ss).some(function (a) { return a.nama === nilai['Alat']; })) {
+      return {ok: false, galat: 'Alat ' + nilai['Alat'] + ' tidak dikenal.'};
+    }
+    var id = teks_(req.id);
+    var lama = id ? semua.filter(function (m) { return m.id === id; })[0] : null;
+    if (id && !lama) return {ok: false, galat: 'Data ini sudah berubah. Muat ulang.'};
+    var kembar = semua.filter(function (m) {
+      return m !== lama && normalNama_(m.nilai[utama]) === normalNama_(nilai[utama]) &&
+        (!def.kelompok || m.nilai[def.kelompok] === nilai[def.kelompok]);
+    })[0];
+    if (kembar) return {ok: false, galat: '"' + nilai[utama] + '" sudah ada' + (kembar.aktif ? '' : ' (tidak aktif, bisa diaktifkan lagi)') + '.'};
+
+    if (lama) {
+      tulisMaster_(ss, tab, lama, nilai);
+      var namaLama = lama.nilai[utama], namaBaru = nilai[utama];
+      var ganti = namaLama !== namaBaru ? gantiNamaDiCatatan_(ss, tab, namaLama, namaBaru) : 0;
+      catatLog_(ss, 'Ubah data induk', tab, lama.baris, JSON.stringify(lama.nilai), JSON.stringify(nilai), akses.pengguna);
+      return {ok: true, id: tab === 'Pilihan' ? nilai['Daftar'] + '|' + namaBaru : namaBaru, catatanDiganti: ganti};
+    }
+    tambahMaster_(ss, tab, nilai, semua);
+    catatLog_(ss, 'Tambah data induk', tab, '', '', JSON.stringify(nilai), akses.pengguna);
+    return {ok: true, id: tab === 'Pilihan' ? nilai['Daftar'] + '|' + nilai[utama] : nilai[utama]};
+  });
+}
+
+function jenisKolomMaster_(tab, h) {
+  var c = (KOLOM_MASTER[tab] || []).filter(function (x) { return x[0] === h; })[0];
+  return c ? c[1] : 'teks';
+}
+
+function tulisMaster_(ss, tab, lama, nilai) {
+  var src = SUMBER_MASTER[tab];
+  if (src.daftar) {
+    var sh = ss.getSheetByName(SH_DAFTAR);
+    if (lama.nilai['Daftar'] === nilai['Daftar']) { sh.getRange(lama.baris, lama.kolom).setValue(nilai['Pilihan']); return; }
+    hapusDariDaftar_(sh, lama);
+    tambahMaster_(ss, tab, nilai, bacaMaster_(ss, tab));
+    return;
   }
-  catatLog_(ss, 'Ubah formulir', tab, '', '', baris.length + ' pertanyaan diatur' + (kolomBaru.length ? ', kolom baru: ' + kolomBaru.join(', ') : ''), akses.nama);
-  return {ok: true, kolomBaru: kolomBaru, kepala: kolomForm_(sh).kepala};
+  var s = ss.getSheetByName(src.sheet || SH_DAFTAR);
+  Object.keys(nilai).forEach(function (h) {
+    var judul = src.blok ? src.blok.filter(function (p) { return p[0] === h; })[0][1] : h;
+    var kosong = nilai[h] === '' || nilai[h] === null;
+    var kepala = kepalaSheet_(s);
+    var j = kepala.indexOf(judul);
+    if (j < 0) {
+      if (kosong) return;
+      j = pastikanKolom_(s, judul, src.blok ? [kolomSetelahBlok_(s, src)] : []) - 1;
+    }
+    s.getRange(lama.baris, j + 1).setValue(nilaiKeSheet_(jenisKolomMaster_(tab, h), nilai[h]));
+  });
+}
+
+// Kolom kosong tepat di kanan blok (untuk kolom baru seperti "Harga biasa (Rp)").
+function kolomSetelahBlok_(sh, src) {
+  var kepala = kepalaSheet_(sh);
+  var maks = 0;
+  src.blok.forEach(function (p) { var j = kepala.indexOf(p[1]); if (j + 1 > maks) maks = j + 1; });
+  return maks + 1;
+}
+
+function tambahMaster_(ss, tab, nilai, semua) {
+  var src = SUMBER_MASTER[tab];
+  if (src.daftar) {
+    var sh = ss.getSheetByName(SH_DAFTAR);
+    var kolom = pastikanKolom_(sh, nilai['Daftar']);
+    var akhir = sh.getLastRow();
+    var isi = akhir >= 2 ? sh.getRange(2, kolom, akhir - 1, 1).getValues() : [];
+    var baris = 2;
+    for (var i = isi.length - 1; i >= 0; i--) { if (teks_(isi[i][0])) { baris = i + 3; break; } }
+    pastikanBaris_(sh, baris);
+    sh.getRange(baris, kolom).setValue(nilai['Pilihan']);
+    return;
+  }
+  var s = ss.getSheetByName(src.sheet || SH_DAFTAR);
+  var kepala = kepalaSheet_(s);
+  var barisBaru;
+  if (src.blok) {
+    var iU = kepala.indexOf(src.blok[0][1]);
+    var akhirB = s.getLastRow();
+    var kol = akhirB >= 2 ? s.getRange(2, iU + 1, akhirB - 1, 1).getValues() : [];
+    barisBaru = 2;
+    for (var b = kol.length - 1; b >= 0; b--) { if (teks_(kol[b][0])) { barisBaru = b + 3; break; } }
+  } else if (src.berhentiDiKosong) {
+    barisBaru = 2 + semua.length;
+  } else {
+    barisBaru = Math.max(s.getLastRow(), 1) + 1;
+  }
+  pastikanBaris_(s, barisBaru);
+  var tulis = {};
+  Object.keys(nilai).forEach(function (h) { tulis[src.blok ? src.blok.filter(function (p) { return p[0] === h; })[0][1] : h] = {h: h, v: nilai[h]}; });
+  if (!src.blok) tulis['Aktif'] = {h: 'Aktif', v: 'Ya'};
+  Object.keys(tulis).forEach(function (judul) {
+    var x = tulis[judul];
+    var j = kepala.indexOf(judul);
+    if (j < 0) {
+      if (x.v === '' || judul === 'Aktif') return;
+      j = pastikanKolom_(s, judul, src.blok ? [kolomSetelahBlok_(s, src)] : []) - 1;
+      kepala = kepalaSheet_(s);
+    }
+    s.getRange(barisBaru, j + 1).setValue(nilaiKeSheet_(jenisKolomMaster_(tab, x.h), x.v));
+  });
+  // Rumus per baris (misalnya kolom F-H di Tarif Upah) disalin dari baris di atasnya.
+  if (barisBaru > 2) {
+    var lebar = s.getLastColumn();
+    var rumus = s.getRange(barisBaru - 1, 1, 1, lebar).getFormulasR1C1()[0];
+    rumus.forEach(function (f, j) { if (f && !(kepala[j] in tulis)) s.getRange(barisBaru, j + 1).setFormulaR1C1(f); });
+  }
+}
+
+function hapusDariDaftar_(sh, m) {
+  var akhir = sh.getLastRow();
+  if (akhir < 2) return;
+  var vals = sh.getRange(2, m.kolom, akhir - 1, 1).getValues().map(function (r) { return r[0]; });
+  var sisa = vals.filter(function (v, i) { return i + 2 !== m.baris; }).filter(function (v) { return teks_(v) !== ''; });
+  var tulis = vals.map(function (v, i) { return [i < sisa.length ? sisa[i] : '']; });
+  sh.getRange(2, m.kolom, tulis.length, 1).setValues(tulis);
+}
+
+function blokKolom_(sh, src) {
+  var kepala = kepalaSheet_(sh);
+  return src.blok.map(function (p) { return kepala.indexOf(p[1]) + 1; }).filter(function (c) { return c > 0; });
+}
+
+// Menulis ulang baris-baris data induk sesuai urutan baru (hanya kolom data induk, rumus tidak disentuh).
+function tulisUlangUrutan_(sh, kolom, posisi, barisSumber) {
+  kolom.forEach(function (c) {
+    var nilai = barisSumber.map(function (b) { return sh.getRange(b, c).getValue(); });
+    posisi.forEach(function (p, i) { sh.getRange(p, c).setValue(nilai[i]); });
+  });
+}
+
+function masterAktif_(ss, akses, req) {
+  var larang = masterAkses_(akses);
+  if (larang) return {ok: false, galat: larang};
+  var tab = teks_(req.tab);
+  var src = SUMBER_MASTER[tab];
+  if (!src) return {ok: false, galat: 'Data tidak dikenal.'};
+  return denganKunci_(function () {
+    var semua = bacaMaster_(ss, tab);
+    var m = semua.filter(function (x) { return x.id === teks_(req.id); })[0];
+    if (!m) return {ok: false, galat: 'Data ini sudah berubah. Muat ulang.'};
+    var aktif = req.aktif !== false;
+    var nama = m.nilai[UTAMA_MASTER[tab]];
+    if (src.daftar || src.blok) {
+      if (aktif) return {ok: true};
+      var sh = ss.getSheetByName(SH_DAFTAR);
+      if (src.daftar) {
+        hapusDariDaftar_(sh, m);
+      } else {
+        var kolom = blokKolom_(sh, src);
+        var lain = semua.filter(function (x) { return x !== m; });
+        var posisi = semua.map(function (x) { return x.baris; });
+        tulisUlangUrutan_(sh, kolom, posisi.slice(0, lain.length), lain.map(function (x) { return x.baris; }));
+        kolom.forEach(function (c) { sh.getRange(posisi[posisi.length - 1], c).setValue(''); });
+      }
+      catatLog_(ss, 'Hapus data induk', tab, m.baris, nama, '', akses.pengguna);
+      return {ok: true, dihapus: true};
+    }
+    var s = ss.getSheetByName(src.sheet);
+    if (tab === 'Alat Suling' && !aktif && semua.filter(function (x) { return x.aktif && x !== m; }).length === 0) {
+      return {ok: false, galat: 'Minimal harus ada satu alat suling yang aktif.'};
+    }
+    var kAktif = pastikanKolom_(s, 'Aktif', tab === 'Tarif Upah' ? [9] : []);
+    s.getRange(m.baris, kAktif).setValue(aktif ? 'Ya' : 'Tidak');
+    if (tab === 'Karyawan') {
+      var kKeluar = pastikanKolom_(s, 'Tanggal keluar');
+      s.getRange(m.baris, kKeluar).setValue(aktif ? '' : tglDariIso_(tglKunci_(req.tanggalKeluar) || hariIniIso_()));
+    }
+    catatLog_(ss, aktif ? 'Aktifkan' : 'Nonaktifkan', tab, m.baris, '', nama, akses.pengguna);
+    return {ok: true};
+  });
+}
+
+function masterUrut_(ss, akses, req) {
+  var larang = masterAkses_(akses);
+  if (larang) return {ok: false, galat: larang};
+  var tab = teks_(req.tab);
+  var src = SUMBER_MASTER[tab];
+  if (!src) return {ok: false, galat: 'Data tidak dikenal.'};
+  var ids = (req.ids || []).map(String);
+  return denganKunci_(function () {
+    var semua = bacaMaster_(ss, tab);
+    if (src.daftar) {
+      var pertama = semua.filter(function (m) { return m.id === ids[0]; })[0];
+      if (!pertama) return {ok: true};
+      semua = semua.filter(function (m) { return m.kolom === pertama.kolom; });
+    }
+    var sisa = semua.filter(function (m) { return ids.indexOf(m.id) < 0; });
+    var urutan = ids.map(function (id) { return semua.filter(function (m) { return m.id === id; })[0]; })
+      .filter(function (m) { return m; }).concat(sisa);
+    var posisi = semua.map(function (m) { return m.baris; }).sort(function (a, b) { return a - b; });
+    var sh = ss.getSheetByName(src.sheet || SH_DAFTAR);
+    var kolom;
+    if (src.daftar) kolom = [semua[0].kolom];
+    else if (src.blok) kolom = blokKolom_(sh, src);
+    else {
+      var kepala = kepalaSheet_(sh);
+      kolom = KOLOM_MASTER[tab].map(function (c) { return c[0]; }).concat(['Aktif', 'Tanggal keluar'])
+        .map(function (h) { return kepala.indexOf(h) + 1; }).filter(function (c) { return c > 0; });
+    }
+    tulisUlangUrutan_(sh, kolom, posisi, urutan.map(function (m) { return m.baris; }));
+    return {ok: true};
+  });
+}
+
+// Kalau nama karyawan, alat, tarif, produk, atau kategori diganti, catatan lama ikut diganti supaya rekap tetap utuh.
+function gantiNamaDiCatatan_(ss, tab, lama, baru) {
+  var target = {
+    'Karyawan': [[SH_ABSENSI, 'Nama', false], [SH_PRODUKSI, 'Operator', false], ['Ambil Bahan', 'Pengumpul', true]],
+    'Alat Suling': [[SH_ABSENSI, 'Alat', false], [SH_PRODUKSI, 'Alat suling', false], [SH_KARYAWAN, 'Alat', false]],
+    'Tarif Upah': [[SH_ABSENSI, 'Pekerjaan', false]],
+    'Produk': [['Penjualan', 'Produk', false]],
+    'Kategori Kas': [['Kas', 'Kategori', false]]
+  }[tab] || [];
+  var jumlah = 0;
+  target.forEach(function (tg) {
+    var sh = ss.getSheetByName(tg[0]);
+    if (!sh || sh.getLastRow() < 2) return;
+    var j = kepalaSheet_(sh).indexOf(tg[1]);
+    if (j < 0) return;
+    var rg = sh.getRange(2, j + 1, sh.getLastRow() - 1, 1);
+    var vals = rg.getValues();
+    var berubah = false;
+    vals.forEach(function (r) {
+      var v = teks_(r[0]);
+      if (tg[2]) {
+        var bagian = v.split(',').map(function (x) { return x.trim(); });
+        if (bagian.indexOf(lama) >= 0) {
+          r[0] = bagian.map(function (x) { return x === lama ? baru : x; }).join(', ');
+          berubah = true; if (tg[0] !== SH_KARYAWAN) jumlah++;
+        }
+      } else if (v === lama) {
+        r[0] = baru; berubah = true; if (tg[0] !== SH_KARYAWAN) jumlah++;
+      }
+    });
+    if (berubah) rg.setValues(vals);
+  });
+  return jumlah;
 }
 
 // ---------------------------------------------------------------- CONFIG
 
-function config_(ss, akses, req) {
-  var daftar = {};
-  var satuanProduk = {};
-  var arahKas = {};
-  var sh = ss.getSheetByName('Daftar');
-  var nilai = sh.getDataRange().getDisplayValues();
-  var kepala = nilai[0];
-  for (var c = 0; c < kepala.length; c++) {
-    var k = teks_(kepala[c]);
-    if (!k) continue;
-    var isi = [];
-    for (var r = 1; r < nilai.length; r++) {
-      var v = teks_(nilai[r][c]);
-      if (v) isi.push(v);
-    }
-    daftar[k] = isi;
-  }
-  var cProduk = kepala.indexOf('Produk'), cSatuan = kepala.indexOf('Satuan');
-  var cKategori = kepala.indexOf('Kategori kas'), cArah = kepala.indexOf('Arah');
-  for (var b = 1; b < nilai.length; b++) {
-    if (cProduk >= 0 && cSatuan >= 0 && nilai[b][cProduk]) satuanProduk[teks_(nilai[b][cProduk])] = teks_(nilai[b][cSatuan]);
-    if (cKategori >= 0 && cArah >= 0 && nilai[b][cKategori]) arahKas[teks_(nilai[b][cKategori])] = teks_(nilai[b][cArah]);
-  }
-
-  var ref = bacaReferensi_(ss);
-  // Pilihan "Pengumpul" di Ambil Bahan mengikuti karyawan aktif tim Pengumpul.
-  if (ref.karyawan.length) {
-    daftar['Pengumpul'] = ref.karyawan.filter(function (x) { return x.aktif && x.tim === 'Pengumpul'; }).map(function (x) { return x.nama; });
-  }
-
-  var klienBaru = Number(req && req.klien) >= 2;
-  var kepalaTab = {};
-  akses.tab.forEach(function (t) {
-    if (t === 'Absensi' && !klienBaru) { kepalaTab[t] = kepalaAbsensiLama_(ref); return; }
-    var s = ss.getSheetByName(namaSheet_(t));
-    if (s) kepalaTab[t] = kolomForm_(s).kepala;
+function config_(ss, akses) {
+  var app = bacaAplikasi_(ss);
+  var master = {};
+  URUTAN_MASTER.forEach(function (t) {
+    master[t] = bacaMaster_(ss, t).filter(function (m) { return akses.admin || m.aktif; })
+      .map(function (m) { return {id: m.id, nilai: m.nilai, aktif: m.aktif}; });
   });
-
-  return {ok: true, nama: akses.nama, peran: akses.peran, tab: akses.tab, semua: akses.semua, mandor: akses.mandor,
-    jobdeskSaja: akses.jobdeskSaja, absenUntuk: namaBoleh_(akses, ref.karyawan), versiApi: API_VERSI,
-    kelompokAbsensi: akses.kelompokAbsensi, daftar: daftar, satuanProduk: satuanProduk, arahKas: arahKas,
-    tarif: ref.tarif, kepala: kepalaTab,
-    karyawan: ref.karyawan.map(function (x) { return {nama: x.nama, tim: x.tim, alat: x.alat, aktif: x.aktif}; }),
-    alat: ref.alat.map(function (x) { return {nama: x.nama, aktif: x.aktif}; }),
-    tim: daftarTim_(ref), tampilan: tampilan_(ss), formulir: bacaFormulir_(ss)};
+  return {ok: true, versiApi: API_VERSI, akses: akses, master: master,
+    skema: akses.admin ? skemaMaster_(definisiMaster_(ss)) : null,
+    pengaturan: {namaUsaha: app.namaUsaha || 'Sembada Karya Wangi', namaAplikasi: app.namaAplikasi || 'Catatan Sembada', awalMinggu: 'Senin'},
+    tampilan: jsonAman_(app.tampilanV7 || '{}', {}), logoTanda: tandaLogo_(app.logo || '')};
 }
 
-// Judul kolom absensi format lama (untuk aplikasi versi lama yang masih terbuka di HP).
-function kepalaAbsensiLama_(ref) {
-  var aktif = ref.karyawan.filter(function (k) { return k.aktif; });
-  return ['Timestamp', 'Tanggal'].concat(aktif.map(function (k) { return k.tim + ' [' + k.nama + ']'; }),
-    ['Keterangan', 'Ada kerja lain dengan upah khusus hari ini?', 'Pekerjaan lain', 'Kerja lain untuk'],
-    aktif.map(function (k) { return 'Upah kerja lain ' + k.nama + ' (Rp)'; }));
+function logo_(ss) {
+  var app = bacaAplikasi_(ss);
+  return {ok: true, logo: app.logo || '', tanda: tandaLogo_(app.logo || '')};
 }
 
-// Kolom isian form: kolom B (Timestamp) sampai sebelum kolom rumus (abu-abu) pertama.
-function kolomForm_(sh) {
-  var lastCol = sh.getLastColumn();
-  var judul = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
-  var rumus = sh.getRange(1, 1, 1, lastCol).getFormulas()[0];
-  var akhir = 2;                                   // indeks 0-based, mulai dari kolom C
-  while (akhir < lastCol && rumus[akhir] === '') akhir++;
-  return {kepala: judul.slice(1, akhir).map(function (j) { return teks_(j); }), lastCol: lastCol};
+function tampilanSimpan_(ss, akses, req) {
+  if (!akses.pemilik) return {ok: false, galat: 'Hanya pemilik yang boleh mengubah tampilan untuk semua.'};
+  return denganKunci_(function () {
+    var diubah = [];
+    if (req.tampilan !== undefined) {
+      var teks = JSON.stringify(req.tampilan || {});
+      if (teks.length > 40000) return {ok: false, galat: 'Pengaturan tampilan terlalu besar.'};
+      simpanAplikasi_(ss, 'tampilanV7', teks, 'Warna, ukuran, dan tata letak aplikasi (diatur dari aplikasi, jangan diubah manual)');
+      diubah.push('tampilan');
+    }
+    if (req.namaAplikasi !== undefined) {
+      var nama = teks_(req.namaAplikasi);
+      if (nama.length > 40) return {ok: false, galat: 'Nama aplikasi terlalu panjang (maksimal 40 huruf).'};
+      simpanAplikasi_(ss, 'namaAplikasi', nama, 'Judul aplikasi');
+      diubah.push('nama aplikasi');
+    }
+    if (req.logo !== undefined && req.logo !== null) {
+      var logo = teks_(req.logo);
+      if (logo && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/=]+$/.test(logo)) return {ok: false, galat: 'Gambar logo tidak valid.'};
+      if (logo.length > 45000) return {ok: false, galat: 'Gambar logo terlalu besar.'};
+      simpanAplikasi_(ss, 'logo', logo, 'Logo (gambar kecil, diunggah dari aplikasi)');
+      diubah.push(logo ? 'logo' : 'logo bawaan');
+    }
+    catatLog_(ss, 'Ubah tampilan', SH_APLIKASI, '', '', diubah.join(', '), akses.pengguna);
+    var app = bacaAplikasi_(ss);
+    return {ok: true, logoTanda: tandaLogo_(app.logo || '')};
+  });
 }
 
-// ---------------------------------------------------------------- SIMPAN
+// ---------------------------------------------------------------- SIMPAN CATATAN
 
 function simpan_(ss, akses, req) {
   var tab = teks_(req.tab);
-  if (akses.tab.indexOf(tab) < 0) return {ok: false, galat: 'PIN ini tidak boleh mengisi ' + tab + '.'};
-  var nilai = req.nilai || {};
+  if (URUTAN_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Catatan tidak dikenal: ' + tab};
+  if (akses.tab.indexOf(tab) < 0) return {ok: false, galat: 'Akun ini tidak boleh mengisi ' + tab + '.'};
   var id = teks_(req.id);
-
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -615,36 +1029,51 @@ function simpan_(ss, akses, req) {
     var ids = [];
     try { ids = JSON.parse(props.getProperty('idMasuk') || '[]'); } catch (e) { ids = []; }
     if (id && ids.indexOf(id) >= 0) return {ok: true, dobel: true};
-    var catatId = function () {
-      if (!id) return;
-      ids.push(id);
-      if (ids.length > API_SIMPAN_ID) ids = ids.slice(ids.length - API_SIMPAN_ID);
-      props.setProperty('idMasuk', JSON.stringify(ids));
-    };
 
+    var hasil;
     if (tab === 'Absensi') {
       pindahkanAbsensiLama_(ss);
-      var hasil = simpanAbsensi_(ss, akses, nilai);
-      if (hasil.ok) catatId();
-      return hasil;
+      hasil = simpanAbsensi_(ss, akses, req);
+    } else if (tab === 'Produksi Suling') {
+      hasil = simpanProduksi_(ss, akses, req, id);
+    } else {
+      hasil = simpanUmum_(ss, tab, req.nilai || {});
     }
-
-    var sh = ss.getSheetByName(tab);
-    var info = kolomForm_(sh);
-    var baris = susunBaris_(info.kepala, nilai, new Date());
-    if (baris.asing.length) {
-      return {ok: false, galat: 'Kolom tidak ditemukan di tab ' + tab + ': ' + baris.asing.join(', ') +
-        '. Buka menu Akun > Perbarui pilihan, lalu kirim ulang.'};
+    if (hasil.ok && id) {
+      ids.push(id);
+      if (ids.length > API_SIMPAN_ID) ids = ids.slice(ids.length - API_SIMPAN_ID);
+      while (JSON.stringify(ids).length > 8000) ids.shift();       // batas 9 KB per nilai
+      props.setProperty('idMasuk', JSON.stringify(ids));
     }
-    sh.insertRowBefore(2);
-    sh.getRange(2, 2, 1, baris.isi.length).setValues([baris.isi]);
-    SpreadsheetApp.flush();
-    rapikan_(sh, info.lastCol);
-    catatId();
-    return {ok: true};
+    if (hasil.ok && !hasil.dobel) catatLog_(ss, 'Tambah', tab, '', '', ringkasIsian_(req), akses.nama);
+    return hasil;
   } finally {
     lock.releaseLock();
   }
+}
+
+function ringkasIsian_(req) {
+  try { return JSON.stringify({nilai: req.nilai || {}, baris: req.baris || undefined}).slice(0, 1500); } catch (e) { return ''; }
+}
+
+function simpanUmum_(ss, tab, nilai) {
+  var sh = ss.getSheetByName(tab);
+  if (!sh) return {ok: false, galat: 'Tab ' + tab + ' tidak ada di Google Sheet.'};
+  var info = kolomForm_(sh);
+  var kolTgl = info.kepala[1];
+  var tgl = teks_(nilai[kolTgl]);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: kolTgl + ' wajib diisi.'};
+  if (tgl > hariIniIso_()) return {ok: false, galat: 'Tanggal tidak boleh setelah hari ini.'};
+  var baris = susunBaris_(info.kepala, nilai, new Date());
+  if (baris.asing.length) {
+    return {ok: false, galat: 'Kolom tidak ditemukan di tab ' + tab + ': ' + baris.asing.join(', ') +
+      '. Buka menu Akun > Perbarui data, lalu kirim ulang.'};
+  }
+  sh.insertRowBefore(2);
+  sh.getRange(2, 2, 1, baris.isi.length).setValues([baris.isi]);
+  SpreadsheetApp.flush();
+  rapikan_(sh, info.lastCol);
+  return {ok: true};
 }
 
 function rapikan_(sh, lastCol) {
@@ -676,27 +1105,48 @@ function ubahNilai_(judul, v) {
   }
   if (typeof v === 'number') return isFinite(v) ? v : '';
   var s = String(v).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {                // isian tanggal dari aplikasi
-    return Utilities.parseDate(s, API_ZONA, 'yyyy-MM-dd');
-  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return tglDariIso_(s);   // isian tanggal dari aplikasi
   return s;
 }
 
 // ---------------------------------------------------------------- ABSENSI (SATU BARIS PER ORANG PER HARI)
 //
-// Isian dari aplikasi baru: {Tanggal, Keterangan, baris: [{nama, pekerjaan, alat, upah, pekerjaanLain, kerjaLainUntuk}]}
-// Isian format lama (aplikasi versi lama / Google Form): {"Tim [Nama]": pilihan, "Upah kerja lain Nama (Rp)": angka, ...}
+// Isian aplikasi versi 7: nilai {Tanggal, Keterangan}, baris [{Nama, Pekerjaan, Pekerjaan lain, Upah kerja lain (Rp), Kerja lain untuk}]
+// Isian aplikasi versi 2 (antrian lama di HP): nilai {Tanggal, Keterangan, baris: [{nama, pekerjaan, alat, upah, pekerjaanLain, kerjaLainUntuk}]}
+// Isian format lama (Google Form): {"Tim [Nama]": pilihan, "Upah kerja lain Nama (Rp)": angka, ...}
 
-function simpanAbsensi_(ss, akses, nilai) {
+function simpanAbsensi_(ss, akses, req) {
   var sh = siapkanSheet_(ss, SH_ABSENSI, KEPALA_ABSENSI);
   var ref = bacaReferensi_(ss);
-  var entri = Array.isArray(nilai.baris) ? entriBaru_(nilai) : entriLama_(nilai);
+  var nilai = req.nilai || {};
+  var entri;
+  if (Array.isArray(nilai.baris)) entri = entriBaru_(nilai);
+  else if (Array.isArray(req.baris)) entri = entriV7_(nilai, req.baris, ref);
+  else entri = entriLama_(nilai);
   if (!entri.length) return {ok: false, galat: 'Isi minimal satu orang.'};
   var g = periksaEntri_(entri, akses, ref);
   if (g) return {ok: false, galat: g};
   var waktu = new Date();
-  var oleh = akses.nama || akses.peran;
-  return tulisAbsensi_(ss, sh, entri.map(function (e) { return barisAbsensi_(e, ref, oleh, waktu); }), {});
+  return tulisAbsensi_(ss, sh, entri.map(function (e) { return barisAbsensi_(e, ref, akses.nama, waktu); }), {});
+}
+
+function entriV7_(nilai, baris, ref) {
+  var tgl = teks_(nilai['Tanggal']), ket = teks_(nilai['Keterangan']);
+  var tLain = ref.tarif.filter(function (t) { return t.jenis === 'Kerja lain'; })[0];
+  var out = [];
+  baris.forEach(function (b) {
+    var nama = teks_(b['Nama']);
+    if (!nama) return;
+    var pek = teks_(b['Pekerjaan']);
+    if (pek) out.push({tanggal: tgl, nama: nama, pekerjaan: pek, alat: '', upah: 0, keterangan: ket});
+    var pl = teks_(b['Pekerjaan lain']), ul = angka_(b['Upah kerja lain (Rp)']);
+    if (pl || ul > 0) {
+      out.push({tanggal: tgl, nama: nama, pekerjaan: tLain ? tLain.pilihan : 'Kerja lain', alat: '', upah: ul,
+        pekerjaanLain: pl, kerjaLainUntuk: teks_(b['Kerja lain untuk']), keterangan: ket});
+    }
+  });
+  if (!out.length && ket) out.push({tanggal: tgl, nama: '', pekerjaan: '', keterangan: ket});
+  return out;
 }
 
 function entriBaru_(nilai) {
@@ -736,31 +1186,28 @@ function entriLama_(nilai) {
   return out;
 }
 
-// Memeriksa hak dan isian. sistem = true untuk pemindahan data lama (tanpa cek hak).
+// Memeriksa isian absensi. sistem = true untuk pemindahan data lama (tanpa cek hak).
 function periksaEntri_(entri, akses, ref, sistem) {
-  var boleh = sistem ? null : namaBoleh_(akses, ref.karyawan);
   var alatAktif = ref.alat.filter(function (a) { return a.aktif; }).map(function (a) { return a.nama; });
   var sudah = {};
   for (var i = 0; i < entri.length; i++) {
     var e = entri[i];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.tanggal)) return 'Tanggal tidak valid.';
-    if (!sistem && e.tanggal > tglIso_(new Date())) return 'Tanggal tidak boleh setelah hari ini.';
+    if (!sistem && e.tanggal > hariIniIso_()) return 'Tanggal tidak boleh setelah hari ini.';
     if (!e.nama) continue;                                         // hanya keterangan
     var k = ref.karyawan.filter(function (x) { return x.nama === e.nama; })[0];
     if (!k) { if (sistem) continue; return e.nama + ' tidak ada di daftar karyawan.'; }
-    if (!sistem && !k.aktif && !akses.semua) return e.nama + ' sudah tidak aktif.';
-    if (boleh && boleh.indexOf(e.nama) < 0) return 'PIN ini tidak boleh mengabsen ' + e.nama + '.';
+    if (!sistem && !k.aktif && !(akses && akses.admin)) return e.nama + ' sudah tidak aktif.';
     var t = ref.tarif.filter(function (x) { return x.pilihan === e.pekerjaan; })[0];
     if (!t) { if (sistem) continue; return '"' + e.pekerjaan + '" tidak ada di Tarif Upah.'; }
     if (!sistem && !/^semua$/i.test(t.untuk) && t.untuk !== k.tim) return '"' + e.pekerjaan + '" bukan pilihan untuk ' + k.tim + '.';
-    if (!sistem && akses.jobdeskSaja && (t.jenis === 'Kerja harian' || t.jenis === 'Kerja lain')) {
-      return '"' + e.pekerjaan + '" bukan pekerjaan rutin ' + e.nama + '. Kerja harian dan kerja lain diisi mandor atau pemilik.';
+    if (t.jenis === 'Kerja lain') {
+      if (!(e.upah >= 0)) return 'Upah kerja lain ' + e.nama + ' tidak valid.';
+      if (!sistem && !e.pekerjaanLain && !(e.upah > 0)) return 'Tulis pekerjaan lain untuk ' + e.nama + '.';
     }
-    if (t.jenis === 'Kerja lain' && !(e.upah >= 0)) return 'Upah kerja lain ' + e.nama + ' tidak valid.';
     if (t.jenis === 'Penyulingan') {
       if (e.alat && ref.alat.length && !ref.alat.some(function (a) { return a.nama === e.alat; })) return 'Alat "' + e.alat + '" tidak dikenal.';
       if (!e.alat) e.alat = (k.alat && alatAktif.indexOf(k.alat) >= 0) ? k.alat : (alatAktif.length === 1 ? alatAktif[0] : '');
-      if (!e.alat && alatAktif.length > 1 && !sistem) return 'Pilih alat suling yang dipakai ' + e.nama + '.';
     } else {
       e.alat = '';
     }
@@ -791,7 +1238,7 @@ function barisAbsensi_(e, ref, oleh, waktu) {
   var jenis = t ? t.jenis : '';
   var lain = jenis === 'Kerja lain';
   var upah = lain ? (Number(e.upah) || 0) : (t ? t.upah : 0);
-  return [waktu, Utilities.parseDate(e.tanggal, API_ZONA, 'yyyy-MM-dd'), e.nama, k ? k.tim : '', e.pekerjaan || '',
+  return [waktu, tglDariIso_(e.tanggal), e.nama, k ? k.tim : '', e.pekerjaan || '',
     e.alat || '', e.nama ? (t ? t.sulingan : 0) : 0, e.nama ? upah : 0, e.nama ? posUpah_(jenis, e.kerjaLainUntuk) : '',
     lain ? (e.pekerjaanLain || '') : '', lain ? (e.kerjaLainUntuk || '') : '', e.keterangan || '', oleh];
 }
@@ -799,7 +1246,7 @@ function barisAbsensi_(e, ref, oleh, waktu) {
 function kunciAbsensi_(r) {
   var tgl = adalahTanggal_(r[1]) ? tglIso_(r[1]) : teks_(r[1]);
   if (!teks_(r[2])) return tgl + '||ket|' + teks_(r[11]);
-  return tgl + '|' + teks_(r[2]) + '|' + (teks_(r[4]) === 'Kerja lain' ? 'lain' : 'utama');
+  return tgl + '|' + teks_(r[2]) + '|' + (teks_(r[4]) === 'Kerja lain' || teks_(r[9]) ? 'lain' : 'utama');
 }
 
 // Menulis baris baru. Orang yang sudah tercatat dengan isi sama dilewati; isi berbeda = bentrok.
@@ -820,7 +1267,7 @@ function tulisAbsensi_(ss, sh, barisBaru, opsi) {
   });
   if (bentrok.length && !opsi.lewatiBentrok) {
     return {ok: false, kode: 'SUDAH', galat: 'Absensi ' + tglIndo_(tglIso_(barisBaru[0][1])) + ': ' + bentrok.join('; ') +
-      '. Kalau salah, pemilik bisa mengubahnya lewat Riwayat.'};
+      '. Kalau salah, ubah lewat Riwayat.'};
   }
   if (!tulis.length) return {ok: true, dobel: true, ditambah: 0, bentrok: bentrok};
   sh.insertRowsBefore(2, tulis.length);
@@ -830,7 +1277,7 @@ function tulisAbsensi_(ss, sh, barisBaru, opsi) {
   return {ok: true, ditambah: tulis.length, dobel: dobel > 0 ? dobel : undefined, bentrok: bentrok};
 }
 
-// Isian baru di tab Absensi lama (format satu baris per hari) dipindahkan ke Absensi Harian.
+// Isian baru di tab Absensi lama (format satu baris per hari, dari Google Form) dipindahkan ke Absensi Harian.
 function pindahkanAbsensiLama_(ss) {
   var lama = ss.getSheetByName(SH_ABSENSI_LAMA), baru = ss.getSheetByName(SH_ABSENSI);
   if (!lama || !baru) return 0;
@@ -867,138 +1314,158 @@ function cobaPindahkanAbsensiLama_(ss) {
   try { pindahkanAbsensiLama_(ss); } catch (e) { /* tidak boleh menggagalkan permintaan */ } finally { lock.releaseLock(); }
 }
 
-// ---------------------------------------------------------------- TERBARU
+// ---------------------------------------------------------------- PRODUKSI SULING (SATU BARIS PER ALAT PER HARI)
+
+function siapkanProduksi_(ss) {
+  var sh = ss.getSheetByName(SH_PRODUKSI);
+  if (sh) return sh;
+  var ab = ss.getSheetByName('Ambil Bahan');
+  sh = ss.insertSheet(SH_PRODUKSI, ab ? ab.getIndex() : 0);
+  sh.getRange(1, 1).setFormula('=ARRAYFORMULA(IF(ROW(C:C)=1,"Hari",IF(LEN(C:C),IFERROR(CHOOSE(WEEKDAY(C:C,2),' +
+    '"Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"),""),)))');
+  sh.getRange(1, 2, 1, KEPALA_PRODUKSI.length - 1).setValues([KEPALA_PRODUKSI.slice(1)]);
+  sh.setFrozenRows(1);
+  var contoh = ss.getSheetByName(SH_ABSENSI);
+  if (contoh) contoh.getRange(1, 1, 1, KEPALA_PRODUKSI.length).copyTo(sh.getRange(1, 1, 1, KEPALA_PRODUKSI.length), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  return sh;
+}
+
+function rapikanProduksi_(sh) {
+  var akhir = sh.getLastRow();
+  if (akhir < 2) return;
+  if (akhir >= 3) sh.getRange(2, 2, akhir - 1, 11).sort([{column: 3, ascending: false}, {column: 2, ascending: false}]);
+  var n = akhir - 1;
+  var f = ['dd/MM/yyyy HH:mm', 'dd/MM/yyyy', '@', '@', '0', '@', '@', '"Rp"#,##0', '@', '@', '@'];
+  f.forEach(function (x, j) { sh.getRange(2, 2 + j, n, 1).setNumberFormat(x); });
+  sh.getRange(2, 1, n, 12).setFontWeight('normal');
+}
+
+function bacaProduksi_(ss) {
+  var sh = ss.getSheetByName(SH_PRODUKSI);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 2, sh.getLastRow() - 1, 11).getValues().map(function (r, i) {
+    return {baris: i + 2, waktu: r[0], tgl: tglKunci_(r[1]), alat: teks_(r[2]), operator: teks_(r[3]), n: angka_(r[4]),
+      kondisi: teks_(r[5]), ket: teks_(r[6]), upah: angka_(r[7]), oleh: teks_(r[8]), id: teks_(r[9]), idIsian: teks_(r[10])};
+  }).filter(function (x) { return x.tgl; });
+}
+
+// Memeriksa satu baris produksi. Hasil: pesan salah, atau '' kalau benar.
+function periksaProduksi_(ref, alat, n, op) {
+  if (!alat) return 'Pilih alat suling.';
+  if (!ref.alat.some(function (a) { return a.nama === alat; })) return 'Alat "' + alat + '" tidak dikenal.';
+  if (!(n >= 0) || Math.floor(n) !== n || n > 50) return 'Jumlah sulingan ' + alat + ' tidak valid.';
+  if (n > 0 && !op) return 'Pilih operator ' + alat + '.';
+  if (op && !ref.karyawan.some(function (k) { return k.nama === op; })) return 'Operator "' + op + '" tidak ada di daftar karyawan.';
+  return '';
+}
+
+function simpanProduksi_(ss, akses, req, id) {
+  var nilai = req.nilai || {};
+  var tgl = teks_(nilai['Tanggal']), ket = teks_(nilai['Keterangan']);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal wajib diisi.'};
+  if (tgl > hariIniIso_()) return {ok: false, galat: 'Tanggal tidak boleh setelah hari ini.'};
+  var baris = Array.isArray(req.baris) ? req.baris : [];
+  if (!baris.length) return {ok: false, galat: 'Isi minimal satu alat suling.'};
+  var ref = bacaReferensi_(ss);
+  var sh = siapkanProduksi_(ss);
+  var waktu = new Date(), idIsian = id || idBaru_();
+  var rows = [], dalam = {};
+  for (var i = 0; i < baris.length; i++) {
+    var b = baris[i];
+    var alat = teks_(b['Alat suling']), op = teks_(b['Operator']);
+    var n = b['Jumlah sulingan'] === '' || b['Jumlah sulingan'] === undefined ? NaN : angka_(b['Jumlah sulingan']);
+    var g = periksaProduksi_(ref, alat, n, op);
+    if (g) return {ok: false, galat: g};
+    if (dalam[alat]) return {ok: false, galat: alat + ' tertulis dua kali.'};
+    dalam[alat] = true;
+    rows.push([waktu, tglDariIso_(tgl), alat, op, n, teks_(b['Kondisi alat']), ket, upahProduksi_(ref, op, n), akses.nama,
+      idIsian + '-' + (i + 1), idIsian]);
+  }
+  var peta = {};
+  bacaProduksi_(ss).forEach(function (x) { peta[x.tgl + '|' + x.alat] = x; });
+  var tulis = [], bentrok = [];
+  rows.forEach(function (r) {
+    var x = peta[tgl + '|' + r[2]];
+    if (!x) { tulis.push(r); return; }
+    if (x.n === r[4] && x.operator === r[3]) return;
+    bentrok.push(r[2] + ' sudah tercatat ' + x.n + ' sulingan' + (x.operator ? ' (' + x.operator + ')' : ''));
+  });
+  if (bentrok.length) return {ok: false, kode: 'SUDAH', galat: 'Produksi Suling ' + tglIndo_(tgl) + ': ' + bentrok.join('; ') + '. Kalau salah, ubah lewat Riwayat.'};
+  if (!tulis.length) return {ok: true, dobel: true};
+  sh.insertRowsBefore(2, tulis.length);
+  sh.getRange(2, 2, tulis.length, 11).setValues(tulis);
+  SpreadsheetApp.flush();
+  rapikanProduksi_(sh);
+  return {ok: true, baris: tulis.length};
+}
+
+// ---------------------------------------------------------------- RIWAYAT
+
+function nilaiUntukAplikasi_(h, v) {
+  if (adalahTanggal_(v)) {
+    if (h === 'Timestamp') return Utilities.formatDate(v, API_ZONA, 'dd/MM/yyyy HH:mm');
+    return tglIso_(v);
+  }
+  return v === null || v === undefined ? '' : v;
+}
+
+function sheetTab_(ss, tab) { return ss.getSheetByName(namaSheet_(tab)); }
 
 function terbaru_(ss, akses, req) {
   var tab = teks_(req.tab);
-  if (akses.tab.indexOf(tab) < 0) return {ok: false, galat: 'PIN ini tidak boleh melihat ' + tab + '.'};
+  if (URUTAN_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Catatan tidak dikenal.'};
+  if (akses.tab.indexOf(tab) < 0 && !akses.admin) return {ok: false, galat: 'Akun ini tidak boleh melihat ' + tab + '.'};
   if (tab === 'Absensi') cobaPindahkanAbsensiLama_(ss);
-  var n = Math.max(1, Math.min(Number(req.n) || 10, 60));
-  var sh = ss.getSheetByName(namaSheet_(tab));
-  if (!sh) return {ok: true, tab: tab, kepala: [], baris: []};
+  var n = Math.max(1, Math.min(Number(req.n) || 20, 300));
+  var sh = sheetTab_(ss, tab);
+  if (!sh || sh.getLastRow() < 2) return {ok: true, tab: tab, kepala: sh ? kepalaSheet_(sh) : [], total: 0, data: []};
   var lastCol = sh.getLastColumn();
-  var kepala = sh.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
-  // Pekerja hanya melihat absensi orang yang boleh ia absen.
-  var saring = null;
-  if (tab === 'Absensi' && akses.absenUntuk) saring = namaBoleh_(akses, bacaKaryawan_(ss));
-  var ambil = saring ? Math.min(Math.max(sh.getLastRow() - 1, 1), 400) : n;
-  var tampil = sh.getRange(2, 1, ambil, lastCol).getDisplayValues();
-  var hasil = {ok: true, tab: tab, kepala: kepala, baris: []};
-  var info = akses.semua ? kolomForm_(sh) : null;
-  var mentah = akses.semua ? sh.getRange(2, 2, ambil, info.kepala.length).getValues() : null;
-  if (akses.semua) hasil.data = [];
-  for (var i = 0; i < tampil.length && hasil.baris.length < n; i++) {
-    if (!tampil[i][1] && !tampil[i][2]) continue;
-    if (saring && saring.indexOf(teks_(tampil[i][3])) < 0) continue;
-    hasil.baris.push(tampil[i]);
-    if (akses.semua) hasil.data.push({nomor: i + 2, tanda: tandaBaris_(mentah[i]), nilai: nilaiMentah_(info.kepala, mentah[i])});
-  }
-  return hasil;
-}
-
-// ---------------------------------------------------------------- RINGKASAN
-
-function ringkasan_(ss, akses) {
-  if (!akses.semua) return {ok: false, galat: 'Ringkasan hanya untuk pemilik.'};
-  cobaPindahkanAbsensiLama_(ss);
-  SpreadsheetApp.flush();
-  var dash = ss.getSheetByName('Dashboard');
-  var rek = ss.getSheetByName('Rekap Mingguan');
-  var rekBln = ss.getSheetByName('Rekap Bulanan');
-  var tgl = function (d) { return adalahTanggal_(d) ? Utilities.formatDate(d, API_ZONA, 'dd/MM/yyyy') : teks_(d); };
-  var angka = function (v) { return typeof v === 'number' ? v : null; };
-
-  // Kolom upah per pekerja (untuk gajian) di Rekap Mingguan: "Upah <nama> (Rp)", mulai kolom W.
-  var lebarRek = Math.max(26, rek.getLastColumn());
-  var kepalaRek = rek.getRange(4, 1, 1, lebarRek).getDisplayValues()[0];
-  var kolomOrang = [];
-  for (var c = 22; c < kepalaRek.length; c++) {
-    var cocok = /^Upah (.+) \(Rp\)$/.exec(teks_(kepalaRek[c]));
-    if (cocok) kolomOrang.push({i: c, nama: cocok[1].replace(/^tim suling$/i, 'Tim suling')});
-  }
-  var perAlat = sulinganPerAlat_(ss);
-  var minggu = function (v) {
-    var mulai = tgl(v[0]);
-    return {upahOrang: kolomOrang.map(function (k) { return {nama: k.nama, upah: angka(v[k.i]) || 0}; })
-        .filter(function (o) { return o.upah !== 0; }),
-      alat: perAlat[mulai] || [],
-      mulai: mulai, sampai: tgl(v[1]), trip: angka(v[2]), bahanKg: angka(v[3]), beliBahan: angka(v[4]),
-      hargaBahan: angka(v[5]), biayaJalan: angka(v[6]), sulingan: angka(v[7]), ketelKosong: angka(v[8]),
-      sulinganDisaring: angka(v[9]), minyak: angka(v[10]), minyakPerSulingan: angka(v[11]), rendemen: angka(v[12]),
-      upahPengumpul: angka(v[13]), upahPenyuling: angka(v[14]), operasional: angka(v[15]), biayaProduksi: angka(v[16]),
-      biayaPerKg: angka(v[17]), terjual: angka(v[18]), penjualan: angka(v[19]), laba: angka(v[20]), upahHarian: angka(v[21])};
-  };
-  var bulan = function (v) {
-    return {bulan: adalahTanggal_(v[0]) ? Utilities.formatDate(v[0], API_ZONA, 'MM/yyyy') : teks_(v[0]),
-      penjualan: angka(v[19]), biayaProduksi: angka(v[16]), laba: angka(v[20]), pengembangan: angka(v[21]),
-      cicilan: angka(v[22]), labaSetelahCicilan: angka(v[23]), keluarga: angka(v[24]), proyekBahan: angka(v[25]),
-      upahHarian: angka(v[26]), pembiayaan: angka(v[27]), pemasukanLain: angka(v[28]), belumDibayar: angka(v[29]),
-      perubahanKas: angka(v[30]), minyak: angka(v[10]), sulingan: angka(v[7])};
-  };
-  // Semua baris rekap dari baris 5 sampai baris periode berjalan, terbaru di depan.
-  var semua = function (sh, akhir, lebar, ubah) {
-    if (!(akhir >= 5)) return [];
-    return sh.getRange(5, 1, akhir - 4, lebar).getValues().map(ubah).reverse();
-  };
-  var rMinggu = Number(dash.getRange('N5').getValue());
-  var rPenuh = Number(dash.getRange('N6').getValue());
-  var rBulan = Number(dash.getRange('N8').getValue());
-  var semuaMinggu = semua(rek, rMinggu, lebarRek, minggu);
-  var semuaBulan = semua(rekBln, rBulan, 31, bulan);
-
-  var peringatan = dash.getRange('A15:F23').getDisplayValues().map(function (r) {
-    return {hal: r[0], nilai: r[2], batas: r[3], status: r[4], saran: r[5]};
-  }).filter(function (p) { return p.hal; });
-
-  return {ok: true, dataSampai: dash.getRange('B2').getDisplayValue(),
-    mingguBerjalan: semuaMinggu[0] || null,
-    mingguPenuh: rPenuh >= 5 && rMinggu >= rPenuh ? semuaMinggu[rMinggu - rPenuh] || null : null,
-    bulanIni: semuaBulan[0] || null,
-    semuaMinggu: semuaMinggu, semuaBulan: semuaBulan,
-    peringatan: peringatan};
-}
-
-// Sulingan per alat per minggu (Senin), beserta operatornya: {"dd/MM/yyyy": [{nama, sulingan, operator: [{nama, sulingan}]}]}
-function sulinganPerAlat_(ss) {
-  var sh = ss.getSheetByName(SH_ABSENSI);
-  var out = {};
-  if (!sh || sh.getLastRow() < 2) return out;
-  var data = sh.getRange(2, 3, sh.getLastRow() - 1, 6).getValues();   // C Tanggal .. H Jumlah sulingan
-  var kumpul = {};
-  data.forEach(function (r) {
-    var s = Number(r[5]) || 0;
-    if (!s || !adalahTanggal_(r[0])) return;
-    var hari = Number(Utilities.formatDate(r[0], API_ZONA, 'u'));          // 1 = Senin
-    var senin = Utilities.formatDate(new Date(r[0].getTime() - (hari - 1) * 86400000), API_ZONA, 'dd/MM/yyyy');
-    var alat = teks_(r[4]) || '(tanpa alat)';
-    var m = kumpul[senin] || (kumpul[senin] = {});
-    var a = m[alat] || (m[alat] = {nama: alat, sulingan: 0, op: {}});
-    a.sulingan += s;
-    var nama = teks_(r[1]);
-    a.op[nama] = (a.op[nama] || 0) + s;
+  var kepala = kepalaSheet_(sh);
+  var semua = sh.getRange(2, 1, sh.getLastRow() - 1, lastCol).getValues();
+  var nIsi = tab === 'Produksi Suling' ? 0 : kolomForm_(sh).kepala.length;
+  var iId = kepala.indexOf('ID');
+  var data = [];
+  semua.forEach(function (r, i) {
+    if (teks_(r[1]) === '' && teks_(r[2]) === '') return;
+    data.push({r: r, urut: i, tgl: tglKunci_(r[2])});
   });
-  Object.keys(kumpul).forEach(function (senin) {
-    out[senin] = Object.keys(kumpul[senin]).sort().map(function (k) {
-      var a = kumpul[senin][k];
-      return {nama: a.nama, sulingan: a.sulingan, operator: Object.keys(a.op).map(function (n) { return {nama: n, sulingan: a.op[n]}; })};
-    });
+  data.sort(function (a, b) { return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : a.urut - b.urut; });
+  var hasil = data.slice(0, n).map(function (d) {
+    var nilai = {};
+    kepala.forEach(function (h, j) { if (h) nilai[h] = nilaiUntukAplikasi_(h, d.r[j]); });
+    var id = tab === 'Produksi Suling' ? teks_(d.r[iId]) : 'r' + (d.urut + 2) + '|' + tandaBaris_(d.r.slice(1, 1 + nIsi));
+    return {id: id, nilai: nilai};
   });
-  return out;
+  return {ok: true, tab: tab, kepala: kepala, total: data.length, data: hasil};
 }
 
-// ---------------------------------------------------------------- PEMILIK: UBAH & HAPUS CATATAN
+// ---------------------------------------------------------------- UBAH & HAPUS CATATAN
+
+function pecahId_(id) {
+  var m = /^r(\d+)\|(.+)$/.exec(teks_(id));
+  return m ? {nomor: Number(m[1]), tanda: m[2]} : {nomor: 0, tanda: ''};
+}
+
+function cariBarisId_(sh, id) {
+  if (!id) return 0;
+  var j = kepalaSheet_(sh).indexOf('ID');
+  if (j < 0 || sh.getLastRow() < 2) return 0;
+  var ids = sh.getRange(2, j + 1, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) if (teks_(ids[i][0]) === id) return i + 2;
+  return 0;
+}
 
 function ubah_(ss, akses, req) {
-  if (!akses.semua) return {ok: false, galat: 'Hanya pemilik yang boleh mengubah catatan.'};
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa mengubah catatan.'};
   var tab = teks_(req.tab);
-  if (API_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Tab tidak dikenal.'};
+  if (URUTAN_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Catatan tidak dikenal.'};
   var nilai = req.nilai || {};
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sh = ss.getSheetByName(namaSheet_(tab));
+  return denganKunci_(function () {
+    if (tab === 'Produksi Suling') return ubahProduksi_(ss, akses, req);
+    var sh = sheetTab_(ss, tab);
     var info = kolomForm_(sh);
-    var r = cariBaris_(sh, info, Number(req.nomor), teks_(req.tanda));
+    var p = pecahId_(req.id);
+    var r = cariBaris_(sh, info, p.nomor, p.tanda);
     if (!r) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah berubah atau terhapus. Muat ulang Riwayat, lalu coba lagi.'};
     var lama = sh.getRange(r, 2, 1, info.kepala.length).getValues()[0];
     var baru;
@@ -1015,22 +1482,22 @@ function ubah_(ss, akses, req) {
         else asing.push(k);
       });
       if (asing.length) return {ok: false, galat: 'Kolom tidak ditemukan di tab ' + tab + ': ' + asing.join(', ') + '.'};
+      var kolTgl = info.kepala[1];
+      if (nilai[kolTgl] !== undefined && !adalahTanggal_(baru[1])) return {ok: false, galat: kolTgl + ' wajib diisi.'};
     }
     sh.getRange(r, 2, 1, baru.length).setValues([baru]);
     SpreadsheetApp.flush();
     if (typeof urutkanTab_ === 'function') urutkanTab_(sh);
     catatLog_(ss, 'Ubah', tab, r, JSON.stringify(nilaiMentah_(info.kepala, lama)), JSON.stringify(nilaiMentah_(info.kepala, baru)), akses.nama);
     return {ok: true};
-  } finally {
-    lock.releaseLock();
-  }
+  });
 }
 
 // Mengubah satu baris absensi: upah, pos, dan sulingan dihitung ulang dari Tarif Upah.
 function ubahAbsensi_(ss, akses, sh, r, lama, nilai) {
   var ref = bacaReferensi_(ss);
   var e = {tanggal: teks_(nilai['Tanggal']), nama: teks_(nilai['Nama']), pekerjaan: teks_(nilai['Pekerjaan']),
-    alat: teks_(nilai['Alat']), upah: Number(nilai['Upah (Rp)']) || 0, pekerjaanLain: teks_(nilai['Pekerjaan lain']),
+    alat: teks_(nilai['Alat']), upah: angka_(nilai['Upah (Rp)']), pekerjaanLain: teks_(nilai['Pekerjaan lain']),
     kerjaLainUntuk: teks_(nilai['Kerja lain untuk']), keterangan: teks_(nilai['Keterangan'])};
   if (!e.nama && !e.keterangan) return {ok: false, galat: 'Pilih nama karyawan.'};
   if (e.nama && !e.pekerjaan) return {ok: false, galat: 'Pilih pekerjaan.'};
@@ -1038,37 +1505,73 @@ function ubahAbsensi_(ss, akses, sh, r, lama, nilai) {
   if (g) return {ok: false, galat: g};
   var baris = barisAbsensi_(e, ref, teks_(lama[12]) || akses.nama, lama[0]);
   if (teks_(lama[12]).indexOf('diubah') < 0) baris[12] = (teks_(lama[12]) || '?') + ' (diubah ' + akses.nama + ')';
+  else baris[12] = teks_(lama[12]);
   // Tidak boleh bentrok dengan baris lain.
   var akhir = sh.getLastRow();
   var semua = sh.getRange(2, 2, akhir - 1, 13).getValues();
   var k = kunciAbsensi_(baris);
   for (var i = 0; i < semua.length; i++) {
     if (i + 2 !== r && adalahTanggal_(semua[i][1]) && kunciAbsensi_(semua[i]) === k) {
-      return {ok: false, galat: e.nama + ' sudah punya catatan ' + (e.pekerjaan === 'Kerja lain' ? 'kerja lain' : 'absensi') +
+      return {ok: false, galat: e.nama + ' sudah punya catatan ' + (k.slice(-4) === 'lain' ? 'kerja lain' : 'absensi') +
         ' lain di tanggal itu. Ubah atau hapus yang itu.'};
     }
   }
   return {ok: true, baris: baris};
 }
 
+function ubahProduksi_(ss, akses, req) {
+  var sh = ss.getSheetByName(SH_PRODUKSI);
+  var r = sh ? cariBarisId_(sh, teks_(req.id)) : 0;
+  if (!r) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah terhapus. Muat ulang Riwayat.'};
+  var lama = sh.getRange(r, 2, 1, 11).getValues()[0];
+  var nilai = req.nilai || {};
+  var ambil = function (h, i) { return nilai[h] !== undefined ? nilai[h] : lama[i]; };
+  var tgl = nilai['Tanggal'] !== undefined ? teks_(nilai['Tanggal']) : tglKunci_(lama[1]);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal wajib diisi.'};
+  if (tgl > hariIniIso_()) return {ok: false, galat: 'Tanggal tidak boleh setelah hari ini.'};
+  var alat = teks_(ambil('Alat suling', 2)), op = teks_(ambil('Operator', 3));
+  var nMentah = ambil('Jumlah sulingan', 4);
+  var n = nMentah === '' || nMentah === undefined ? NaN : angka_(nMentah);
+  var ref = bacaReferensi_(ss);
+  var g = periksaProduksi_(ref, alat, n, op);
+  if (g) return {ok: false, galat: g};
+  var kembar = bacaProduksi_(ss).some(function (x) { return x.baris !== r && x.tgl === tgl && x.alat === alat; });
+  if (kembar) return {ok: false, galat: alat + ' sudah punya catatan lain di tanggal ' + tglIndo_(tgl) + '.'};
+  var upah = (n !== angka_(lama[4]) || op !== teks_(lama[3]) || alat !== teks_(lama[2])) ? upahProduksi_(ref, op, n) : angka_(lama[7]);
+  var oleh = teks_(lama[8]);
+  if (oleh.indexOf('diubah') < 0) oleh = (oleh || '?') + ' (diubah ' + akses.nama + ')';
+  var baru = [lama[0], tglDariIso_(tgl), alat, op, n, teks_(ambil('Kondisi alat', 5)), teks_(ambil('Keterangan', 6)), upah, oleh, lama[9], lama[10]];
+  sh.getRange(r, 2, 1, 11).setValues([baru]);
+  SpreadsheetApp.flush();
+  rapikanProduksi_(sh);
+  catatLog_(ss, 'Ubah', SH_PRODUKSI, r, JSON.stringify(nilaiMentah_(KEPALA_PRODUKSI.slice(1), lama)),
+    JSON.stringify(nilaiMentah_(KEPALA_PRODUKSI.slice(1), baru)), akses.nama);
+  return {ok: true};
+}
+
 function hapus_(ss, akses, req) {
-  if (!akses.semua) return {ok: false, galat: 'Hanya pemilik yang boleh menghapus catatan.'};
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa menghapus catatan.'};
   var tab = teks_(req.tab);
-  if (API_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Tab tidak dikenal.'};
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sh = ss.getSheetByName(namaSheet_(tab));
-    var info = kolomForm_(sh);
-    var r = cariBaris_(sh, info, Number(req.nomor), teks_(req.tanda));
+  if (URUTAN_TAB.indexOf(tab) < 0) return {ok: false, galat: 'Catatan tidak dikenal.'};
+  return denganKunci_(function () {
+    var sh = sheetTab_(ss, tab);
+    if (!sh) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah terhapus. Muat ulang Riwayat.'};
+    var r, kepala;
+    if (tab === 'Produksi Suling') {
+      r = cariBarisId_(sh, teks_(req.id));
+      kepala = KEPALA_PRODUKSI.slice(1);
+    } else {
+      var info = kolomForm_(sh);
+      var p = pecahId_(req.id);
+      r = cariBaris_(sh, info, p.nomor, p.tanda);
+      kepala = info.kepala;
+    }
     if (!r) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah berubah atau terhapus. Muat ulang Riwayat, lalu coba lagi.'};
-    var lama = sh.getRange(r, 2, 1, info.kepala.length).getValues()[0];
+    var lama = sh.getRange(r, 2, 1, kepala.length).getValues()[0];
     sh.deleteRow(r);
-    catatLog_(ss, 'Hapus', tab, r, JSON.stringify(nilaiMentah_(info.kepala, lama)), '', akses.nama);
+    catatLog_(ss, 'Hapus', tab, r, JSON.stringify(nilaiMentah_(kepala, lama)), '', akses.nama);
     return {ok: true};
-  } finally {
-    lock.releaseLock();
-  }
+  });
 }
 
 // Mencari baris yang isinya sama persis dengan saat dilihat di aplikasi.
@@ -1091,19 +1594,179 @@ function tandaBaris_(nilai) {
   return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, teks, Utilities.Charset.UTF_8));
 }
 
-// Nilai baris untuk diisi ulang di formulir: tanggal jadi yyyy-mm-dd, angka tetap angka.
+// Nilai baris (mulai kolom B) untuk Log: tanggal jadi teks, angka tetap angka.
 function nilaiMentah_(kepala, nilai) {
   var out = {};
-  for (var j = 1; j < kepala.length; j++) {
+  for (var j = 0; j < kepala.length; j++) {
     var v = nilai[j];
     if (adalahTanggal_(v)) {
       var hanyaTgl = /^Tanggal/.test(kepala[j]) || (kepala[j] !== 'Timestamp' && Utilities.formatDate(v, API_ZONA, 'HH:mm') === '00:00');
       v = hanyaTgl ? Utilities.formatDate(v, API_ZONA, 'yyyy-MM-dd') : Utilities.formatDate(v, API_ZONA, 'dd/MM/yyyy HH:mm');
     }
-    out[kepala[j]] = v;
+    if (kepala[j]) out[kepala[j]] = v;
   }
   return out;
 }
+
+// ---------------------------------------------------------------- RINGKASAN
+// Angka minggu dan bulan dibaca dari tab Rekap Mingguan dan Rekap Bulanan (sama persis dengan Dashboard).
+// Upah per orang, per alat, dan penjualan belum lunas dihitung dari tab catatan.
+
+function tambahHari_(k, n) {
+  var d = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10)) + n * 86400000);
+  return d.toISOString().slice(0, 10);
+}
+function seninDari_(k) {
+  var hari = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10))).getUTCDay();
+  return tambahHari_(k, -((hari + 6) % 7));
+}
+
+function angkaRekap_(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  return teks_(v) === '' ? null : angka_(v);
+}
+
+function ringkasan_(ss, akses) {
+  if (!akses.admin) return {ok: false, galat: 'Ringkasan hanya untuk pemilik atau pengguna yang boleh mengatur.'};
+  cobaPindahkanAbsensiLama_(ss);
+  SpreadsheetApp.flush();
+  var hariIni = hariIniIso_();
+  var dash = ss.getSheetByName('Dashboard');
+  var dataSampai = dash ? tglKunci_(dash.getRange('B2').getValue()) : '';
+  var batas = dataSampai && dataSampai > hariIni ? dataSampai : hariIni;
+  var a = angkaRekap_;
+
+  var minggu = [];
+  var rek = ss.getSheetByName('Rekap Mingguan');
+  if (rek && rek.getLastRow() >= 5) {
+    rek.getRange(5, 1, rek.getLastRow() - 4, 22).getValues().forEach(function (v) {
+      var mulai = tglKunci_(v[0]);
+      if (!mulai || mulai > batas) return;
+      minggu.push({mulai: mulai, sampai: tglKunci_(v[1]) || tambahHari_(mulai, 6), trip: a(v[2]), bahanKg: a(v[3]), beliBahan: a(v[4]),
+        hargaBahan: a(v[5]), biayaJalan: a(v[6]), sulingan: a(v[7]), hariKosong: a(v[8]), sulinganDisaring: a(v[9]), minyak: a(v[10]),
+        minyakPerSulingan: a(v[11]), rendemen: a(v[12]), upahPengumpul: a(v[13]), upahPenyuling: a(v[14]), operasional: a(v[15]),
+        biayaProduksi: a(v[16]), biayaPerKg: a(v[17]), terjualKg: a(v[18]), penjualan: a(v[19]), laba: a(v[20]), upahHarian: a(v[21])});
+    });
+  }
+  minggu.reverse();
+  minggu = minggu.slice(0, 26);
+  minggu.forEach(function (m) { m.totalUpah = (m.upahPengumpul || 0) + (m.upahPenyuling || 0) + (m.upahHarian || 0); });
+  rincianMinggu_(ss, minggu);
+
+  var bulan = [];
+  var rb = ss.getSheetByName('Rekap Bulanan');
+  if (rb && rb.getLastRow() >= 5) {
+    rb.getRange(5, 1, rb.getLastRow() - 4, 31).getValues().forEach(function (v) {
+      var mulai = tglKunci_(v[0]);
+      if (!mulai || mulai > batas) return;
+      var b = {bulan: mulai.slice(0, 7), trip: a(v[2]), bahanKg: a(v[3]), beliBahan: a(v[4]), hargaBahan: a(v[5]), biayaJalan: a(v[6]),
+        sulingan: a(v[7]), hariKosong: a(v[8]), sulinganDisaring: a(v[9]), minyak: a(v[10]), minyakPerSulingan: a(v[11]),
+        rendemen: a(v[12]), upahPengumpul: a(v[13]), upahPenyuling: a(v[14]), operasional: a(v[15]), biayaProduksi: a(v[16]),
+        biayaPerKg: a(v[17]), terjualKg: a(v[18]), penjualan: a(v[19]), laba: a(v[20]), pengembangan: a(v[21]), cicilan: a(v[22]),
+        labaSetelahCicilan: a(v[23]), keluarga: a(v[24]), proyekLain: a(v[25]), upahHarian: a(v[26]), pembiayaan: a(v[27]),
+        pemasukanLain: a(v[28]), belumDibayar: a(v[29]), perubahanKas: a(v[30])};
+      b.totalUpah = (b.upahPengumpul || 0) + (b.upahPenyuling || 0) + (b.upahHarian || 0);
+      bulan.push(b);
+    });
+  }
+  bulan.reverse();
+
+  var peringatan = dash ? dash.getRange('A15:F23').getDisplayValues().map(function (r) {
+    return {hal: teks_(r[0]), nilai: teks_(r[2]), batas: teks_(r[3]), status: teks_(r[4]), saran: teks_(r[5])};
+  }).filter(function (p) { return p.hal; }) : [];
+
+  return {ok: true, hariIni: hariIni, dataSampai: dataSampai, minggu: minggu, bulan: bulan.slice(0, 12), peringatan: peringatan};
+}
+
+// Upah per orang, sulingan per alat, dan penjualan belum lunas untuk setiap minggu di daftar.
+function rincianMinggu_(ss, minggu) {
+  var ref = bacaReferensi_(ss);
+  var keMinggu = {};
+  minggu.forEach(function (m) { m.orang = []; m.alat = []; m.belumLunas = 0; m._orang = {}; m._alat = {}; m._hari = {}; keMinggu[m.mulai] = m; });
+  var cari = function (k) { return k ? keMinggu[seninDari_(k)] || null : null; };
+  var jenisTarif = {};
+  ref.tarif.forEach(function (t) { jenisTarif[t.pilihan] = t.jenis; });
+  var timOrang = {};
+  ref.karyawan.forEach(function (k) { timOrang[k.nama] = k.tim; });
+  var satuAlat = ref.alat.length === 1 ? ref.alat[0].nama : '';
+  var orang = function (m, nama, tim) {
+    return m._orang[nama] || (m._orang[nama] = {nama: nama, peran: tim || timOrang[nama] || '', hari: {}, sulingan: 0, upahAbsensi: 0, upahSuling: 0, upahLain: 0});
+  };
+  var alat = function (m, nama) { return m._alat[nama] || (m._alat[nama] = {sulingan: 0, hari: {}, op: {}}); };
+
+  var ah = ss.getSheetByName(SH_ABSENSI);
+  if (ah && ah.getLastRow() >= 2) {
+    ah.getRange(2, 3, ah.getLastRow() - 1, 8).getValues().forEach(function (r) {
+      var k = tglKunci_(r[0]), m = cari(k);
+      if (!m) return;
+      m._hari[k] = true;
+      var nama = teks_(r[1]);
+      if (!nama) return;
+      var pek = teks_(r[3]), jenis = jenisTarif[pek] || '', s = angka_(r[5]), upah = angka_(r[6]), pos = teks_(r[7]);
+      var o = orang(m, nama, teks_(r[2]));
+      if (jenis === 'Kerja lain' || pek === 'Kerja lain') o.upahLain += upah;
+      else if (pos === 'Penyulingan' || jenis === 'Penyulingan') { o.upahSuling += upah; o.sulingan += s; }
+      else o.upahAbsensi += upah;
+      if (jenis ? jenis !== 'Libur' : upah > 0) o.hari[k] = true;
+      if (s > 0) {
+        var x = alat(m, teks_(r[4]) || satuAlat || '(tanpa alat)');
+        x.sulingan += s; x.hari[k] = true; x.op[nama] = (x.op[nama] || 0) + s;
+      }
+    });
+  }
+  bacaProduksi_(ss).forEach(function (p) {
+    var m = cari(p.tgl);
+    if (!m) return;
+    m._hari[p.tgl] = true;
+    var x = alat(m, p.alat || '(tanpa alat)');
+    x.sulingan += p.n;
+    if (p.n > 0) x.hari[p.tgl] = true;
+    if (p.operator) {
+      x.op[p.operator] = (x.op[p.operator] || 0) + p.n;
+      var o = orang(m, p.operator);
+      o.sulingan += p.n; o.upahSuling += p.upah;
+      if (p.n > 0) o.hari[p.tgl] = true;
+    }
+  });
+  var jual = ss.getSheetByName('Penjualan');
+  if (jual && jual.getLastRow() >= 2) {
+    var kj = kepalaSheet_(jual);
+    var iT = kj.indexOf('Tanggal'), iS = kj.indexOf('Status bayar'), iTot = kj.indexOf('Total (Rp)');
+    if (iT >= 0 && iS >= 0 && iTot >= 0) {
+      jual.getRange(2, 1, jual.getLastRow() - 1, kj.length).getValues().forEach(function (r) {
+        var m = cari(tglKunci_(r[iT]));
+        var st = teks_(r[iS]);
+        if (m && st && st !== 'Lunas') m.belumLunas += angka_(r[iTot]);
+      });
+    }
+  }
+  var urutOrang = {};
+  ref.karyawan.forEach(function (k, i) { urutOrang[k.nama] = i; });
+  var namaAlat = ref.alat.filter(function (x) { return x.aktif; }).map(function (x) { return x.nama; });
+  minggu.forEach(function (m) {
+    var hariCatat = Object.keys(m._hari).length;
+    m.orang = Object.keys(m._orang).map(function (n) {
+      var o = m._orang[n];
+      return {nama: n, peran: o.peran, hariMasuk: Object.keys(o.hari).length, sulingan: o.sulingan, upahAbsensi: o.upahAbsensi,
+        upahSuling: o.upahSuling, upahLain: o.upahLain, total: o.upahAbsensi + o.upahSuling + o.upahLain};
+    }).filter(function (o) { return o.total !== 0 || o.hariMasuk > 0; }).sort(function (p, q) {
+      var a = urutOrang[p.nama] === undefined ? 999 : urutOrang[p.nama], b = urutOrang[q.nama] === undefined ? 999 : urutOrang[q.nama];
+      return a - b || (p.nama < q.nama ? -1 : 1);
+    });
+    var nama = namaAlat.slice();
+    Object.keys(m._alat).forEach(function (n) { if (nama.indexOf(n) < 0) nama.push(n); });
+    m.alat = nama.map(function (n) {
+      var x = m._alat[n] || {sulingan: 0, hari: {}, op: {}};
+      var jalan = Object.keys(x.hari).length;
+      var op = Object.keys(x.op).sort(function (p, q) { return x.op[q] - x.op[p]; });
+      return {nama: n, operator: op.join(', '), sulingan: x.sulingan, hariJalan: jalan, hariKosong: Math.max(hariCatat - jalan, 0),
+        minyakPerSulingan: null};
+    });
+    delete m._orang; delete m._alat; delete m._hari;
+  });
+}
+
+// ---------------------------------------------------------------- LOG
 
 function catatLog_(ss, aksi, tab, baris, lama, baru, oleh) {
   try {

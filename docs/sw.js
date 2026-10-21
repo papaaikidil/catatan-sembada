@@ -1,7 +1,9 @@
 // Service worker: aplikasi tetap bisa dibuka tanpa sinyal.
 // Strategi "jaringan dulu": kalau ada sinyal, selalu ambil versi terbaru dari GitHub,
 // jadi perbaikan langsung sampai ke semua HP. Kalau tidak ada sinyal, pakai salinan terakhir.
-const CACHE = 'sembada-v8';
+// Nama cache berawalan "sembada-" dan hanya cache berawalan itu yang dibersihkan,
+// supaya tidak mengganggu aplikasi Catatan Sembada Kepuh di alamat yang sama.
+const CACHE = 'sembada-v9';
 const ASET = ['./', './index.html', './app.js', './style.css', './config.js', './manifest.webmanifest',
   './ikon-192.png', './ikon-512.png', './logo.png'];
 
@@ -11,7 +13,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => k.indexOf('sembada-') === 0 && k !== CACHE).map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -20,6 +22,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;   // panggilan API ke Google tidak disimpan
+  if (!url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
 
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
