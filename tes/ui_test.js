@@ -227,6 +227,15 @@ async function pasangMock(page) {
   await page.click('.pilih-tab button:has-text("Kas")');
   await page.waitForSelector('[data-ubah-entri]');
   await page.screenshot({ path: OUT + '/13-riwayat-kelola.png', fullPage: true });
+  // ketuk kartu -> rincian baca saja
+  await page.click('.entri[data-idx="0"] h3');
+  await page.waitForSelector('.rincian');
+  const rincian = await page.textContent('.rincian');
+  assert.ok(rincian.includes('Waktu dikirim') && rincian.includes('Proyek lain') && rincian.includes('Keluar'), rincian);
+  assert.strictEqual(await page.locator('.lembar input, .lembar select, .lembar textarea').count(), 0, 'rincian hanya baca');
+  await page.screenshot({ path: OUT + '/19-rincian.png' });
+  await page.click('[data-aksi=tutup]');
+  assert.strictEqual(await page.locator('.rincian').count(), 0);
   await page.click('[data-ubah-entri="0"]');
   await page.waitForSelector('#formulir');
   assert.strictEqual(await page.inputValue('select.masukan'), 'Proyek bangunan');

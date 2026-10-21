@@ -886,6 +886,11 @@
       if (lebih) { jumlahRiwayat[k] = Math.min(n + 20, 60); layarTerbaru(k); return; }
       var tUbah = ev.target.closest('[data-ubah-entri]'), tHapus = ev.target.closest('[data-hapus-entri]');
       var el = tUbah || tHapus;
+      if (!el && !ev.target.closest('button')) {
+        var kartuDiketuk = ev.target.closest('.entri[data-idx]');
+        if (kartuDiketuk && data && data.baris) tampilRincian(tab, data.kepala, data.baris[Number(kartuDiketuk.dataset.idx)]);
+        return;
+      }
       if (!el || !data || !data.data) return;
       var d = data.data[Number(el.dataset.ubahEntri || el.dataset.hapusEntri)];
       if (!d) return;
@@ -906,7 +911,36 @@
         });
       });
     });
+    document.getElementById('daftar-entri').addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter') return;
+      var kartu = ev.target.closest && ev.target.closest('.entri[data-idx]');
+      if (kartu && ev.target === kartu && data && data.baris) tampilRincian(tab, data.kepala, data.baris[Number(kartu.dataset.idx)]);
+    });
     muat();
+  }
+
+  // Rincian satu catatan, hanya untuk dibaca.
+  function tampilRincian(tab, kepala, baris) {
+    if (!baris) return;
+    var LABEL = {'Timestamp': 'Waktu dikirim', 'Hari': 'Hari'};
+    var isi = kepala.map(function (h, i) {
+      var v = baris[i];
+      if (!h || v === '' || v === null || v === undefined || v === '-' || v === '–') return '';
+      return '<li><span>' + esc(LABEL[h] || h) + '</span><b>' + esc(v) + '</b></li>';
+    }).join('');
+    var tglI = kepala.indexOf('Tanggal') >= 0 ? kepala.indexOf('Tanggal') : kepala.indexOf('Tanggal saring');
+    var div = document.createElement('div');
+    div.className = 'tirai';
+    div.innerHTML = '<div class="lembar" role="dialog" aria-modal="true"><h2>Rincian ' + esc(tab) + '</h2>' +
+      '<p class="sub">' + esc(tglI >= 0 ? baris[tglI] : '') + ' · hanya untuk dibaca</p>' +
+      '<ul class="rincian">' + isi + '</ul>' +
+      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="tutup">Tutup</button></div></div>';
+    document.body.appendChild(div);
+    var tutup = function () { div.remove(); };
+    div.addEventListener('click', function (ev) {
+      var a = ev.target.closest('[data-aksi]');
+      if (ev.target === div || (a && a.dataset.aksi === 'tutup')) tutup();
+    });
   }
 
   function tanyaHapus(tab, judul, lanjut) {
@@ -955,7 +989,8 @@
         baris.push((g('Arah') === 'Masuk' ? 'Masuk ' : 'Keluar ') + '<b>' + e('Jumlah (Rp)') + '</b>');
         if (ket) { baris.push(esc(ket)); ket = ''; }
       }
-      return '<div class="kartu entri"><h3><span>' + esc(judul) + '</span><small>' + esc(String(g('Timestamp')).slice(-5)) + '</small></h3>' +
+      return '<div class="kartu entri bisa-ketuk" data-idx="' + idx + '" role="button" tabindex="0" aria-label="Lihat rincian">' +
+        '<h3><span>' + esc(judul) + '</span><small>' + esc(String(g('Timestamp')).slice(-5)) + ' ›</small></h3>' +
         baris.map(function (x) { return '<p>' + x + '</p>'; }).join('') +
         (ket ? '<div class="ket">' + esc(ket) + '</div>' : '') +
         (kelola ? '<div class="aksi-entri"><button class="tombol kedua" data-ubah-entri="' + idx + '">Ubah</button>' +
