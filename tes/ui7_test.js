@@ -346,6 +346,17 @@ function pngPolos(w, h) {
   await page.click('#form-masuk button[type=submit]');
   await page.waitForSelector('.grid-catatan');
   assert.deepStrictEqual(await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent)), ['Produksi Suling']);
+  await page.evaluate(() => { location.hash = '#/isi/suling'; });
+  await page.waitForSelector('.kisi-alat');
+  await pilih(page, 'b1_a0_n', '2');
+  await page.waitForSelector('#pratinjau:not([hidden])');
+  assert.ok(!/Rp/.test(await page.textContent('#formulir')), 'formulir tim suling tanpa angka upah');
+  await foto(page, '17a-produksi-tim-suling', true);
+  await page.evaluate(() => { location.hash = '#/terbaru/suling'; });
+  await page.waitForSelector('.baris-entri');
+  assert.ok(!/Rp/.test(await page.textContent('#daftar-entri')), 'riwayat tim suling tanpa angka upah');
+  await page.evaluate(() => { location.hash = '#/'; });
+  await page.waitForSelector('.grid-catatan');
   assert.strictEqual(await page.$('.nav a[href="#/kelola"]'), null);
   await foto(page, '17-beranda-eko');
   cek('Eko masuk dengan PIN lamanya dan hanya melihat Produksi Suling');

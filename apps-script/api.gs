@@ -989,7 +989,11 @@ function config_(ss, akses) {
   var master = {};
   URUTAN_MASTER.forEach(function (t) {
     master[t] = bacaMaster_(ss, t).filter(function (m) { return akses.admin || m.aktif; })
-      .map(function (m) { return {id: m.id, nilai: m.nilai, aktif: m.aktif}; });
+      .map(function (m) {
+        // Angka upah hanya untuk pemilik dan pengguna yang boleh mengatur.
+        if (t === 'Tarif Upah' && !(akses.pemilik || akses.admin)) m.nilai['Upah (Rp)'] = '';
+        return {id: m.id, nilai: m.nilai, aktif: m.aktif};
+      });
   });
   return {ok: true, versiApi: API_VERSI, akses: akses, master: master,
     skema: akses.admin ? skemaMaster_(definisiMaster_(ss)) : null,
@@ -1446,13 +1450,14 @@ function terbaru_(ss, akses, req) {
     data.push({r: r, urut: i, tgl: tglKunci_(r[2])});
   });
   data.sort(function (a, b) { return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : a.urut - b.urut; });
+  var rahasia = (akses.pemilik || akses.admin) ? [] : ['Upah (Rp)', 'Pos upah'];
   var hasil = data.slice(0, n).map(function (d) {
     var nilai = {};
-    kepala.forEach(function (h, j) { if (h) nilai[h] = nilaiUntukAplikasi_(h, d.r[j]); });
+    kepala.forEach(function (h, j) { if (h && rahasia.indexOf(h) < 0) nilai[h] = nilaiUntukAplikasi_(h, d.r[j]); });
     var id = tab === 'Produksi Suling' ? teks_(d.r[iId]) : 'r' + (d.urut + 2) + '|' + tandaBaris_(d.r.slice(1, 1 + nIsi));
     return {id: id, nilai: nilai};
   });
-  return {ok: true, tab: tab, kepala: kepala, total: data.length, data: hasil};
+  return {ok: true, tab: tab, kepala: kepala.filter(function (h) { return rahasia.indexOf(h) < 0; }), total: data.length, data: hasil};
 }
 
 // ---------------------------------------------------------------- UBAH & HAPUS CATATAN

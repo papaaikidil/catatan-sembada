@@ -202,6 +202,10 @@ assert.ok(r.ok, JSON.stringify(r)); assert.strictEqual(objek('Kas')[0]['Jumlah (
 r = panggil({ aksi: 'terbaru', token: tokPemilik, tab: 'Kas' });
 r = panggil({ aksi: 'hapus', token: tokPemilik, tab: 'Kas', id: r.data[0].id });
 assert.ok(r.ok); assert.strictEqual(objek('Kas').length, 0);
+r = panggil({ aksi: 'terbaru', token: tokEko, tab: 'Produksi Suling' });
+assert.ok(r.ok && r.data.length && r.data.every(d => d.nilai['Upah (Rp)'] === undefined) && !r.kepala.includes('Upah (Rp)'), 'tim suling tidak menerima angka upah');
+assert.ok(panggil({ aksi: 'config', token: tokEko }).master['Tarif Upah'].every(m => m.nilai['Upah (Rp)'] === ''), 'tarif tanpa angka untuk tim suling');
+assert.ok(panggil({ aksi: 'config', token: tokPemilik }).master['Tarif Upah'].some(m => m.nilai['Upah (Rp)'] > 0), 'pemilik tetap melihat tarif');
 r = panggil({ aksi: 'terbaru', token: tokRofik, tab: 'Penjualan' });
 assert.ok(/tidak boleh melihat/.test(r.galat));
 cek('Riwayat, ubah, hapus: baris dicari lewat tanda isinya, upah dihitung ulang, Produksi lewat ID');

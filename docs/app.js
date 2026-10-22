@@ -216,6 +216,8 @@
 
   function akses() { return (sesi && sesi.akses) || {}; }
   function admin() { return !!akses().admin; }
+  // Angka upah hanya untuk pemilik (dan pengguna yang boleh mengatur, karena mereka bisa membuka Ringkasan & Tarif).
+  function lihatUpah() { return !!(akses().pemilik || akses().admin); }
   function pemilik() { return !!akses().pemilik; }
   function boleh(tab) { return (akses().tab || []).indexOf(tab) >= 0; }
 
@@ -469,7 +471,9 @@
         if (!s || !s.baris.length) return null;
         var total = 0, upah = 0, jalan = 0;
         s.baris.forEach(function (r) { total += r['Jumlah sulingan']; upah += upahSuling(r['Operator'], r['Jumlah sulingan']); if (r['Jumlah sulingan'] > 0) jalan++; });
-        return ['Total ' + total + ' sulingan dari ' + jalan + ' alat yang jalan', 'Upah borongan hari ini: ' + rp(upah)];
+        var t = ['Total ' + total + ' sulingan dari ' + jalan + ' alat yang jalan'];
+        if (lihatUpah()) t.push('Upah borongan hari ini: ' + rp(upah));
+        return t;
       },
       baris: function (r) {
         return [r['Alat suling'], r['Jumlah sulingan'] + ' sulingan' + (r['Operator'] ? ' · ' + r['Operator'] : '') + (r['Kondisi alat'] ? ' · ' + r['Kondisi alat'] : '')];
@@ -509,7 +513,7 @@
           if (r['Pekerjaan']) { total += upahTarif(r['Pekerjaan']); if (tarifMasuk(r['Pekerjaan'])) masuk++; }
           total += r['Upah kerja lain (Rp)'] || 0;
         });
-        return [masuk + ' orang/regu kerja', 'Perkiraan upah absensi & kerja lain: ' + rp(total)];
+        return lihatUpah() ? [masuk + ' orang/regu kerja', 'Perkiraan upah absensi & kerja lain: ' + rp(total)] : [masuk + ' orang/regu kerja'];
       },
       baris: function (r) {
         var t = [];
@@ -1100,7 +1104,7 @@
       var opVal = v.op !== undefined ? v.op : operatorTetap(nama);
       var kVal = v.k !== undefined ? v.k : (kondisi[0] || '');
       var tingkat = tingkatUntuk(opVal || operatorTetap(nama) || (ops[0] || ''));
-      var infoUpah = tingkat.length ? 'Upah ' + tingkat.map(function (t) { return t.n + 'x ' + rp(t.upah); }).join(' · ') : 'tarif borongan suling belum ada';
+      var infoUpah = !lihatUpah() ? '' : tingkat.length ? 'Upah ' + tingkat.map(function (t) { return t.n + 'x ' + rp(t.upah); }).join(' · ') : 'tarif borongan suling belum ada';
       var chipJumlah = '<div class="chips"><label class="chip lewati"><input type="radio" name="' + nm + '_n" value=""' + (nVal === '' ? ' checked' : '') + '><span>Tidak diisi</span></label>' +
         jumlah.map(function (x) {
           return '<label class="chip"><input type="radio" name="' + nm + '_n" value="' + x + '"' + (nVal === x ? ' checked' : '') + '><span>' + (x === '0' ? '0 · tidak jalan' : x) + '</span></label>';
@@ -1661,7 +1665,7 @@
           var bag = [];
           if (v['Pekerjaan'] && !v['Pekerjaan lain']) bag.push(v['Pekerjaan']);
           if (v['Pekerjaan lain']) bag.push('Kerja lain: ' + v['Pekerjaan lain']);
-          if (u) bag.push(rp(u));
+          if (u && lihatUpah()) bag.push(rp(u));
           if (Number(v['Jumlah sulingan']) > 0) bag.push(v['Jumlah sulingan'] + ' sulingan');
           rinci = bag.join(' · ');
           if (v['Nama'] && namaUnik.indexOf(v['Nama']) < 0) namaUnik.push(v['Nama']);
@@ -1669,7 +1673,7 @@
         return '<div class="baris-entri" data-idx="' + x.idx + '"><div class="teks"><b>' + esc(nama) + '</b><span class="redup">' + esc(rinci) + '</span></div>' +
           tombolKelola(x.idx, tglIndo(g.tgl) + ' · ' + nama) + '</div>';
       }).join('');
-      var ringkas = tab === 'Produksi Suling' ? 'Total ' + total + ' sulingan · upah ' + rp(totalUpah) : namaUnik.length + ' orang/regu · upah ' + rp(totalUpah);
+      var ringkas = (tab === 'Produksi Suling' ? 'Total ' + total + ' sulingan' : namaUnik.length + ' orang/regu') + (lihatUpah() ? ' · upah ' + rp(totalUpah) : '');
       return '<div class="kartu entri"><h3><span>' + esc(namaHari(g.tgl) + ', ' + tglIndo(g.tgl)) + '</span><small>' + esc(oleh.join(', ')) + '</small></h3>' + baris +
         '<div class="ringkas-kartu">' + esc(ringkas) + '</div>' +
         (ket.length ? '<div class="ket">' + esc(ket.join(' | ')) + '</div>' : '') + '</div>';
@@ -1681,6 +1685,7 @@
     var LABEL = {'Waktu kirim': 'Waktu dikirim', 'Timestamp': 'Waktu dikirim'};
     var isi = (kepala || Object.keys(d.nilai)).map(function (h) {
       if (!h || h === 'ID' || h === 'ID isian') return '';
+      if (!lihatUpah() && (h === 'Upah (Rp)' || h === 'Pos upah')) return '';
       var v = formatNilai(h, d.nilai[h]);
       if (v === '') return '';
       return '<li><span>' + esc(LABEL[h] || h) + '</span><b>' + esc(v) + '</b></li>';
