@@ -11,7 +11,7 @@
   var VERSI = KONF.VERSI || '3.0.0';
   var DI_APK = /CatatanSembadaApp/.test(navigator.userAgent);
   var app = document.getElementById('app');
-  function namaApp() { return (konfig && konfig.pengaturan && konfig.pengaturan.namaAplikasi) || ambil('namaApp', '') || 'Catatan Sembada'; }
+  function namaApp() { return (konfig && konfig.pengaturan && konfig.pengaturan.namaAplikasi) || ambil('namaApp', '') || 'Sembada Sukorejo'; }
   function logoSrc() { return ambil('logo', '') || 'logo.png'; }
 
   // ------------------------------------------------------------ penyimpanan di HP

@@ -54,9 +54,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Catatan Sembada 1.0.${{ github.run_number }}
+          name: Sembada Sukorejo 1.0.${{ github.run_number }}
           body: |
             Unduh file **CatatanSembada-1.0.${{ github.run_number }}.apk** di bawah ini dari HP, lalu buka untuk memasang.
-            Aplikasi ini membuka versi terbaru Catatan Sembada dari internet, jadi perbaikan tidak perlu pasang ulang APK.
+            Aplikasi ini membuka versi terbaru Sembada Sukorejo dari internet, jadi perbaikan tidak perlu pasang ulang APK.
           files: CatatanSembada-1.0.${{ github.run_number }}.apk
           make_latest: true
