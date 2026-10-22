@@ -323,7 +323,7 @@
   var TAMPILAN_BAWAAN = {
     warna: 'sembada', kepala: '#1B4331', aksen: '#2D7C5B', mode: 'otomatis', huruf: 'normal', sudut: 'bulat',
     kepadatan: 'lega', beranda: 2, logo: true, ringkas: true, ringkasAngka: ['penjualan', 'laba', 'minyak', 'totalUpah'],
-    upahBeranda: true, menu: [], namaMenu: {}, form: {}
+    upahBeranda: true, stokBeranda: true, menu: [], namaMenu: {}, form: {}
   };
   var ANGKA = {
     penjualan: {l: 'Penjualan', f: function (m) { return rp(m.penjualan); }, b: 'penjualan'},
@@ -949,12 +949,89 @@
     var m = daftar[idx], sebelum = daftar[idx + 1];
     var perlu = (r.peringatan || []).filter(function (p) { return ['Aman', 'BACA', ''].indexOf(p.status) < 0; }).length;
     var angka = (t.ringkasAngka || []).filter(function (k) { return ANGKA[k]; });
-    return '<div class="kartu"><h2>Ringkasan minggu</h2>' + selectMinggu(daftar, idx) +
+    return (t.stokBeranda !== false ? htmlStokMini(r.stok) : '') + '<div class="kartu"><h2>Ringkasan minggu</h2>' + selectMinggu(daftar, idx) +
       '<p class="sub">' + (idx === 0 ? 'Data sampai ' + esc(tglIndo(r.dataSampai) || '–') : 'Minggu yang sudah lewat') + '</p>' +
       (angka.length ? '<div class="angka-grid">' + angka.map(function (k) { return kotakDari(k, m, sebelum); }).join('') + '</div>' : '') +
       (t.upahBeranda !== false ? htmlUpah(m, idx === 0) : '') +
       (perlu ? '<button class="status galat" style="margin:12px 0 0" data-ke="#/ringkasan">' + ikon('awan') + perlu + ' hal perlu ditangani</button>' : '') +
       '<button class="tautan" data-ke="#/ringkasan">Lihat ringkasan lengkap ›</button></div>';
+  }
+
+  // ---- stok minyak (dihitung dari catatan, terbaru setiap kali dimuat)
+  function rincianStok(st) {
+    var r = [];
+    if (st.dasar) r.push('Ditimbang ' + tglIndo(st.dasar.tgl) + ': ' + ang(st.dasar.kg) + ' kg' + (st.dasar.sumber === 'Saring' ? ' (di Saring Minyak)' : ''));
+    else r.push('Belum pernah ditimbang: dihitung dari semua catatan');
+    r.push('+ disaring ' + ang(st.masuk) + ' kg' + (st.nMasuk ? ' (' + st.nMasuk + ' kali)' : ''));
+    r.push('− terjual ' + ang(st.keluar) + ' kg' + (st.nKeluar ? ' (' + st.nKeluar + ' kali)' : ''));
+    return r;
+  }
+  function peringatanStok(st) {
+    if (st.kg < 0) return 'Stok menurut catatan minus. Ada saring yang belum dicatat, atau ada stok lama sebelum catatan dimulai. Timbang minyak di gudang lalu catat hasilnya.';
+    if (!st.dasar) return 'Belum pernah ditimbang. Timbang minyak di gudang sekali, supaya angka ini bisa dicocokkan.';
+    return '';
+  }
+  function htmlStokMini(st) {
+    if (!st) return '';
+    var awas = peringatanStok(st);
+    return '<div class="kartu kartu-stok"><div class="stok-atas"><div><span class="label-kecil">Stok minyak sekarang</span>' +
+      '<b class="stok-angka' + (st.kg < 0 ? ' minus' : '') + '">' + esc(ang(st.kg)) + ' kg</b></div>' +
+      '<button class="tautan" data-ke="#/ringkasan">Rincian ›</button></div>' +
+      '<p class="sub">' + esc(rincianStok(st).join(' · ')) + '</p>' +
+      (awas ? '<div class="pratinjau awas">' + esc(awas) + '</div>' : '') + '</div>';
+  }
+  function htmlStok(st) {
+    if (!st) return '';
+    var awas = peringatanStok(st);
+    var akhir = [];
+    if (st.akhirMasuk) akhir.push('Saring terakhir ' + tglIndo(st.akhirMasuk.tgl) + ': ' + ang(st.akhirMasuk.kg) + ' kg');
+    if (st.akhirKeluar) akhir.push('Jual terakhir ' + tglIndo(st.akhirKeluar.tgl) + ': ' + ang(st.akhirKeluar.kg) + ' kg' + (st.akhirKeluar.pembeli ? ' ke ' + st.akhirKeluar.pembeli : ''));
+    var riwayat = (st.riwayat || []).map(function (x) {
+      var sel = x.selisih === null || x.selisih === undefined ? '' : (x.selisih > 0 ? '+' : '') + ang(x.selisih) + ' kg dari catatan';
+      return '<div class="baris-angka"><span>' + esc(tglIndo(x.tgl)) + '<small>' + esc([x.oleh, x.ket].filter(function (y) { return y; }).join(' · ')) + '</small></span>' +
+        '<b>' + esc(ang(x.kg)) + ' kg<small class="' + (x.selisih < 0 ? 'merah' : '') + '">' + esc(sel) + '</small></b></div>';
+    }).join('');
+    return '<div class="kartu kartu-stok"><h2>Stok minyak</h2>' +
+      '<div class="stok-atas"><b class="stok-angka' + (st.kg < 0 ? ' minus' : '') + '">' + esc(ang(st.kg)) + ' kg</b></div>' +
+      '<div class="rincian-stok">' + rincianStok(st).map(function (x) { return '<div>' + esc(x) + '</div>'; }).join('') + '</div>' +
+      (akhir.length ? '<p class="sub">' + esc(akhir.join(' · ')) + '</p>' : '') +
+      (awas ? '<div class="pratinjau awas">' + esc(awas) + '</div>' : '') +
+      '<button class="tombol utama penuh" id="catat-timbang" style="margin-top:12px">' + ikon('kotak') + 'Catat hasil timbang</button>' +
+      (riwayat ? '<div class="daftar-baris"><div class="daftar-judul">Timbang terakhir</div>' + riwayat + '</div>' : '') + '</div>';
+  }
+  function lembarTimbang(selesai) {
+    var bidang = [
+      {j: 'tanggal', h: 'Tanggal'},
+      {j: 'desimal', h: 'Stok ditimbang (kg)', bantuan: 'Timbang semua minyak di gudang, sesudah saring dan penjualan hari itu. Contoh 12,5.'},
+      {j: 'teks', h: 'Keterangan', wajib: false, bantuan: 'Contoh: termasuk 2 jeriken di rumah.'}
+    ];
+    var div = bukaLembar('<h2>Catat hasil timbang</h2><p class="sub">Dipakai sebagai patokan stok. Selisih dengan catatan akan terlihat.</p>' +
+      '<form novalidate>' + bidang.map(function (b, i) { return htmlBidang(b, i, {}, 't'); }).join('') + '</form>' +
+      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">Simpan</button></div>');
+    var form = q(div, 'form');
+    pasangFormDinamis(form);
+    div.addEventListener('click', function (ev) {
+      var a = ev.target.closest('[data-aksi]');
+      if (!a) return;
+      if (a.dataset.aksi === 'batal') { div.remove(); return; }
+      var h = bacaIsian(bidang, false, 't', form);
+      tandaiSalah(h.salah, form);
+      if (h.salah.length) return;
+      a.disabled = true; a.textContent = 'Menyimpan…';
+      panggil('stokCatat', {tanggal: h.nilai['Tanggal'], kg: h.nilai['Stok ditimbang (kg)'], keterangan: h.nilai['Keterangan'] || ''}).then(function (r) {
+        a.disabled = false; a.textContent = 'Simpan';
+        if (!r.ok) { toast(r.galat || 'Gagal menyimpan.', 5000); return; }
+        div.remove();
+        var sel = r.selisih;
+        toast(sel === 0 ? 'Tersimpan. Cocok dengan catatan.' : 'Tersimpan. ' + (sel > 0 ? 'Lebih ' : 'Kurang ') + ang(Math.abs(sel)) + ' kg dari catatan (' + ang(r.catatan) + ' kg).', 6000);
+        var rk = ambil('ringkasan', null);
+        if (rk) { rk.stok = r.stok; simpan('ringkasan', rk); }
+        selesai();
+      }, function (e) {
+        a.disabled = false; a.textContent = 'Simpan';
+        toast(e.jaringan ? 'Perlu sinyal untuk menyimpan.' : e.message, 5000);
+      });
+    });
   }
 
   function muatRingkasan() {
@@ -987,6 +1064,10 @@
       });
     };
     document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
+    isi.addEventListener('click', function (ev) {
+      if (!ev.target.closest('#catat-timbang')) return;
+      lembarTimbang(function () { isi.innerHTML = htmlRingkasan(ambil('ringkasan', null)); muat(); });
+    });
     muat();
   }
 
@@ -1025,7 +1106,7 @@
       '</div></div>' : '';
 
     return '<p class="sub" style="margin:0 0 12px;color:var(--teks-2)">Data sampai ' + esc(tglIndo(r.dataSampai) || '–') + '. Angka sama dengan Dashboard dan tab Rekap di Google Sheet.</p>' +
-      minggu + bulan + '<div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') + '</div>';
+      htmlStok(r.stok) + minggu + bulan + '<div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') + '</div>';
   }
 
   // ------------------------------------------------------------ bidang formulir
@@ -2126,7 +2207,8 @@
         '<div class="bidang"><span class="label">Angka di ringkasan beranda</span><div class="chips">' + URUT_ANGKA.map(function (k) {
           return '<label class="chip"><input type="checkbox" name="t-angka" value="' + k + '"' + ((t.ringkasAngka || []).indexOf(k) >= 0 ? ' checked' : '') + '><span>' + esc(ANGKA[k].l) + '</span></label>';
         }).join('') + '</div></div>' +
-        pilihanChip('t-upah', [['ya', 'Tampil'], ['tidak', 'Sembunyi']], t.upahBeranda === false ? 'tidak' : 'ya', 'Upah per orang di beranda') + '</div>' +
+        pilihanChip('t-upah', [['ya', 'Tampil'], ['tidak', 'Sembunyi']], t.upahBeranda === false ? 'tidak' : 'ya', 'Upah per orang di beranda') +
+        pilihanChip('t-stok', [['ya', 'Tampil'], ['tidak', 'Sembunyi']], t.stokBeranda === false ? 'tidak' : 'ya', 'Stok minyak di beranda') + '</div>' +
 
         '<div class="kartu"><h2>Menu catatan</h2><p class="sub">Urutan, nama, dan menu yang tampil di beranda. Menu yang disembunyikan tidak muncul untuk semua pengguna.</p>' +
         menuTerurut(t).map(function (m, i, arr) {
@@ -2176,6 +2258,7 @@
       else if (nama === 't-beranda') t2.beranda = Number(el.value);
       else if (nama === 't-ringkas') t2.ringkas = el.value === 'ya';
       else if (nama === 't-upah') t2.upahBeranda = el.value === 'ya';
+      else if (nama === 't-stok') t2.stokBeranda = el.value === 'ya';
       else if (nama === 't-angka') t2.ringkasAngka = nilaiCentang(isi, 't-angka');
       else if (el.classList.contains('nama-menu')) {
         t2.namaMenu = t2.namaMenu || {};

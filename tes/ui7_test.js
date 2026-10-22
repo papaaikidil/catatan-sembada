@@ -118,6 +118,8 @@ function pngPolos(w, h) {
   const menu = await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent));
   assert.deepStrictEqual(menu, ['Ambil Bahan', 'Produksi Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas']);
   await page.waitForSelector('#kotak-ringkas .angka-grid');
+  await page.waitForSelector('#kotak-ringkas .kartu-stok');
+  assert.ok(/Stok minyak sekarang/.test(await page.textContent('#kotak-ringkas')), 'stok minyak di beranda');
   await foto(page, '02-beranda', true);
   cek('masuk dengan nama pengguna + PIN lama sebagai sandi; antrian lama terkirim');
 
@@ -214,6 +216,16 @@ function pngPolos(w, h) {
   const teks = await page.textContent('.isi');
   assert.ok(/Per alat suling/.test(teks) && /Ketel 1/.test(teks) && /Upah per orang/.test(teks) && /PERHATIAN/.test(teks) && /Cicilan kendaraan/.test(teks), teks.slice(0, 400));
   await page.waitForSelector('#daftar-keterangan .baris-ket');
+  await page.click('#catat-timbang');
+  await page.waitForSelector('.tirai form');
+  await isi(page, '.tirai [name=t1]', '12,5');
+  await isi(page, '.tirai [name=t2]', 'dua jeriken');
+  await foto(page, '05a-timbang');
+  await page.click('.tirai [data-aksi="simpan"]');
+  await page.waitForFunction(() => !document.querySelector('.tirai') && /Timbang terakhir/.test(document.querySelector('.kartu-stok').textContent));
+  const stokSheet = objek('Stok Minyak');
+  assert.strictEqual(stokSheet.length, 1); assert.strictEqual(stokSheet[0]['Stok ditimbang (kg)'], 12.5); assert.strictEqual(stokSheet[0]['Diisi oleh'], 'Mas Wildan');
+  assert.ok(/12,5 kg/.test(await page.textContent('.kartu-stok')));
   assert.ok(/Tambal kolam/.test(await page.textContent('#daftar-keterangan')), 'kerja lain muncul di daftar keterangan');
   await page.click('details.lipat summary');
   await foto(page, '05-ringkasan', true);

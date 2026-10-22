@@ -343,6 +343,35 @@ assert.ok(ket.includes('Produksi suling: lancar') && ket.some(k => /Kondisi alat
 assert.strictEqual(ket.filter(k => k === 'Absensi: hujan sore').length, 1, 'keterangan yang sama dalam sehari cukup sekali');
 cek('Ringkasan: angka dari Rekap, upah per orang & per alat dari catatan, peringatan dari Dashboard');
 
+// ------------------------------------------------------------------ 9b. Stok minyak
+// Data: saring 5,44 kg (9 hari lalu) + 3,4? -> lihat fixture; penjualan 15,94 kg kemarin.
+let st = r.stok;
+assert.ok(st && st.dasar === null, 'belum pernah ditimbang');
+const totalSaring = objek('Saring Minyak').reduce((t, x) => t + (Number(x['Minyak (kg)']) || 0), 0);
+const totalJual = objek('Penjualan').reduce((t, x) => t + (Number(x['Minyak terjual (kg)']) || 0), 0);
+assert.strictEqual(st.kg, Math.round((totalSaring - totalJual) * 100) / 100);
+assert.strictEqual(panggil({ aksi: 'stokCatat', token: tokRofik, tanggal: hariIni, kg: 3 }).kode, 'SESI');
+r = panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: isoHari(-3), kg: 2.5, keterangan: 'timbang semua jeriken' });
+assert.ok(r.ok, JSON.stringify(r));
+assert.strictEqual(r.catatan, Math.round((objek('Saring Minyak').filter(x => formatTanggal(x['Tanggal saring'], 'yyyy-MM-dd') <= isoHari(-3)).reduce((t, x) => t + x['Minyak (kg)'], 0) -
+  objek('Penjualan').filter(x => formatTanggal(x['Tanggal'], 'yyyy-MM-dd') <= isoHari(-3)).reduce((t, x) => t + x['Minyak terjual (kg)'], 0)) * 100) / 100);
+assert.strictEqual(r.selisih, Math.round((2.5 - r.catatan) * 100) / 100);
+st = r.stok;
+assert.strictEqual(st.dasar.tgl, isoHari(-3)); assert.strictEqual(st.dasar.sumber, 'Timbang');
+const sesudahSaring = objek('Saring Minyak').filter(x => formatTanggal(x['Tanggal saring'], 'yyyy-MM-dd') > isoHari(-3)).reduce((t, x) => t + x['Minyak (kg)'], 0);
+const sesudahJual = objek('Penjualan').filter(x => formatTanggal(x['Tanggal'], 'yyyy-MM-dd') > isoHari(-3)).reduce((t, x) => t + x['Minyak terjual (kg)'], 0);
+assert.strictEqual(st.kg, Math.round((2.5 + sesudahSaring - sesudahJual) * 100) / 100, 'stok = timbang + disaring sesudahnya - terjual sesudahnya');
+assert.strictEqual(st.riwayat[0].ket, 'timbang semua jeriken'); assert.strictEqual(st.riwayat[0].oleh, 'Mas Wildan');
+assert.deepStrictEqual(sheets['Stok Minyak'].data[0], ['Timestamp', 'Tanggal', 'Stok ditimbang (kg)', 'Stok menurut catatan (kg)', 'Selisih (kg)', 'Keterangan', 'Diisi oleh']);
+// Isian Saring Minyak dengan "Stok minyak di gudang" yang lebih baru jadi patokan baru.
+panggil({ aksi: 'simpan', token: tokPemilik, tab: 'Saring Minyak', id: 'sm-stok', nilai: { 'Tanggal saring': kemarin, 'Jumlah sulingan yang disaring': 2,
+  'Minyak (kg)': 3.1, 'Kondisi bahan': 'Segar semua', 'Kondisi alat': ['Normal'], 'Stok minyak di gudang (kg)': 20 } });
+st = panggil({ aksi: 'stok', token: tokPemilik }).stok;
+assert.strictEqual(st.dasar.sumber, 'Saring'); assert.strictEqual(st.dasar.tgl, kemarin);
+assert.strictEqual(st.kg, Math.round((20 - objek('Penjualan').filter(x => formatTanggal(x['Tanggal'], 'yyyy-MM-dd') > kemarin).reduce((t, x) => t + x['Minyak terjual (kg)'], 0)) * 100) / 100);
+assert.ok(/tidak boleh setelah/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: besok, kg: 1 }).galat));
+cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai');
+
 // ------------------------------------------------------------------ 10. Tampilan & logo
 r = panggil({ aksi: 'tampilanSimpan', token: tokPemilik, tampilan: { warna: 'biru', beranda: 1 }, namaAplikasi: 'Catatan SKW', logo: 'data:image/png;base64,iVBORw0KGgo=' });
 assert.ok(r.ok, JSON.stringify(r)); assert.ok(r.logoTanda);

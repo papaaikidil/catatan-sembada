@@ -378,3 +378,14 @@ details.lipat[open] .baris-angka:first-child { font-weight: 700; }
 .baris-ket .ket-atas { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .8125rem; }
 .baris-ket p { margin: .25rem 0 0; font-size: .875rem; }
 .chip-bagian { font-size: .6875rem; font-weight: 700; padding: .125rem .5rem; border-radius: 99px; background: var(--aksen-muda); color: var(--aksen); white-space: nowrap; }
+
+/* Stok minyak (Beranda & Ringkasan) */
+.kartu-stok .stok-atas { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+.kartu-stok .label-kecil { display: block; font-size: .8125rem; color: var(--teks-2); font-weight: 600; }
+.kartu-stok .stok-angka { font-size: 2rem; line-height: 1.15; color: var(--aksen); }
+.kartu-stok .stok-angka.minus { color: var(--merah); }
+.kartu-stok .sub { margin: .375rem 0 0; }
+.kartu-stok .pratinjau { margin-top: .625rem; }
+.kartu-stok .baris-angka b small { display: block; font-weight: 500; font-size: .75rem; color: var(--teks-2); text-align: right; }
+.kartu-stok .baris-angka b small.merah { color: var(--merah); }
+.kartu-stok .rincian-stok { margin-top: .5rem; font-size: .875rem; color: var(--teks-2); display: grid; gap: .125rem; }
