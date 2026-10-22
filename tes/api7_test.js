@@ -336,6 +336,11 @@ assert.ok(m0.orang.length >= 4);
 assert.ok(m0.alat.some(a => a.nama === 'Ketel 1'));
 assert.ok(r.bulan.length === 1 && r.bulan[0].laba === 1564000 && r.bulan[0].cicilan === 3632000);
 assert.deepStrictEqual(r.peringatan.map(p => p.status), ['PERHATIAN', 'Aman']);
+const ket = m0.keterangan.map(k => k.bagian + ': ' + k.isi);
+assert.ok(ket.includes('Absensi: hujan sore'), ket.join(' / '));
+assert.ok(ket.some(k => /^Kerja lain: Pak Muhammad: tambal kolam \(untuk proyek bangunan & lainnya\), upah Rp50\.000$/.test(k)), ket.join(' / '));
+assert.ok(ket.includes('Produksi suling: lancar') && ket.some(k => /Kondisi alat: Ketel 1: Spiral bocor/.test(k)), ket.join(' / '));
+assert.strictEqual(ket.filter(k => k === 'Absensi: hujan sore').length, 1, 'keterangan yang sama dalam sehari cukup sekali');
 cek('Ringkasan: angka dari Rekap, upah per orang & per alat dari catatan, peringatan dari Dashboard');
 
 // ------------------------------------------------------------------ 10. Tampilan & logo

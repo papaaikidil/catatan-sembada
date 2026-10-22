@@ -920,6 +920,16 @@
       '<p class="catatan">Ketuk nama untuk rinciannya. Bonus yang dicatat di Kas belum termasuk.</p></div>';
   }
 
+  function htmlKeterangan(m) {
+    if (!m.keterangan) return '';
+    var isi = m.keterangan.length ? m.keterangan.map(function (k) {
+      return '<div class="baris-ket"><div class="ket-atas"><b>' + esc(namaHari(k.tgl) + ', ' + tglIndo(k.tgl)) + '</b><span class="chip-bagian">' + esc(k.bagian) + '</span></div>' +
+        '<p>' + esc(k.isi) + '</p></div>';
+    }).join('') : '<p class="catatan">Tidak ada keterangan di minggu ini.</p>';
+    return '<div class="daftar-baris" id="daftar-keterangan"><div class="daftar-judul">Keterangan & kejadian tidak biasa' +
+      (m.keterangan.length ? ' · ' + m.keterangan.length : '') + '</div>' + isi + '</div>';
+  }
+
   function htmlAlat(m) {
     var alat = m.alat || [];
     if (!alat.length) return '';
@@ -983,6 +993,9 @@
   function htmlRingkasan(r) {
     if (!r || !r.minggu) return '';
     var p = (r.peringatan || []).map(function (x) {
+      if (/^keterangan/i.test(x.hal) && r.minggu && r.minggu[0] && r.minggu[0].keterangan) {
+        x = Object.assign({}, x, {saran: 'Daftarnya ada di kartu Minggu di atas, bagian "Keterangan & kejadian tidak biasa" (pilih minggu ini dan minggu lalu).'});
+      }
       var kelas = x.status === 'Aman' ? 'aman' : (x.status === 'ISI' || x.status === 'BACA' ? 'isi' : 'perlu');
       return '<div class="peringatan"><span class="chip-status ' + kelas + '">' + esc(x.status || '–') + '</span><div><p>' + esc(x.hal) +
         (x.nilai ? ': <b>' + esc(x.nilai) + '</b>' : '') + '</p>' + (x.saran ? '<p class="saran">' + esc(x.saran) + '</p>' : '') + '</div></div>';
@@ -994,7 +1007,7 @@
     var minggu = m ? '<div class="kartu"><h2>Minggu</h2>' + selectMinggu(dm, im) +
       (ms ? '<p class="sub">Panah membandingkan dengan minggu sebelumnya (' + esc(labelMinggu(ms)) + ').</p>' : '<p class="sub"></p>') +
       '<div class="angka-grid">' + URUT_ANGKA.map(function (k) { return kotakDari(k, m, ms); }).join('') + '</div>' +
-      htmlAlat(m) + htmlUpah(m, im === 0) + '</div>' : '';
+      htmlAlat(m) + htmlUpah(m, im === 0) + htmlKeterangan(m) + '</div>' : '';
 
     var db = r.bulan || [];
     var ib = indeksPilihan(db, 'bulanDipilih', function (x) { return x.bulan; });

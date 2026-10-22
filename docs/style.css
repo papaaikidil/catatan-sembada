@@ -371,3 +371,10 @@ details.lipat[open] .baris-angka:first-child { font-weight: 700; }
 .logo-pratinjau { width: 4.5rem; height: 4.5rem; border-radius: 1rem; object-fit: cover; background: #fff; box-shadow: var(--bayang); flex: none; }
 .baris-logo .tombol { min-height: 2.75rem; padding: .375rem .875rem; }
 .kisi-judul b { white-space: nowrap; }
+
+/* Keterangan & kejadian tidak biasa (Ringkasan) */
+.baris-ket { padding: .625rem 0; border-top: 1px solid var(--garis); }
+.baris-ket:first-of-type { border-top: 0; }
+.baris-ket .ket-atas { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .8125rem; }
+.baris-ket p { margin: .25rem 0 0; font-size: .875rem; }
+.chip-bagian { font-size: .6875rem; font-weight: 700; padding: .125rem .5rem; border-radius: 99px; background: var(--aksen-muda); color: var(--aksen); white-space: nowrap; }

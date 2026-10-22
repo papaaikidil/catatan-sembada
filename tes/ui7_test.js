@@ -213,6 +213,8 @@ function pngPolos(w, h) {
   await page.waitForSelector('.daftar-baris');
   const teks = await page.textContent('.isi');
   assert.ok(/Per alat suling/.test(teks) && /Ketel 1/.test(teks) && /Upah per orang/.test(teks) && /PERHATIAN/.test(teks) && /Cicilan kendaraan/.test(teks), teks.slice(0, 400));
+  await page.waitForSelector('#daftar-keterangan .baris-ket');
+  assert.ok(/Tambal kolam/.test(await page.textContent('#daftar-keterangan')), 'kerja lain muncul di daftar keterangan');
   await page.click('details.lipat summary');
   await foto(page, '05-ringkasan', true);
   await page.goto(ASAL + '#/terbaru/absensi');

@@ -1673,6 +1673,7 @@ function ringkasan_(ss, akses) {
   minggu = minggu.slice(0, 26);
   minggu.forEach(function (m) { m.totalUpah = (m.upahPengumpul || 0) + (m.upahPenyuling || 0) + (m.upahHarian || 0); });
   rincianMinggu_(ss, minggu);
+  keteranganMinggu_(ss, minggu);
 
   var bulan = [];
   var rb = ss.getSheetByName('Rekap Bulanan');
@@ -1784,6 +1785,62 @@ function rincianMinggu_(ss, minggu) {
         minyakPerSulingan: null};
     });
     delete m._orang; delete m._alat; delete m._hari;
+  });
+}
+
+// Keterangan dan kejadian tidak biasa per minggu (sama dengan daftar di bagian bawah Dashboard):
+// keterangan Ambil Bahan, Produksi Suling, Saring Minyak, Absensi, kerja lain, kondisi alat bukan Normal, dan Penjualan.
+function keteranganMinggu_(ss, minggu) {
+  var keMinggu = {};
+  minggu.forEach(function (m) { m.keterangan = []; m._sudah = {}; keMinggu[m.mulai] = m; });
+  var tambah = function (tgl, bagian, isi) {
+    isi = teks_(isi);
+    var m = tgl && isi ? keMinggu[seninDari_(tgl)] : null;
+    if (!m) return;
+    var k = tgl + '|' + bagian + '|' + isi;
+    if (m._sudah[k]) return;
+    m._sudah[k] = true;
+    m.keterangan.push({tgl: tgl, bagian: bagian, isi: isi});
+  };
+  var baca = function (nama, f) {
+    var sh = ss.getSheetByName(nama);
+    if (!sh || sh.getLastRow() < 2) return;
+    var kepala = kepalaSheet_(sh);
+    var g = function (r, h) { var j = kepala.indexOf(h); return j >= 0 ? r[j] : ''; };
+    sh.getRange(2, 1, sh.getLastRow() - 1, kepala.length).getValues().forEach(function (r) { f(r, g); });
+  };
+  baca('Ambil Bahan', function (r, g) { tambah(tglKunci_(g(r, 'Tanggal')), 'Ambil bahan', g(r, 'Keterangan')); });
+  baca('Saring Minyak', function (r, g) {
+    var t = tglKunci_(g(r, 'Tanggal saring'));
+    tambah(t, 'Saring minyak', g(r, 'Keterangan'));
+    var k = teks_(g(r, 'Kondisi alat'));
+    if (k && k !== 'Normal') tambah(t, 'Kondisi alat', 'Saat saring: ' + k);
+  });
+  bacaProduksi_(ss).forEach(function (p) {
+    tambah(p.tgl, 'Produksi suling', p.ket);
+    if (p.kondisi && p.kondisi !== 'Normal') tambah(p.tgl, 'Kondisi alat', p.alat + ': ' + p.kondisi);
+  });
+  baca(SH_ABSENSI, function (r, g) {
+    var t = tglKunci_(g(r, 'Tanggal'));
+    tambah(t, 'Absensi', g(r, 'Keterangan'));
+    var pl = teks_(g(r, 'Pekerjaan lain'));
+    if (pl) {
+      var untuk = teks_(g(r, 'Kerja lain untuk'));
+      tambah(t, 'Kerja lain', teks_(g(r, 'Nama')) + ': ' + pl + (untuk ? ' (untuk ' + untuk.toLowerCase() + ')' : '') +
+        (angka_(g(r, 'Upah (Rp)')) > 0 ? ', upah ' + rpTeks_(angka_(g(r, 'Upah (Rp)'))) : ''));
+    }
+  });
+  baca('Penjualan', function (r, g) {
+    var k = teks_(g(r, 'Keterangan'));
+    if (k) tambah(tglKunci_(g(r, 'Tanggal')), 'Penjualan', teks_(g(r, 'Pembeli')) + ': ' + k);
+  });
+  var urutBagian = ['Ambil bahan', 'Produksi suling', 'Kondisi alat', 'Saring minyak', 'Absensi', 'Kerja lain', 'Penjualan'];
+  minggu.forEach(function (m) {
+    m.keterangan.sort(function (a, b) {
+      return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : urutBagian.indexOf(a.bagian) - urutBagian.indexOf(b.bagian);
+    });
+    m.keterangan = m.keterangan.slice(0, 40);
+    delete m._sudah;
   });
 }
 
