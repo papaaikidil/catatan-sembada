@@ -389,3 +389,25 @@ details.lipat[open] .baris-angka:first-child { font-weight: 700; }
 .kartu-stok .baris-angka b small { display: block; font-weight: 500; font-size: .75rem; color: var(--teks-2); text-align: right; }
 .kartu-stok .baris-angka b small.merah { color: var(--merah); }
 .kartu-stok .rincian-stok { margin-top: .5rem; font-size: .875rem; color: var(--teks-2); display: grid; gap: .125rem; }
+
+/* Kotak angka minggu yang bisa diketuk + lembar rinciannya */
+.angka.ketuk { position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .12s; }
+.angka.ketuk > span { padding-right: .875rem; }
+.angka.ketuk::after { content: '›'; position: absolute; top: .4375rem; right: .625rem; font-size: 1.0625rem; line-height: 1; font-weight: 700; color: var(--teks-2); opacity: .7; }
+.angka.ketuk:active { background: var(--garis); }
+.angka.ketuk:focus-visible { outline: 2px solid var(--aksen); outline-offset: 2px; }
+.lembar-rinci .rinci-kepala { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }
+.lembar-rinci .label-kecil { display: block; font-size: .8125rem; color: var(--teks-2); font-weight: 600; }
+.lembar-rinci .rinci-besar { display: block; font-size: 1.75rem; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.lembar-rinci .rinci-besar.minus { color: var(--merah); }
+.lembar-rinci .banding { display: block; font-size: .75rem; font-weight: 700; margin-top: .125rem; }
+.lembar-rinci .banding.naik { color: var(--aksen); }
+.lembar-rinci .banding.turun { color: var(--merah); }
+.tombol-tutup { flex: none; width: 2.5rem; height: 2.5rem; border-radius: 99px; border: 0; background: var(--latar); color: var(--teks-2); font-size: 1.375rem; line-height: 1; cursor: pointer; }
+.lembar-rinci .rinci-cara { margin: .625rem 0 .25rem; font-size: .875rem; color: var(--teks-2); }
+.lembar-rinci .rinci-hitung { border-top: 1px solid var(--garis); margin-top: .5rem; padding-top: .25rem; }
+.lembar-rinci .rinci-catatan { font-size: .75rem; color: var(--teks-2); margin: .25rem 0 .5rem; }
+.lembar-rinci .pratinjau { margin: .625rem 0 0; font-weight: 500; }
+.lembar-rinci .baris-angka > span { flex: 1; }
+.lembar-rinci .baris-angka small { overflow-wrap: anywhere; }
+.lembar-rinci .baris-angka.kosong b { color: var(--merah); }

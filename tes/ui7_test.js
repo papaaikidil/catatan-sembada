@@ -229,6 +229,59 @@ function pngPolos(w, h) {
   assert.ok(/Tambal kolam/.test(await page.textContent('#daftar-keterangan')), 'kerja lain muncul di daftar keterangan');
   await page.click('details.lipat summary');
   await foto(page, '05-ringkasan', true);
+
+  // Setiap kotak angka minggu bisa diketuk dan menampilkan rinciannya.
+  const kunciAngka = await page.$$eval('.angka-grid .angka[data-angka]', a => a.map(x => x.dataset.angka));
+  assert.deepStrictEqual(kunciAngka, ['penjualan', 'laba', 'minyak', 'minyakPerSulingan', 'sulingan', 'rendemen', 'bahanKg', 'hargaBahan', 'biayaPerKg', 'totalUpah', 'belumLunas', 'hariKosong']);
+  const harap = {
+    penjualan: /Catatan penjualan · \d+[\s\S]*Lusiani/, laba: /Penjualan[\s\S]*Beli bahan[\s\S]*Laba usaha[\s\S]*Operasional & perawatan · \d+/,
+    minyak: /Catatan saring · \d+/, minyakPerSulingan: /Minyak dihasilkan ÷ jumlah sulingan/, sulingan: /Ketel 1[\s\S]*Hari per hari/,
+    rendemen: /× 100%/, bahanKg: /Trip ambil bahan · \d+[\s\S]*Tanen/, hargaBahan: /Harga per trip[\s\S]*\/kg/, biayaPerKg: /Biaya produksi[\s\S]*÷/,
+    totalUpah: /Upah pengumpul[\s\S]*Per orang[\s\S]*Rofik/, belumLunas: /Penjualan belum lunas · \d+/, hariKosong: /Hari per hari[\s\S]*(Kosong|sulingan|Tidak ada catatan)/
+  };
+  for (const k of kunciAngka) {
+    await page.click('.kartu .angka[data-angka="' + k + '"]');
+    await page.waitForSelector('.lembar-rinci');
+    const isiLembar = await page.textContent('.lembar-rinci');
+    assert.ok(harap[k].test(isiLembar), k + ': ' + isiLembar.slice(0, 300));
+    assert.ok(!/setelah Apps Script diperbarui/.test(isiLembar), k + ': catatan asli sudah ada');
+    if (['laba', 'hariKosong', 'bahanKg', 'biayaPerKg'].includes(k)) {
+      // Lembar dibentangkan supaya seluruh isinya terlihat di gambar.
+      await page.addStyleTag({ content: '.tirai{position:absolute;bottom:auto;min-height:100%}.lembar{max-height:none}#toast{display:none}' });
+      await page.locator('.lembar').screenshot({ path: path.join(OUT, '05b-rinci-' + k + '.png') });
+      await page.evaluate(() => document.querySelectorAll('style').forEach(x => { if (/min-height:100%/.test(x.textContent)) x.remove(); }));
+    }
+    await page.click('.lembar-rinci .tombol-tutup');
+    await page.waitForFunction(() => !document.querySelector('.tirai'));
+  }
+  // Catatan saring untuk membetulkan stok diberi tanda; Apps Script lama (tanpa catatan asli) tetap bisa dibuka.
+  await page.evaluate(() => {
+    const r = JSON.parse(localStorage.getItem('sembada7.ringkasan'));
+    r.minggu[0].rinci.saring.push({tgl: r.minggu[0].mulai, sulingan: 4, kg: 7.04, ket: 'Catatan ini hanya agar stok real time kembali ke 0'});
+    delete r.minggu[1].rinci; delete r.minggu[1].hari;
+    localStorage.setItem('sembada7.ringkasan', JSON.stringify(r));
+  });
+  await page.click('.kartu .angka[data-angka="minyak"]');
+  await page.waitForSelector('.lembar-rinci');
+  assert.ok(/membetulkan stok/.test(await page.textContent('.lembar-rinci')));
+  await page.click('.lembar-rinci [data-aksi="tutup"].tombol');
+  await page.waitForFunction(() => !document.querySelector('.tirai'));
+  await page.selectOption('#pilih-minggu', await page.evaluate(() => JSON.parse(localStorage.getItem('sembada7.ringkasan')).minggu[1].mulai));
+  await page.click('.kartu .angka[data-angka="hariKosong"]');
+  await page.waitForSelector('.lembar-rinci');
+  assert.ok(/setelah Apps Script diperbarui/.test(await page.textContent('.lembar-rinci')));
+  await page.keyboard.press('Escape');
+  await page.click('.tirai', { position: { x: 10, y: 10 } });
+  await page.waitForFunction(() => !document.querySelector('.tirai'));
+  await page.selectOption('#pilih-minggu', await page.evaluate(() => JSON.parse(localStorage.getItem('sembada7.ringkasan')).minggu[0].mulai));
+  // Kotak di Beranda juga bisa diketuk.
+  await page.goto(ASAL + '#/');
+  await page.waitForSelector('#kotak-ringkas .angka[data-angka="penjualan"]');
+  await page.click('#kotak-ringkas .angka[data-angka="penjualan"]');
+  await page.waitForSelector('.lembar-rinci');
+  assert.ok(/Catatan penjualan/.test(await page.textContent('.lembar-rinci')));
+  await page.click('.lembar-rinci .tombol-tutup');
+  cek('kotak angka minggu bisa diketuk: cara hitung, komponen, dan catatan asli');
   await page.goto(ASAL + '#/terbaru/absensi');
   await page.waitForSelector('.baris-entri');
   await foto(page, '06-riwayat-absensi', true);

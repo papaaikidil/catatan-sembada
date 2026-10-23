@@ -3,7 +3,7 @@
 // jadi perbaikan langsung sampai ke semua HP. Kalau tidak ada sinyal, pakai salinan terakhir.
 // Nama cache berawalan "sembada-" dan hanya cache berawalan itu yang dibersihkan,
 // supaya tidak mengganggu aplikasi Catatan Sembada Kepuh di alamat yang sama.
-const CACHE = 'sembada-v14';
+const CACHE = 'sembada-v15';
 const ASET = ['./', './index.html', './app.js', './style.css', './config.js', './manifest.webmanifest',
   './ikon-192.png', './ikon-512.png', './logo.png'];
 

@@ -325,6 +325,9 @@ assert.ok(panggil({ aksi: 'masuk', pengguna: 'muh', sandi: '9912' }).ok);
 cek('Pengguna: daftar, tambah, wajib ganti sandi, sandi minimal 4, nonaktif, ganti nama pengguna');
 
 // ------------------------------------------------------------------ 9. Ringkasan
+// Biaya operasional (Kas, kelompok Operasional usaha) dan upah perawatan alat (Absensi Harian) untuk rincian angka.
+sheets['Kas'].data.push(['', new Date(), tgl(hariIni), 'Bensin & servis pikap', 150000, 'ganti oli', 'Operasional usaha', 'Keluar']);
+sheets['Absensi Harian'].data.push(['', new Date(), tgl(hariIni), 'Pak Muh', 'Pengumpul', 'Kerja lain', '', 0, 60000, 'Perawatan alat', 'las tungku', 'Perawatan alat suling', '', 'Mas Wildan']);
 r = panggil({ aksi: 'ringkasan', token: tokPemilik });
 assert.ok(r.ok, JSON.stringify(r));
 assert.strictEqual(r.dataSampai, kemarin);
@@ -342,6 +345,36 @@ assert.ok(ket.some(k => /^Kerja lain: Pak Muhammad: tambal kolam \(untuk proyek 
 assert.ok(ket.includes('Produksi suling: lancar') && ket.some(k => /Kondisi alat: Ketel 1: Spiral bocor/.test(k)), ket.join(' / '));
 assert.strictEqual(ket.filter(k => k === 'Absensi: hujan sore').length, 1, 'keterangan yang sama dalam sehari cukup sekali');
 cek('Ringkasan: angka dari Rekap, upah per orang & per alat dari catatan, peringatan dari Dashboard');
+
+// Rincian angka: catatan asli tiap minggu, disaring persis seperti rumus Rekap Mingguan.
+const isoT = v => formatTanggal(v, 'yyyy-MM-dd');
+r.minggu.forEach(m => {
+  const di = v => { const t = isoT(v); return t >= m.mulai && t <= m.sampai; };
+  const ab = objek('Ambil Bahan').filter(x => di(x['Tanggal']));
+  assert.strictEqual(m.rinci.bahan.length, ab.length, 'trip minggu ' + m.mulai);
+  assert.strictEqual(m.rinci.bahan.reduce((t, x) => t + x.kg, 0), ab.reduce((t, x) => t + x['Berat bahan (kg)'], 0));
+  const sm = objek('Saring Minyak').filter(x => di(x['Tanggal saring']));
+  assert.strictEqual(Math.round(m.rinci.saring.reduce((t, x) => t + x.kg, 0) * 100), Math.round(sm.reduce((t, x) => t + x['Minyak (kg)'], 0) * 100));
+  const pj = objek('Penjualan').filter(x => di(x['Tanggal']));
+  assert.strictEqual(m.rinci.jual.reduce((t, x) => t + x.total, 0), pj.reduce((t, x) => t + x['Total (Rp)'], 0));
+  assert.strictEqual(m.rinci.jual.filter(j => j.status && j.status !== 'Lunas').reduce((t, j) => t + j.total, 0), m.belumLunas, 'belum lunas = daftar');
+  const urut = ['bahan', 'saring', 'jual', 'ops'].every(k => m.rinci[k].every((x, i, a) => !i || a[i - 1].tgl <= x.tgl));
+  assert.ok(urut, 'daftar urut dari Senin ke Minggu');
+  assert.strictEqual(m.hari.length, 7); assert.strictEqual(m.hari[0].tgl, m.mulai); assert.strictEqual(m.hari[6].tgl, m.sampai);
+  // Hari per hari: sulingan = Absensi Harian + Produksi Suling; "kosong" = ada catatan tapi 0 sulingan (sama dengan rumus Hari ketel kosong).
+  m.hari.forEach(h => {
+    const a = objek('Absensi Harian').filter(x => isoT(x['Tanggal']) === h.tgl), p = objek('Produksi Suling').filter(x => isoT(x['Tanggal']) === h.tgl);
+    assert.strictEqual(h.catat, a.length + p.length > 0, 'ada catatan ' + h.tgl);
+    assert.strictEqual(h.sulingan, a.reduce((t, x) => t + (Number(x['Jumlah sulingan']) || 0), 0) + p.reduce((t, x) => t + (Number(x['Jumlah sulingan']) || 0), 0), 'sulingan ' + h.tgl);
+  });
+});
+const opsHariIni = r.minggu[0].rinci.ops.filter(o => o.tgl === hariIni);
+const perawatan = objek('Absensi Harian').filter(x => isoT(x['Tanggal']) === hariIni && x['Pos upah'] === 'Perawatan alat');
+assert.strictEqual(opsHariIni.filter(o => o.apa === 'Upah perawatan alat').length, perawatan.length, 'semua upah perawatan alat hari ini');
+assert.ok(opsHariIni.some(o => o.apa === 'Bensin & servis pikap' && o.rp === 150000 && o.ket === 'ganti oli'), JSON.stringify(opsHariIni));
+assert.ok(opsHariIni.some(o => o.apa === 'Upah perawatan alat' && o.rp === 60000 && o.ket === 'Pak Muh: las tungku'), JSON.stringify(opsHariIni));
+assert.ok(!r.minggu[0].rinci.ops.some(o => o.apa === 'Proyek bangunan'), 'kas proyek lain tidak masuk operasional');
+cek('Ringkasan: catatan asli di balik setiap angka minggu (trip, saring, penjualan, operasional, hari per hari)');
 
 // ------------------------------------------------------------------ 9b. Stok minyak
 // Data: saring 5,44 kg (9 hari lalu) + 3,4? -> lihat fixture; penjualan 15,94 kg kemarin.

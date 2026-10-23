@@ -18,7 +18,8 @@ Catatan lama tidak diubah.
   Semuanya tersimpan di tab yang sudah ada (Karyawan, Alat Suling, Tarif Upah, Daftar). Ganti nama ikut mengganti catatan lama supaya rekap utuh.
 - **Pengguna & sandi**, **Tampilan & tata letak** (nama, logo, warna, ukuran huruf, susunan beranda, urutan/nama menu, isian formulir).
 - **Ringkasan**: angka minggu dan bulan dibaca langsung dari tab Rekap Mingguan dan Rekap Bulanan (sama dengan Dashboard);
-  upah per orang dan per alat dihitung dari catatan.
+  upah per orang dan per alat dihitung dari catatan. Setiap kotak angka minggu bisa diketuk untuk melihat cara hitung,
+  komponennya, dan catatan aslinya (trip, saring, penjualan, operasional, hari per hari).
 
 ## Isi repo
 
