@@ -411,3 +411,11 @@ details.lipat[open] .baris-angka:first-child { font-weight: 700; }
 .lembar-rinci .baris-angka > span { flex: 1; }
 .lembar-rinci .baris-angka small { overflow-wrap: anywhere; }
 .lembar-rinci .baris-angka.kosong b { color: var(--merah); }
+
+/* Komponen angka yang bisa dibuka (lembar rincian & upah per orang) */
+details.rinci-lipat > summary .baris-angka > span .buka { display: inline-block; font-style: normal; font-size: .75rem; color: var(--teks-2); margin-left: .375rem; transition: transform .15s; }
+details.rinci-lipat[open] > summary .baris-angka > span .buka { transform: rotate(180deg); }
+details.rinci-lipat[open] > summary .baris-angka { font-weight: 700; }
+details.rinci-lipat > .lipat-isi { margin: 0 0 .5rem .25rem; padding: 0 0 0 .75rem; border-left: 2px solid var(--garis); }
+details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; padding: .3125rem 0; font-weight: 400; }
+.lembar-rinci .banding.netral { color: var(--teks-2); font-weight: 600; }

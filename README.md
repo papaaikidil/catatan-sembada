@@ -18,8 +18,11 @@ Catatan lama tidak diubah.
   Semuanya tersimpan di tab yang sudah ada (Karyawan, Alat Suling, Tarif Upah, Daftar). Ganti nama ikut mengganti catatan lama supaya rekap utuh.
 - **Pengguna & sandi**, **Tampilan & tata letak** (nama, logo, warna, ukuran huruf, susunan beranda, urutan/nama menu, isian formulir).
 - **Ringkasan**: angka minggu dan bulan dibaca langsung dari tab Rekap Mingguan dan Rekap Bulanan (sama dengan Dashboard);
-  upah per orang dan per alat dihitung dari catatan. Setiap kotak angka minggu bisa diketuk untuk melihat cara hitung,
-  komponennya, dan catatan aslinya (trip, saring, penjualan, operasional, hari per hari).
+  upah per orang dan per alat dihitung dari catatan. Setiap kotak angka minggu dan bulan bisa diketuk untuk melihat cara hitung,
+  komponennya (bisa dibuka satu per satu), dan catatan aslinya (trip, saring, penjualan, operasional, kas, hari per hari).
+  Upah per orang bisa dibuka per hari untuk gajian.
+- **Semua upah dari Absensi**: tim suling memilih 1x, 2x, atau 3x suling (jumlah sulingan dan upahnya ikut tercatat),
+  atau "Kerja lain…" untuk pekerjaan dengan upah khusus. Formulir Produksi Suling tidak ditampilkan lagi supaya tidak tercatat dua kali.
 
 ## Isi repo
 

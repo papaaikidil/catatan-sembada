@@ -116,49 +116,40 @@ function pngPolos(w, h) {
   await page.waitForFunction(() => !JSON.parse(localStorage.getItem('sembada7.antrian') || '[]').length);
   assert.ok(objek('Absensi Harian').some(a => a['Keterangan'] === 'dari HP lama' && a['Pekerjaan'] === '2 trip'), 'absensi dari HP lama terkirim');
   const menu = await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent));
-  assert.deepStrictEqual(menu, ['Ambil Bahan', 'Produksi Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas']);
+  assert.deepStrictEqual(menu, ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'], 'Produksi Suling tidak ditampilkan lagi');
   await page.waitForSelector('#kotak-ringkas .angka-grid');
   await page.waitForSelector('#kotak-ringkas .kartu-stok');
   assert.ok(/Stok minyak sekarang/.test(await page.textContent('#kotak-ringkas')), 'stok minyak di beranda');
   await foto(page, '02-beranda', true);
   cek('masuk dengan nama pengguna + PIN lama sebagai sandi; antrian lama terkirim');
 
-  console.log('Produksi suling');
+  console.log('Absensi (semua upah dari absensi)');
   await page.goto(ASAL + '#/isi/suling');
-  await page.waitForSelector('.kisi-alat');
-  assert.strictEqual(await page.locator('.kisi-alat').count(), 1);
-  assert.ok(/1x Rp90\.000 · 2x Rp180\.000 · 3x Rp295\.000/.test(await page.textContent('.kisi-judul')), await page.textContent('.kisi-judul'));
-  await pilih(page, 'b1_a0_n', '2');
-  assert.strictEqual(await page.$eval('input[name="b1_a0_op"]:checked', e => e.value), 'Eko & Pak Gatot', 'operator tetap terpilih otomatis');
-  await page.waitForSelector('#pratinjau:not([hidden])');
-  assert.ok(/180\.000/.test(await page.textContent('#pratinjau')));
-  await foto(page, '03-produksi', true);
-  await simpanDanKonfirmasi(page);
-  const ps = objek('Produksi Suling');
-  assert.strictEqual(ps.length, 1); assert.strictEqual(ps[0]['Upah (Rp)'], 180000); assert.strictEqual(ps[0]['Kondisi alat'], 'Normal');
-  assert.strictEqual(ps[0]['Diisi oleh'], 'Mas Wildan');
-  cek('produksi suling: upah dari tarif 2x suling');
-
-  console.log('Absensi');
+  await page.waitForFunction(() => location.hash === '#/');
   await page.goto(ASAL + '#/isi/absensi');
   await page.waitForSelector('.baris-kisi');
   const judulTim = await page.$$eval('.kelompok-judul span', s => s.map(x => x.textContent));
   assert.deepStrictEqual(judulTim, ['Pengumpul · 3 orang', 'Tim suling · 1 orang']);
   const opsiSuling = await page.$$eval('.baris-kisi[data-peran="Tim suling"] input', i => i.map(x => x.value));
-  assert.ok(opsiSuling.includes('Nyuling (upah dari produksi)') && !opsiSuling.includes('2x suling') && !opsiSuling.includes('Kerja lain'), opsiSuling.join());
+  assert.deepStrictEqual(opsiSuling, ['', 'Libur', '1x suling', '2x suling', '3x suling', 'Harian 2 orang', '__kerjaLain'], opsiSuling.join());
+  assert.strictEqual(await page.$('[data-isi-semua="Tim suling"]'), null, 'isi cepat tidak perlu untuk tim satu regu');
   await page.click('[data-isi-semua="Pengumpul"]');
-  await page.click('[data-isi-semua="Tim suling"]');
   const namaOrang = await page.evaluate(() => JSON.parse(localStorage.getItem('sembada7.konfig')).master.Karyawan.filter(k => k.aktif).map(k => k.nilai.Nama));
   const j = n => namaOrang.indexOf(n);
+  await pilih(page, 'b1_o' + j('Eko & Pak Gatot'), '2x suling');
   await pilih(page, 'b1_o' + j('Mas Romadi'), 'Harian kenek');
-  await pilih(page, 'b2_ada', 'Ya');
+  // "Kerja lain…" di baris Pak Muh membuka isian kerja lain dengan Pak Muh sudah dicentang.
+  await pilih(page, 'b1_o' + j('Pak Muh'), '__kerjaLain');
+  await page.waitForSelector('.bidang-kerja-lain .kerja-lain:not([hidden])');
+  assert.ok(await page.$eval('input[name=b2_siapa][value="Pak Muh"]', e => e.checked), 'Pak Muh tercentang di kerja lain');
   await isi(page, '[name=b2_kerja]', 'Tambal kolam');
-  await pilih(page, 'b2_siapa', 'Pak Muh');
   await page.click('#tombol-simpan');
   await page.waitForSelector('.bidang-kerja-lain.salah');
   assert.ok(/untuk apa/.test(await page.textContent('.bidang-kerja-lain .pesan-salah')));
   await pilih(page, 'b2_untuk', 'Proyek bangunan & lainnya');
   await isi(page, '[name=b2_u' + j('Pak Muh') + ']', '50000');
+  await page.waitForSelector('#pratinjau:not([hidden])');
+  assert.ok(/Rp406\.000/.test(await page.textContent('#pratinjau')), 'perkiraan upah: 76.000 + 100.000 + 180.000 + 50.000: ' + await page.textContent('#pratinjau'));
   await foto(page, '04-absensi', true);
   await simpanDanKonfirmasi(page);
   const ah = objek('Absensi Harian').filter(a => iso(a['Tanggal']) === hariIni);
@@ -166,9 +157,12 @@ function pngPolos(w, h) {
   assert.strictEqual(ah.find(a => a.Nama === 'Mas Romadi')['Pekerjaan'], 'Harian kenek');
   const kl = ah.find(a => a.Nama === 'Pak Muh' && a['Pekerjaan'] === 'Kerja lain');
   assert.strictEqual(kl['Upah (Rp)'], 50000); assert.strictEqual(kl['Kerja lain untuk'], 'Proyek bangunan & lainnya'); assert.strictEqual(kl['Pos upah'], 'Harian & lain');
-  assert.strictEqual(ah.find(a => a.Nama === 'Eko & Pak Gatot')['Pekerjaan'], 'Nyuling (upah dari produksi)');
-  assert.strictEqual(ah.length, 5);
-  cek('absensi semua karyawan sekaligus, kerja lain dengan "untuk"');
+  assert.ok(!ah.some(a => a.Nama === 'Pak Muh' && a['Pekerjaan'] !== 'Kerja lain'), 'Pak Muh hari ini hanya kerja lain');
+  const eko = ah.find(a => a.Nama === 'Eko & Pak Gatot');
+  assert.deepStrictEqual([eko['Pekerjaan'], eko['Jumlah sulingan'], eko['Upah (Rp)'], eko['Pos upah'], eko['Alat']], ['2x suling', 2, 180000, 'Penyulingan', 'Ketel 1']);
+  assert.strictEqual(ah.length, 4);
+  assert.ok(!sheets['Produksi Suling'] || !objek('Produksi Suling').length, 'tidak ada catatan ganda di Produksi Suling');
+  cek('absensi: tim suling 1x/2x/3x suling (sulingan & upah ikut tercatat), "Kerja lain…" membuka isian kerja lain');
 
   console.log('Ambil bahan, saring, penjualan, kas');
   await page.goto(ASAL + '#/isi/ambil');
@@ -231,16 +225,16 @@ function pngPolos(w, h) {
   await foto(page, '05-ringkasan', true);
 
   // Setiap kotak angka minggu bisa diketuk dan menampilkan rinciannya.
-  const kunciAngka = await page.$$eval('.angka-grid .angka[data-angka]', a => a.map(x => x.dataset.angka));
+  const kunciAngka = await page.$$eval('.angka-grid .angka[data-jenis="minggu"]', a => a.map(x => x.dataset.angka));
   assert.deepStrictEqual(kunciAngka, ['penjualan', 'laba', 'minyak', 'minyakPerSulingan', 'sulingan', 'rendemen', 'bahanKg', 'hargaBahan', 'biayaPerKg', 'totalUpah', 'belumLunas', 'hariKosong']);
   const harap = {
-    penjualan: /Catatan penjualan · \d+[\s\S]*Lusiani/, laba: /Penjualan[\s\S]*Beli bahan[\s\S]*Laba usaha[\s\S]*Operasional & perawatan · \d+/,
+    penjualan: /Catatan penjualan · \d+[\s\S]*Lusiani/, laba: /Penjualan[\s\S]*Beli bahan[\s\S]*Upah penyuling[\s\S]*Operasional & perawatan[\s\S]*Laba usaha/,
     minyak: /Catatan saring · \d+/, minyakPerSulingan: /Minyak dihasilkan ÷ jumlah sulingan/, sulingan: /Ketel 1[\s\S]*Hari per hari/,
     rendemen: /× 100%/, bahanKg: /Trip ambil bahan · \d+[\s\S]*Tanen/, hargaBahan: /Harga per trip[\s\S]*\/kg/, biayaPerKg: /Biaya produksi[\s\S]*÷/,
     totalUpah: /Upah pengumpul[\s\S]*Per orang[\s\S]*Rofik/, belumLunas: /Penjualan belum lunas · \d+/, hariKosong: /Hari per hari[\s\S]*(Kosong|sulingan|Tidak ada catatan)/
   };
   for (const k of kunciAngka) {
-    await page.click('.kartu .angka[data-angka="' + k + '"]');
+    await page.click('.kartu .angka[data-jenis="minggu"][data-angka="' + k + '"]');
     await page.waitForSelector('.lembar-rinci');
     const isiLembar = await page.textContent('.lembar-rinci');
     assert.ok(harap[k].test(isiLembar), k + ': ' + isiLembar.slice(0, 300));
@@ -254,20 +248,64 @@ function pngPolos(w, h) {
     await page.click('.lembar-rinci .tombol-tutup');
     await page.waitForFunction(() => !document.querySelector('.tirai'));
   }
+  // Komponen biaya bisa dibuka: upah penyuling menunjukkan siapa dan pekerjaannya.
+  await page.click('.kartu .angka[data-jenis="minggu"][data-angka="laba"]');
+  await page.waitForSelector('.lembar-rinci');
+  await page.evaluate(() => [...document.querySelectorAll('.lembar-rinci details.rinci-lipat summary')].find(x => /Upah penyuling/.test(x.textContent)).click());
+  assert.ok(/Eko & Pak Gatot[\s\S]*2x suling/.test(await page.textContent('.lembar-rinci details[open] .lipat-isi')), 'upah penyuling dirinci per orang per hari');
+  await page.addStyleTag({ content: '.tirai{position:absolute;bottom:auto;min-height:100%}.lembar{max-height:none}#toast{display:none}' });
+  await page.locator('.lembar').screenshot({ path: path.join(OUT, '05c-rinci-laba-dibuka.png') });
+  await page.evaluate(() => document.querySelectorAll('style').forEach(x => { if (/min-height:100%/.test(x.textContent)) x.remove(); }));
+  await page.click('.lembar-rinci .tombol-tutup');
+  await page.waitForFunction(() => !document.querySelector('.tirai'));
+  // Upah per orang di kartu Minggu: ketuk nama untuk upah per hari (untuk gajian).
+  await page.evaluate(() => [...document.querySelectorAll('.kartu details.rinci-lipat summary')].find(x => /Eko & Pak Gatot/.test(x.textContent)).click());
+  assert.ok(/2x suling/.test(await page.evaluate(() => [...document.querySelectorAll('.kartu details.rinci-lipat[open]')].map(x => x.textContent).join(' '))));
+
+  // Setiap kotak di kartu Bulan juga bisa diketuk.
+  const kunciBulan = await page.$$eval('.angka[data-jenis="bulan"]', a => a.map(x => x.dataset.angka));
+  assert.deepStrictEqual(kunciBulan, ['penjualan', 'laba', 'minyak', 'sulingan', 'biayaProduksi', 'totalUpah', 'cicilan', 'labaSetelahCicilan', 'keluarga',
+    'proyekLain', 'pemasukanLain', 'belumDibayar', 'perubahanKas']);
+  const harapBulan = {
+    penjualan: /Catatan penjualan · \d+/, laba: /Beli bahan[\s\S]*Laba usaha/, minyak: /Catatan saring · \d+/, sulingan: /Ketel 1[\s\S]*Hari yang ada catatan/,
+    biayaProduksi: /Upah pengumpul[\s\S]*Biaya produksi/, totalUpah: /Per orang \(untuk gajian\)[\s\S]*Rofik/, cicilan: /Cicilan kendaraan/,
+    labaSetelahCicilan: /Pengembangan usaha[\s\S]*Cicilan kendaraan/, keluarga: /Keluarga & pribadi/, proyekLain: /Proyek lain \(bahan & bayar\)[\s\S]*Upah kerja harian/,
+    pemasukanLain: /Pemasukan lain/, belumDibayar: /Penjualan belum dibayar · \d+/, perubahanKas: /Laba setelah cicilan[\s\S]*Pembiayaan bersih[\s\S]*Perubahan kas/
+  };
+  for (const k of kunciBulan) {
+    await page.click('.angka[data-jenis="bulan"][data-angka="' + k + '"]');
+    await page.waitForSelector('.lembar-rinci');
+    const isiLembar = await page.textContent('.lembar-rinci');
+    assert.ok(harapBulan[k].test(isiLembar), 'bulan ' + k + ': ' + isiLembar.slice(0, 300));
+    assert.ok(!/setelah Apps Script diperbarui|hanya disiapkan/.test(isiLembar), 'bulan ' + k + ': catatan asli sudah ada');
+    if (['perubahanKas', 'totalUpah'].includes(k)) {
+      if (k === 'totalUpah') await page.evaluate(() => [...document.querySelectorAll('.lembar-rinci .daftar-baris details.rinci-lipat summary')].find(x => /Rofik/.test(x.textContent)).click());
+      await page.addStyleTag({ content: '.tirai{position:absolute;bottom:auto;min-height:100%}.lembar{max-height:none}#toast{display:none}' });
+      await page.locator('.lembar').screenshot({ path: path.join(OUT, '05d-bulan-' + k + '.png') });
+      await page.evaluate(() => document.querySelectorAll('style').forEach(x => { if (/min-height:100%/.test(x.textContent)) x.remove(); }));
+    }
+    await page.click('.lembar-rinci .tombol-tutup');
+    await page.waitForFunction(() => !document.querySelector('.tirai'));
+  }
+
   // Catatan saring untuk membetulkan stok diberi tanda; Apps Script lama (tanpa catatan asli) tetap bisa dibuka.
   await page.evaluate(() => {
     const r = JSON.parse(localStorage.getItem('sembada7.ringkasan'));
     r.minggu[0].rinci.saring.push({tgl: r.minggu[0].mulai, sulingan: 4, kg: 7.04, ket: 'Catatan ini hanya agar stok real time kembali ke 0'});
-    delete r.minggu[1].rinci; delete r.minggu[1].hari;
     localStorage.setItem('sembada7.ringkasan', JSON.stringify(r));
   });
-  await page.click('.kartu .angka[data-angka="minyak"]');
+  await page.click('.kartu .angka[data-jenis="minggu"][data-angka="minyak"]');
   await page.waitForSelector('.lembar-rinci');
   assert.ok(/membetulkan stok/.test(await page.textContent('.lembar-rinci')));
   await page.click('.lembar-rinci [data-aksi="tutup"].tombol');
   await page.waitForFunction(() => !document.querySelector('.tirai'));
+  await page.evaluate(() => {
+    const r = JSON.parse(localStorage.getItem('sembada7.ringkasan'));
+    r.minggu.forEach(m => { delete m.rinci; delete m.hari; });
+    localStorage.setItem('sembada7.ringkasan', JSON.stringify(r));
+  });
   await page.selectOption('#pilih-minggu', await page.evaluate(() => JSON.parse(localStorage.getItem('sembada7.ringkasan')).minggu[1].mulai));
-  await page.click('.kartu .angka[data-angka="hariKosong"]');
+  await page.click('.kartu .angka[data-jenis="minggu"][data-angka="hariKosong"]');
   await page.waitForSelector('.lembar-rinci');
   assert.ok(/setelah Apps Script diperbarui/.test(await page.textContent('.lembar-rinci')));
   await page.keyboard.press('Escape');
@@ -294,9 +332,10 @@ function pngPolos(w, h) {
   await page.waitForFunction(() => location.hash === '#/terbaru/absensi');
   await tunggu(200);
   assert.strictEqual(objek('Absensi Harian').find(a => a.Nama === 'Mas Romadi' && iso(a['Tanggal']) === hariIni)['Upah (Rp)'], 126000);
-  await page.goto(ASAL + '#/terbaru/suling');
+  await page.goto(ASAL + '#/terbaru/absensi');
   await page.waitForSelector('.baris-entri');
-  assert.ok(/Total 2 sulingan · upah Rp180\.000/.test(await page.textContent('.ringkas-kartu')));
+  assert.ok(!(await page.$$eval('.pilih-tab button', b => b.map(x => x.textContent))).includes('Produksi Suling'));
+  assert.ok(/2x suling/.test(await page.textContent('#daftar-entri')));
   await page.goto(ASAL + '#/terbaru/ambil');
   await page.waitForSelector('.entri');
   await foto(page, '08-riwayat-ambil');
@@ -344,9 +383,9 @@ function pngPolos(w, h) {
   await page.waitForFunction(() => !document.querySelector('.tirai') && ![...document.querySelectorAll('.item-induk b')].some(b => b.textContent === 'Banjarejo'));
   assert.ok(!sheets['Daftar'].data.some(r => r[4] === 'Banjarejo') && sheets['Daftar'].data.some(r => r[4] === 'Gilang'));
   await foto(page, '13-pilihan');
-  await page.goto(ASAL + '#/isi/suling');
-  await page.waitForSelector('.kisi-alat');
-  assert.ok(/4x Rp380\.000/.test(await page.textContent('.kisi-judul')), 'tarif baru langsung tampil di Produksi Suling');
+  await page.goto(ASAL + '#/isi/absensi');
+  await page.waitForSelector('.baris-kisi');
+  assert.ok((await page.$$eval('.baris-kisi[data-peran="Tim suling"] input', i => i.map(x => x.value))).includes('4x suling'), 'tarif baru langsung tampil di absensi tim suling');
   cek('kelola karyawan, tarif borongan, dan daftar pilihan dari aplikasi');
 
   console.log('Tampilan, nama & logo');
@@ -411,29 +450,29 @@ function pngPolos(w, h) {
   await isi(page, '#pengguna', 'eko');
   await isi(page, '#sandi', '9937');
   await page.click('#form-masuk button[type=submit]');
-  await page.waitForSelector('.grid-catatan');
-  assert.deepStrictEqual(await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent)), ['Produksi Suling']);
-  await page.evaluate(() => { location.hash = '#/isi/suling'; });
-  await page.waitForSelector('.kisi-alat');
-  await pilih(page, 'b1_a0_n', '2');
-  await page.waitForSelector('#pratinjau:not([hidden])');
-  assert.ok(!/Rp/.test(await page.textContent('#formulir')), 'formulir tim suling tanpa angka upah');
-  await foto(page, '17a-produksi-tim-suling', true);
-  await page.evaluate(() => { location.hash = '#/terbaru/suling'; });
-  await page.waitForSelector('.baris-entri');
-  assert.ok(!/Rp/.test(await page.textContent('#daftar-entri')), 'riwayat tim suling tanpa angka upah');
-  await page.evaluate(() => { location.hash = '#/'; });
-  await page.waitForSelector('.grid-catatan');
+  // Akun tim suling yang dulu hanya boleh mengisi Produksi Suling sekarang tidak punya formulir sampai diberi akses.
+  await page.waitForSelector('.isi .kosong');
+  assert.ok(/belum diberi akses/.test(await page.textContent('.isi')));
   assert.strictEqual(await page.$('.nav a[href="#/kelola"]'), null);
   await foto(page, '17-beranda-eko');
-  cek('Eko masuk dengan PIN lamanya dan hanya melihat Produksi Suling');
+  cek('akun Eko (dulu hanya Produksi Suling) tidak melihat formulir apa pun');
 
+  // Pencatat (bukan pemilik) mengisi absensi tanpa sinyal: tidak melihat angka upah, lalu terkirim saat online.
+  await page.goto(ASAL + '#/akun');
+  await page.click('#keluar');
+  await page.waitForSelector('#form-masuk');
+  await isi(page, '#pengguna', 'tata');
+  await isi(page, '#sandi', '2468');
+  await page.click('#form-masuk button[type=submit]');
+  await page.waitForSelector('.grid-catatan');
+  assert.deepStrictEqual(await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent)), ['Absensi', 'Kas']);
   jaringanMati = true;
   await context.setOffline(true);
-  await page.evaluate(() => { location.hash = '#/isi/suling'; });
-  await page.waitForSelector('.kisi-alat');
+  await page.evaluate(() => { location.hash = '#/isi/absensi'; });
+  await page.waitForSelector('.baris-kisi');
   await page.fill('[name=b0]', kemarin);
-  await pilih(page, 'b1_a0_n', '3');
+  await pilih(page, 'b1_o' + j('Eko & Pak Gatot'), '3x suling');
+  assert.ok(!/Rp/.test(await page.textContent('#formulir')), 'formulir pencatat tanpa angka upah');
   await page.click('#tombol-simpan');
   await page.click('.tirai [data-aksi="kirim"]');
   await page.waitForSelector('.status.tunggu');
@@ -442,8 +481,8 @@ function pngPolos(w, h) {
   await context.setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await page.waitForSelector('.status.aman');
-  assert.ok(objek('Produksi Suling').some(r => r['Diisi oleh'] === 'Eko' && r['Jumlah sulingan'] === 3 && r['Upah (Rp)'] === 295000));
-  cek('catatan tanpa sinyal tersimpan di HP lalu terkirim');
+  assert.ok(objek('Absensi Harian').some(r => r['Diisi oleh'] === 'Tata' && r['Nama'] === 'Eko & Pak Gatot' && r['Jumlah sulingan'] === 3 && r['Upah (Rp)'] === 295000));
+  cek('catatan tanpa sinyal tersimpan di HP lalu terkirim; pencatat tidak melihat angka upah');
 
   assert.deepStrictEqual(galatHalaman.filter(g => !/ERR_INTERNET_DISCONNECTED|status of 404/.test(g)), [], 'tidak ada galat di halaman');
   await browser.close();

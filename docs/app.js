@@ -211,7 +211,11 @@
   }
 
   // ------------------------------------------------------------ akses & data induk
-  var URUTAN_TAB = ['Ambil Bahan', 'Produksi Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
+  // Produksi Suling tidak ditampilkan lagi: sulingan dan upah tim suling dicatat lewat Absensi (1x, 2x, 3x suling),
+  // supaya tidak tercatat dua kali. Formulir dan catatan lamanya tetap dikenali API.
+  var URUTAN_TAB = ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
+  function tabAktif(daftar) { return (daftar || []).filter(function (t) { return URUTAN_TAB.indexOf(t) >= 0; }); }
+  function semuaTabAktif(daftar) { return URUTAN_TAB.every(function (t) { return (daftar || []).indexOf(t) >= 0; }); }
   var TAB_KELOMPOK = {'Produksi Suling': true, 'Absensi': true};
 
   function akses() { return (sesi && sesi.akses) || {}; }
@@ -255,14 +259,17 @@
   }
   function jenisTarif(t) { return t ? t.nilai['Jenis kerja'] || '' : ''; }
   function tingkatSuling(t) { return jenisTarif(t) === 'Penyulingan' && Number(t.nilai['Jumlah sulingan']) > 0; }
-  // Pilihan absensi untuk satu tim. Tarif borongan suling (1x, 2x, 3x) dan "Kerja lain" tidak ditampilkan:
-  // sulingan dicatat di Produksi Suling, kerja lain punya isian sendiri.
+  // Tarif penyulingan tanpa jumlah sulingan dan tanpa upah (dulu "Nyuling (upah dari produksi)"), tidak dipakai lagi.
+  function nyulingLama(t) { return jenisTarif(t) === 'Penyulingan' && !(Number(t.nilai['Jumlah sulingan']) > 0) && !(Number(t.nilai['Upah (Rp)']) > 0); }
+  // Pilihan absensi untuk satu tim, termasuk borongan suling (1x, 2x, 3x): jumlah sulingan dan upahnya ikut tercatat.
+  // "Kerja lain" tidak masuk di sini karena punya isian sendiri (upah khusus); di kisi ada pilihan "Kerja lain…" yang membukanya.
   function tarifUntuk(tim) {
     return daftarInduk('Tarif Upah').filter(function (t) {
       var u = t.nilai['Untuk'];
-      return (semuaTim(u) || u === tim || !tim) && !tingkatSuling(t) && jenisTarif(t) !== 'Kerja lain';
+      return (semuaTim(u) || u === tim || !tim) && jenisTarif(t) !== 'Kerja lain' && !nyulingLama(t);
     });
   }
+  var KERJA_LAIN = '__kerjaLain';
   function upahTarif(pilihan) { var t = cariInduk('Tarif Upah', 'Pilihan', pilihan); return t ? Number(t.nilai['Upah (Rp)']) || 0 : 0; }
   function tarifMasuk(pilihan) { var j = jenisTarif(cariInduk('Tarif Upah', 'Pilihan', pilihan)); return !!j && j !== 'Libur'; }
   // Tarif borongan suling untuk tim operator: [{n, upah}] urut dari 1x.
@@ -501,7 +508,7 @@
       kunci: 'absensi', ikon: 'orang', ket: 'Sekali sehari untuk semua karyawan.',
       bidang: [
         {j: 'tanggal', h: 'Tanggal'},
-        {j: 'gridOrang', k: '_orang', label: 'Pekerjaan hari ini', bantuan: 'Upah sulingan dihitung dari Produksi Suling, jadi tim suling cukup pilih Nyuling.'},
+        {j: 'gridOrang', k: '_orang', label: 'Pekerjaan hari ini', bantuan: 'Tim suling: pilih 1x, 2x, atau 3x suling sesuai jumlah sulingan hari itu; upahnya dari Tarif Upah. Kerja lain = pekerjaan dengan upah khusus.'},
         {j: 'kerjaLain', k: '_kerjaLain', label: 'Kerja lain dengan upah khusus', wajib: false},
         {j: 'paragraf', h: 'Keterangan', wajib: false, bantuan: 'Isi kalau ada yang izin, sakit, pulang lebih awal, ketel tidak jalan, atau hujan.'}
       ],
@@ -610,7 +617,12 @@
     var g = mentah['_orang'] || {}, kl = mentah['_kerjaLain'] || {};
     var per = {}, urut = [], salah = [];
     var orang = function (nama) { if (!per[nama]) { per[nama] = {'Nama': nama}; urut.push(nama); } return per[nama]; };
-    Object.keys(g).forEach(function (nama) { if (g[nama]) orang(nama)['Pekerjaan'] = g[nama]; });
+    Object.keys(g).forEach(function (nama) { if (g[nama] && g[nama] !== KERJA_LAIN) orang(nama)['Pekerjaan'] = g[nama]; });
+    Object.keys(g).forEach(function (nama) {
+      if (g[nama] === KERJA_LAIN && !(kl.ada === 'Ya' && (kl.siapa || []).indexOf(nama) >= 0)) {
+        salah.push(['_orang|' + nama, 'Isi pekerjaan dan upah ' + nama + ' di bagian "Kerja lain" di bawah.']);
+      }
+    });
     if (kl.ada === 'Ya') {
       var kerja = String(kl.kerja || '').trim();
       if (!kerja) salah.push(['_kerjaLain', 'Tulis pekerjaannya.']);
@@ -894,18 +906,48 @@
   }
   function kotakAngka(label, nilai, merah, tambahan, ketuk) {
     var kelas = (merah ? 'minus ' : '') + (String(nilai).length > 9 ? 'panjang' : '');
-    var atr = ketuk ? ' ketuk" role="button" tabindex="0" data-angka="' + esc(ketuk.kunci) + '" data-mulai="' + esc(ketuk.mulai) + '" aria-label="Rincian ' + esc(label) : '';
+    var atr = ketuk ? ' ketuk" role="button" tabindex="0" data-angka="' + esc(ketuk.kunci) + '" data-id="' + esc(ketuk.id) + '" data-jenis="' + esc(ketuk.jenis) +
+      '" aria-label="Rincian ' + esc(label) : '';
     return '<div class="angka' + atr + '"><span>' + esc(label) + '</span><b class="' + kelas.trim() + '">' + esc(nilai) + '</b>' + (tambahan || '') + '</div>';
   }
   function kotakDari(kunci, m, sebelum) {
     var a = ANGKA[kunci];
     if (!a) return '';
-    return kotakAngka(a.l, a.f(m), a.merah ? a.merah(m) : false, a.b && sebelum ? banding(m[a.b], sebelum[a.b]) : '', {kunci: kunci, mulai: m.mulai});
+    return kotakAngka(a.l, a.f(m), a.merah ? a.merah(m) : false, a.b && sebelum ? banding(m[a.b], sebelum[a.b]) : '', {kunci: kunci, id: m.mulai, jenis: 'minggu'});
+  }
+  function kotakBulan(kunci, b) {
+    var a = ANGKA_BULAN[kunci];
+    return kotakAngka(a.l, a.f(b), a.merah ? a.merah(b) : false, '', {kunci: kunci, id: b.bulan, jenis: 'bulan'});
   }
 
-  // ---- rincian saat kotak angka minggu diketuk: cara hitung, komponen angka, dan catatan aslinya
+  // Kotak di kartu Bulan (urutan tampil). Angka dari Rekap Bulanan.
+  var ANGKA_BULAN = {
+    penjualan: {l: 'Penjualan', f: function (b) { return rp(b.penjualan); }, b: 'penjualan'},
+    laba: {l: 'Laba usaha', f: function (b) { return rp(b.laba); }, merah: function (b) { return b.laba < 0; }, b: 'laba'},
+    minyak: {l: 'Minyak dihasilkan', f: function (b) { return ang(b.minyak) + ' kg'; }, b: 'minyak'},
+    sulingan: {l: 'Sulingan', f: function (b) { return ang(b.sulingan, 0) + ' kali'; }, b: 'sulingan'},
+    biayaProduksi: {l: 'Biaya produksi', f: function (b) { return rp(b.biayaProduksi); }, b: 'biayaProduksi'},
+    totalUpah: {l: 'Total upah', f: function (b) { return rp(b.totalUpah); }, b: 'totalUpah'},
+    cicilan: {l: 'Cicilan kendaraan', f: function (b) { return rp(b.cicilan); }, b: 'cicilan'},
+    labaSetelahCicilan: {l: 'Laba setelah cicilan', f: function (b) { return rp(b.labaSetelahCicilan); }, merah: function (b) { return b.labaSetelahCicilan < 0; }, b: 'labaSetelahCicilan'},
+    keluarga: {l: 'Keluarga & pribadi', f: function (b) { return rp(b.keluarga); }, b: 'keluarga'},
+    proyekLain: {l: 'Proyek lain', f: function (b) { return rp(b.proyekLain); }, b: 'proyekLain'},
+    pemasukanLain: {l: 'Pemasukan lain', f: function (b) { return rp(b.pemasukanLain); }, b: 'pemasukanLain'},
+    belumDibayar: {l: 'Belum dibayar pembeli', f: function (b) { return rp(b.belumDibayar); }, merah: function (b) { return b.belumDibayar > 0; }},
+    perubahanKas: {l: 'Perubahan kas', f: function (b) { return rp(b.perubahanKas); }, merah: function (b) { return b.perubahanKas < 0; }, b: 'perubahanKas'}
+  };
+  var URUT_BULAN = ['penjualan', 'laba', 'minyak', 'sulingan', 'biayaProduksi', 'totalUpah', 'cicilan', 'labaSetelahCicilan', 'keluarga', 'proyekLain',
+    'pemasukanLain', 'belumDibayar', 'perubahanKas'];
+
+  // ---- rincian saat kotak angka diketuk: cara hitung, komponen angka (bisa dibuka), dan catatan aslinya
   function bRinci(label, nilai, kecil, kelas) {
     return '<div class="baris-angka' + (kelas ? ' ' + kelas : '') + '"><span>' + esc(label) + (kecil ? '<small>' + esc(kecil) + '</small>' : '') + '</span><b>' + esc(nilai) + '</b></div>';
+  }
+  // Baris komponen yang bisa diketuk untuk melihat catatan di baliknya.
+  function lipatRinci(label, nilai, isi, kecil, kelas) {
+    if (!isi) return bRinci(label, nilai, kecil, kelas);
+    return '<details class="lipat rinci-lipat"><summary><div class="baris-angka' + (kelas ? ' ' + kelas : '') + '"><span>' + esc(label) + '<i class="buka" aria-hidden="true">▾</i>' +
+      (kecil ? '<small>' + esc(kecil) + '</small>' : '') + '</span><b>' + esc(nilai) + '</b></div></summary><div class="lipat-isi">' + isi + '</div></details>';
   }
   function blokRinci(judul, isi, catatan) {
     return '<div class="daftar-baris"><div class="daftar-judul">' + esc(judul) + '</div>' + isi + (catatan ? '<p class="catatan">' + esc(catatan) + '</p>' : '') + '</div>';
@@ -913,33 +955,50 @@
   function kosongRinci(teks) { return '<p class="catatan">' + esc(teks) + '</p>'; }
   function hariPendek(iso) { return namaHari(iso).slice(0, 3) + ' ' + tglIndo(iso).slice(0, 5); }
   function kurang(n) { return '− ' + rp(n); }
+  function plus(n) { return '+ ' + rp(n); }
   function gabung(bagian) { return bagian.filter(function (x) { return x !== '' && x !== null && x !== undefined; }).join(' · '); }
-  // Rata-rata n minggu sebelum minggu yang dipilih (hanya minggu yang ada angkanya).
+  function jumlahkan(daftar, k) { return daftar.reduce(function (t, x) { return t + (Number(x[k]) || 0); }, 0); }
+  // Rata-rata n periode sebelum yang dipilih (hanya yang ada angkanya).
   function rataSebelum(c, k, n) {
     var x = c.dm.slice(c.im + 1, c.im + 1 + n).map(function (w) { return w[k]; }).filter(function (v) { return typeof v === 'number' && v > 0; });
     return x.length ? {nilai: x.reduce(function (t, v) { return t + v; }, 0) / x.length, n: x.length} : null;
   }
   function barisRata(c, k, label, f) {
     var r = rataSebelum(c, k, 4);
-    return r ? bRinci('Rata-rata ' + r.n + ' minggu sebelumnya', f(r.nilai), label) : '';
+    return r ? bRinci('Rata-rata ' + r.n + ' ' + c.p + ' sebelumnya', f(r.nilai), label) : '';
   }
   function ketHari(m, tgl) {
     return (m.keterangan || []).filter(function (k) { return k.tgl === tgl && ['Absensi', 'Produksi suling', 'Kondisi alat'].indexOf(k.bagian) >= 0; })
       .map(function (k) { return k.isi; }).join(' · ');
   }
-  function daftarSaring(rc) {
-    if (!rc.saring.length) return kosongRinci('Tidak ada catatan Saring Minyak di minggu ini.');
-    return rc.saring.map(function (s) {
+  var LABEL_POS = {'Pengumpulan': 'upah pengumpul', 'Penyulingan': 'upah penyuling', 'Harian & lain': 'upah kerja harian & lain', 'Perawatan alat': 'operasional & perawatan'};
+  function teksPekerjaan(x) {
+    if (x.lain) return 'Kerja lain: ' + x.lain + (LABEL_POS[x.pos] ? ' (masuk ' + LABEL_POS[x.pos] + ')' : '');
+    return x.pek + (x.sulingan > 0 && !/suling/i.test(x.pek) ? ' · ' + x.sulingan + ' sulingan' : '');
+  }
+  // Semua upah satu pos (Pengumpulan, Penyulingan, Harian & lain, Perawatan alat), per orang per hari.
+  function upahPos(m, pos) {
+    var out = [];
+    (m.orang || []).forEach(function (o) { (o.rinci || []).forEach(function (x) { if (x.pos === pos && x.upah) out.push({o: o.nama, x: x}); }); });
+    out.sort(function (a, b) { return a.x.tgl < b.x.tgl ? -1 : a.x.tgl > b.x.tgl ? 1 : 0; });
+    return out.map(function (y) { return bRinci(hariPendek(y.x.tgl) + ' · ' + y.o, rp(y.x.upah), teksPekerjaan(y.x)); }).join('');
+  }
+  function adaRincianOrang(m) { return (m.orang || []).some(function (o) { return !!o.rinci; }); }
+  function daftarSaring(c) {
+    if (!c.rc.saring.length) return kosongRinci('Tidak ada catatan Saring Minyak di ' + c.ini + '.');
+    return c.rc.saring.map(function (s) {
       return bRinci(hariPendek(s.tgl), ang(s.kg) + ' kg', gabung([ang(s.sulingan, 0) + ' sulingan', s.sulingan > 0 ? ang(s.kg / s.sulingan, 3) + ' kg/sulingan' : '', s.ket]));
     }).join('');
   }
-  function daftarTrip(rc, hargaDulu) {
-    if (!rc.bahan.length) return kosongRinci('Tidak ada catatan Ambil Bahan di minggu ini.');
-    return rc.bahan.map(function (b) {
+  function daftarTrip(c, cara) {
+    var trip = cara === 'jalan' ? c.rc.bahan.filter(function (b) { return b.jalan; }) : c.rc.bahan;
+    if (!trip.length) return kosongRinci(cara === 'jalan' ? 'Tidak ada biaya di jalan.' : 'Tidak ada catatan Ambil Bahan di ' + c.ini + '.');
+    return trip.map(function (b) {
       var perKg = b.kg > 0 ? rp(b.beli / b.kg) + '/kg' : '–';
-      return hargaDulu ?
-        bRinci(hariPendek(b.tgl) + ' · ' + (b.daerah || '–'), perKg, gabung([ang(b.kg, 0) + ' kg', 'beli ' + rp(b.beli), b.jalan ? 'di jalan ' + rp(b.jalan) + (b.ketJalan ? ' (' + b.ketJalan + ')' : '') : ''])) :
-        bRinci(hariPendek(b.tgl) + ' · ' + (b.daerah || '–'), ang(b.kg, 0) + ' kg', gabung([b.oleh, b.kondisi, rp(b.beli) + ' (' + perKg + ')']));
+      if (cara === 'jalan') return bRinci(hariPendek(b.tgl) + ' · ' + (b.ketJalan || 'biaya di jalan'), rp(b.jalan), b.daerah);
+      if (cara === 'beli') return bRinci(hariPendek(b.tgl) + ' · ' + (b.daerah || '–'), rp(b.beli), gabung([ang(b.kg, 0) + ' kg', perKg]));
+      if (cara === 'harga') return bRinci(hariPendek(b.tgl) + ' · ' + (b.daerah || '–'), perKg, gabung([ang(b.kg, 0) + ' kg', 'beli ' + rp(b.beli), b.jalan ? 'di jalan ' + rp(b.jalan) + (b.ketJalan ? ' (' + b.ketJalan + ')' : '') : '']));
+      return bRinci(hariPendek(b.tgl) + ' · ' + (b.daerah || '–'), ang(b.kg, 0) + ' kg', gabung([b.oleh, b.kondisi, rp(b.beli) + ' (' + perKg + ')']));
     }).join('');
   }
   function daftarJual(daftar, kosong) {
@@ -949,100 +1008,136 @@
         gabung([j.produk, ang(j.jumlah) + (j.satuan ? ' ' + j.satuan : '') + ' × ' + rp(j.harga), j.status || 'status belum diisi']));
     }).join('');
   }
-  function daftarOps(rc) {
-    if (!rc.ops.length) return kosongRinci('Tidak ada biaya operasional di minggu ini.');
-    return rc.ops.map(function (o) { return bRinci(hariPendek(o.tgl) + ' · ' + (o.apa || '–'), rp(o.rp), o.ket); }).join('');
+  function daftarOps(c) {
+    if (!c.rc.ops.length) return kosongRinci('Tidak ada biaya operasional di ' + c.ini + '.');
+    return c.rc.ops.map(function (o) { return bRinci(hariPendek(o.tgl) + ' · ' + (o.apa || '–'), rp(o.rp), o.ket); }).join('');
   }
-  function daftarHari(m, c, isi) {
+  function kasKelompok(c, kel) { return c.rc && c.rc.kas ? c.rc.kas.filter(function (k) { return k.kel === kel; }) : null; }
+  function daftarKas(daftar, kosong) {
+    if (!daftar) return '';
+    if (!daftar.length) return kosongRinci(kosong);
+    return daftar.map(function (k) { return bRinci(hariPendek(k.tgl) + ' · ' + (k.apa || '–'), (k.kel === 'Pembiayaan' ? (k.arah === 'Masuk' ? '+ ' : '− ') : '') + rp(k.rp), k.ket); }).join('');
+  }
+  // Jumlah per kategori, kalau isinya lebih dari satu kategori.
+  function perKategori(daftar) {
+    if (!daftar || !daftar.length) return '';
+    var t = {}, urut = [];
+    daftar.forEach(function (k) { var a = k.apa || '–'; if (!(a in t)) { t[a] = 0; urut.push(a); } t[a] += k.rp; });
+    if (urut.length < 2) return '';
+    urut.sort(function (a, b) { return t[b] - t[a]; });
+    return blokRinci('Per kategori', urut.map(function (a) { return bRinci(a, rp(t[a])); }).join(''));
+  }
+  function daftarHari(m, c, isi, hanyaCatat) {
     if (!m.hari) return '';
-    return m.hari.filter(function (h) { return h.tgl <= c.hariIni; }).map(isi).join('') || kosongRinci('Minggu ini belum dimulai.');
+    return m.hari.filter(function (h) { return h.tgl <= c.hariIni && (!hanyaCatat || h.catat); }).map(isi).join('') || kosongRinci(c.p === 'bulan' ? 'Belum ada catatan.' : 'Minggu ini belum dimulai.');
   }
-  function rincianBiaya(m) {
-    return bRinci('Beli bahan', kurang(m.beliBahan)) + bRinci('Biaya di jalan', kurang(m.biayaJalan)) + bRinci('Upah pengumpul', kurang(m.upahPengumpul)) +
-      bRinci('Upah penyuling', kurang(m.upahPenyuling)) + bRinci('Operasional & perawatan', kurang(m.operasional));
+  function htmlOrang(o, lipat) {
+    var ring = [o.peran, o.hariMasuk + ' hari kerja'];
+    if (o.sulingan) ring.push(o.sulingan + ' sulingan');
+    var isi = o.rinci ? (o.rinci.map(function (x) { return bRinci(hariPendek(x.tgl), rp(x.upah), teksPekerjaan(x)); }).join('') || kosongRinci('Tidak ada catatan.')) : '';
+    if (!isi) {
+      var r = [o.hariMasuk + ' hari kerja'];
+      if (o.sulingan) r.push(o.sulingan + ' sulingan = ' + rp(o.upahSuling));
+      if (o.upahAbsensi) r.push('absensi ' + rp(o.upahAbsensi));
+      if (o.upahLain) r.push('kerja lain ' + rp(o.upahLain));
+      isi = '<div>' + esc(r.join(' · ')) + '</div>';
+    }
+    if (!lipat) return bRinci(o.nama, rp(o.total), gabung(ring));
+    return lipatRinci(o.nama, rp(o.total), isi, gabung(ring));
+  }
+  // Komponen biaya produksi. Setiap baris bisa dibuka untuk melihat catatannya (kalau ada).
+  function rincianBiaya(m, c) {
+    var rc = c.rc, ada = adaRincianOrang(m);
+    return lipatRinci('Beli bahan', kurang(m.beliBahan), rc ? daftarTrip(c, 'beli') : '') +
+      lipatRinci('Biaya di jalan', kurang(m.biayaJalan), rc ? daftarTrip(c, 'jalan') : '') +
+      lipatRinci('Upah pengumpul', kurang(m.upahPengumpul), ada ? upahPos(m, 'Pengumpulan') || kosongRinci('Tidak ada.') : '') +
+      lipatRinci('Upah penyuling', kurang(m.upahPenyuling), ada ? upahPos(m, 'Penyulingan') || kosongRinci('Tidak ada.') : '') +
+      lipatRinci('Operasional & perawatan', kurang(m.operasional), rc ? daftarOps(c) : '');
   }
   var CATATAN_KOREKSI = /koreksi|penyesuaian|(agar|supaya|biar)[^.]*stok/i;
-  function awasKoreksiSaring(rc) {
-    var x = rc ? rc.saring.filter(function (s) { return CATATAN_KOREKSI.test(s.ket || ''); }) : [];
+  function awasKoreksiSaring(c) {
+    var x = c.rc ? c.rc.saring.filter(function (s) { return CATATAN_KOREKSI.test(s.ket || ''); }) : [];
     return x.length ? 'Ada catatan Saring Minyak yang ditulis untuk membetulkan stok (' + hariPendek(x[0].tgl) + ', ' + ang(x[0].kg) +
-      ' kg). Catatan itu ikut dihitung sebagai minyak hasil minggu ini, jadi angka minyak, rendemen, dan biaya per kg ikut berubah. ' +
+      ' kg). Catatan itu ikut dihitung sebagai minyak hasil ' + c.ini + ', jadi angka minyak, rendemen, dan biaya per kg ikut berubah. ' +
       'Untuk membetulkan stok, pakai tombol "Catat hasil timbang" di kartu Stok minyak.' : '';
   }
+  var AWAS_SULING = 'Kalau memang ada nyuling, pilih 1x, 2x, atau 3x suling untuk tim suling di Absensi supaya sulingan, upah, dan hari alat kosong benar.';
 
-  // Setiap fungsi mengembalikan {cara, hitung, awas: [], daftar}. c = {rc: catatan asli (null di Apps Script lama), dm, im, hariIni}.
+  // Setiap fungsi mengembalikan {cara, hitung, catatan, awas: [], daftar}.
+  // c = {p: 'minggu'|'bulan', ini: 'minggu ini'/'bulan itu'…, rc: catatan asli (null kalau tidak ada), dm, im, hariIni}.
   var RINCI_ANGKA = {
     penjualan: function (m, c) {
       return {
-        cara: 'Jumlah "Total (Rp)" semua catatan Penjualan yang tanggalnya di minggu ini.',
+        cara: 'Jumlah "Total (Rp)" semua catatan Penjualan yang tanggalnya di ' + c.ini + '.',
         hitung: bRinci('Penjualan', rp(m.penjualan)) + bRinci('Minyak terjual', ang(m.terjualKg) + ' kg') +
           (m.terjualKg > 0 ? bRinci('Harga rata-rata', rp(m.penjualan / m.terjualKg) + '/kg') : ''),
-        daftar: c.rc ? blokRinci('Catatan penjualan · ' + c.rc.jual.length, daftarJual(c.rc.jual, 'Tidak ada penjualan di minggu ini.')) : ''
+        daftar: c.rc ? blokRinci('Catatan penjualan · ' + c.rc.jual.length, daftarJual(c.rc.jual, 'Tidak ada penjualan di ' + c.ini + '.')) : ''
       };
     },
     laba: function (m, c) {
       var awas = [];
-      if (!(m.penjualan > 0) && m.biayaProduksi > 0) awas.push('Minggu ini belum ada penjualan, jadi laba minus sebesar biaya produksinya. Ini belum tentu rugi: hasilnya bisa masih berupa bahan atau minyak di stok. Untuk menilai untung-rugi, lihat laba per bulan atau bandingkan Biaya per kg minyak dengan harga jual.');
+      if (!(m.penjualan > 0) && m.biayaProduksi > 0) awas.push('Belum ada penjualan di ' + c.ini + ', jadi laba minus sebesar biaya produksinya. Ini belum tentu rugi: hasilnya bisa masih berupa bahan atau minyak di stok. Untuk menilai untung-rugi, lihat laba per bulan atau bandingkan Biaya per kg minyak dengan harga jual.');
       return {
-        cara: 'Laba usaha = Penjualan − Biaya produksi. Biaya produksi = beli bahan + biaya di jalan + upah pengumpul + upah penyuling + operasional & perawatan.',
-        hitung: bRinci('Penjualan', rp(m.penjualan)) + rincianBiaya(m) + bRinci('Laba usaha', rp(m.laba), '', 'total'),
-        catatan: m.upahHarian > 0 ? 'Upah kerja harian & lain (' + rp(m.upahHarian) + ') tidak dikurangkan di laba usaha, sama seperti di Rekap Mingguan.' : '',
-        awas: awas,
-        daftar: c.rc ? blokRinci('Operasional & perawatan · ' + c.rc.ops.length, daftarOps(c.rc)) : ''
+        cara: 'Laba usaha = Penjualan − Biaya produksi. Biaya produksi = beli bahan + biaya di jalan + upah pengumpul + upah penyuling + operasional & perawatan. Ketuk komponennya untuk melihat catatannya.',
+        hitung: lipatRinci('Penjualan', rp(m.penjualan), c.rc ? daftarJual(c.rc.jual, 'Tidak ada penjualan.') : '') + rincianBiaya(m, c) + bRinci('Laba usaha', rp(m.laba), '', 'total'),
+        catatan: m.upahHarian > 0 ? 'Upah kerja harian & lain (' + rp(m.upahHarian) + ') tidak dikurangkan di laba usaha, sama seperti di Rekap.' : '',
+        awas: awas
       };
     },
     minyak: function (m, c) {
-      var awas = [awasKoreksiSaring(c.rc)];
-      if (typeof m.sulingan === 'number' && typeof m.sulinganDisaring === 'number' && m.sulingan !== m.sulinganDisaring) {
+      var awas = [awasKoreksiSaring(c)];
+      if (c.p === 'minggu' && typeof m.sulingan === 'number' && typeof m.sulinganDisaring === 'number' && m.sulingan !== m.sulinganDisaring) {
         awas.push('Sulingan tercatat ' + ang(m.sulingan, 0) + ' kali, yang disaring ' + ang(m.sulinganDisaring, 0) + ' kali. ' +
-          (m.sulingan === 0 ? 'Kalau minggu ini memang ada nyuling, Produksi Suling belum diisi.' : 'Beda 1–2 wajar karena saring sering di hari berikutnya. Kalau bedanya terus besar, ada catatan yang terlewat.'));
+          (m.sulingan === 0 ? AWAS_SULING : 'Beda 1–2 wajar karena saring sering di hari berikutnya. Kalau bedanya terus besar, ada catatan yang terlewat.'));
       }
       return {
-        cara: 'Jumlah "Minyak (kg)" di catatan Saring Minyak yang tanggal saringnya di minggu ini.',
-        hitung: bRinci('Sulingan disaring', ang(m.sulinganDisaring, 0) + ' kali') + bRinci('Minyak dihasilkan', ang(m.minyak) + ' kg', '', 'total'),
+        cara: 'Jumlah "Minyak (kg)" di catatan Saring Minyak yang tanggal saringnya di ' + c.ini + '.',
+        hitung: bRinci('Sulingan disaring', ang(m.sulinganDisaring, 0) + ' kali') + bRinci('Minyak dihasilkan', ang(m.minyak) + ' kg', '', 'total') +
+          (m.minyakPerSulingan ? bRinci('Minyak per sulingan', ang(m.minyakPerSulingan, 3) + ' kg') : ''),
         awas: awas,
-        daftar: c.rc ? blokRinci('Catatan saring · ' + c.rc.saring.length, daftarSaring(c.rc)) : ''
+        daftar: c.rc ? blokRinci('Catatan saring · ' + c.rc.saring.length, daftarSaring(c)) : ''
       };
     },
     minyakPerSulingan: function (m, c) {
       return {
-        cara: 'Minyak dihasilkan ÷ jumlah sulingan yang disaring minggu ini.',
+        cara: 'Minyak dihasilkan ÷ jumlah sulingan yang disaring di ' + c.ini + '.',
         hitung: bRinci('Minyak dihasilkan', ang(m.minyak) + ' kg') + bRinci('Sulingan disaring', ang(m.sulinganDisaring, 0) + ' kali') +
           bRinci('Minyak per sulingan', m.minyakPerSulingan === null ? '–' : ang(m.minyakPerSulingan, 3) + ' kg', '', 'total') +
           barisRata(c, 'minyakPerSulingan', 'untuk pembanding', function (v) { return ang(v, 3) + ' kg'; }),
-        awas: [awasKoreksiSaring(c.rc)],
-        daftar: c.rc ? blokRinci('Catatan saring · ' + c.rc.saring.length, daftarSaring(c.rc)) : ''
+        awas: [awasKoreksiSaring(c)],
+        daftar: c.rc ? blokRinci('Catatan saring · ' + c.rc.saring.length, daftarSaring(c)) : ''
       };
     },
     sulingan: function (m, c) {
       var awas = [];
-      if (!(m.sulingan > 0) && m.sulinganDisaring > 0) awas.push('Ada ' + ang(m.sulinganDisaring, 0) + ' sulingan disaring tapi 0 sulingan tercatat. Kalau memang ada nyuling, minta tim suling mengisi Produksi Suling supaya upah dan hari alat kosong benar.');
+      if (!(m.sulingan > 0) && m.sulinganDisaring > 0) awas.push('Ada ' + ang(m.sulinganDisaring, 0) + ' sulingan disaring tapi 0 sulingan tercatat. ' + AWAS_SULING);
       var alat = (m.alat || []).map(function (a) { return bRinci(a.nama, ang(a.sulingan, 0) + ' kali', a.operator); }).join('');
       return {
-        cara: 'Jumlah sulingan di Produksi Suling, ditambah sulingan yang dulu dicatat lewat Absensi.',
+        cara: 'Jumlah sulingan tim suling di Absensi (1x, 2x, 3x suling), ditambah catatan Produksi Suling lama kalau ada.',
         hitung: alat + bRinci('Total', ang(m.sulingan, 0) + ' kali', '', 'total'),
         awas: awas,
-        daftar: blokRinci('Hari per hari', daftarHari(m, c, function (h) {
+        daftar: blokRinci(c.p === 'bulan' ? 'Hari yang ada catatan' : 'Hari per hari', daftarHari(m, c, function (h) {
           return bRinci(hariPendek(h.tgl), h.sulingan ? ang(h.sulingan, 0) + ' kali' : (h.catat ? '0' : '–'), h.catat ? ketHari(m, h.tgl) : 'Tidak ada catatan');
-        }))
+        }, c.p === 'bulan'))
       };
     },
     rendemen: function (m, c) {
       return {
-        cara: 'Minyak dihasilkan ÷ bahan masuk minggu ini × 100%.',
+        cara: 'Minyak dihasilkan ÷ bahan masuk di ' + c.ini + ' × 100%.',
         hitung: bRinci('Minyak dihasilkan', ang(m.minyak) + ' kg') + bRinci('Bahan masuk', ang(m.bahanKg, 0) + ' kg') +
           bRinci('Rendemen', ANGKA.rendemen.f(m), '', 'total') +
           barisRata(c, 'rendemen', 'untuk pembanding', function (v) { return ang(v * 100, 2) + '%'; }),
         catatan: 'Bahan yang masuk minggu ini tidak selalu disuling dan disaring di minggu yang sama, jadi rendemen per minggu bisa naik-turun. Angka per bulan lebih bisa dipegang.',
-        awas: [awasKoreksiSaring(c.rc)],
-        daftar: c.rc ? blokRinci('Catatan saring · ' + c.rc.saring.length, daftarSaring(c.rc)) : ''
+        awas: [awasKoreksiSaring(c)],
+        daftar: c.rc ? blokRinci('Catatan saring · ' + c.rc.saring.length, daftarSaring(c)) : ''
       };
     },
     bahanKg: function (m, c) {
       return {
-        cara: 'Jumlah "Berat bahan (kg)" dari semua trip di Ambil Bahan minggu ini.',
+        cara: 'Jumlah "Berat bahan (kg)" dari semua trip di Ambil Bahan ' + c.ini + '.',
         hitung: bRinci('Trip', ang(m.trip, 0) + ' kali') + (m.trip > 0 ? bRinci('Rata-rata per trip', ang(m.bahanKg / m.trip, 0) + ' kg') : '') +
           bRinci('Bahan masuk', ang(m.bahanKg, 0) + ' kg', '', 'total'),
-        daftar: c.rc ? blokRinci('Trip ambil bahan · ' + c.rc.bahan.length, daftarTrip(c.rc, false)) : ''
+        daftar: c.rc ? blokRinci('Trip ambil bahan · ' + c.rc.bahan.length, daftarTrip(c)) : ''
       };
     },
     hargaBahan: function (m, c) {
@@ -1052,102 +1147,192 @@
           bRinci('Harga bahan/kg', rp(m.hargaBahan), '', 'total') +
           (m.bahanKg > 0 ? bRinci('Kalau biaya di jalan ikut', rp(((m.beliBahan || 0) + (m.biayaJalan || 0)) / m.bahanKg) + '/kg', 'biaya di jalan ' + rp(m.biayaJalan)) : '') +
           barisRata(c, 'hargaBahan', 'untuk pembanding', rp),
-        daftar: c.rc ? blokRinci('Harga per trip · ' + c.rc.bahan.length, daftarTrip(c.rc, true)) : ''
+        daftar: c.rc ? blokRinci('Harga per trip · ' + c.rc.bahan.length, daftarTrip(c, 'harga')) : ''
       };
     },
     biayaPerKg: function (m, c) {
       var jual = m.terjualKg > 0 && m.penjualan > 0 ? m.penjualan / m.terjualKg : null;
       return {
-        cara: 'Biaya produksi minggu ini ÷ minyak yang disaring minggu ini.',
-        hitung: rincianBiaya(m) + bRinci('Biaya produksi', rp(m.biayaProduksi), '', 'total') + bRinci('Minyak dihasilkan', '÷ ' + ang(m.minyak) + ' kg') +
+        cara: 'Biaya produksi ÷ minyak yang disaring di ' + c.ini + '. Ketuk komponennya untuk melihat catatannya.',
+        hitung: rincianBiaya(m, c) + bRinci('Biaya produksi', rp(m.biayaProduksi), '', 'total') + bRinci('Minyak dihasilkan', '÷ ' + ang(m.minyak) + ' kg') +
           bRinci('Biaya per kg minyak', rp(m.biayaPerKg), '', 'total') +
-          (jual ? bRinci('Harga jual rata-rata minggu ini', rp(jual) + '/kg', m.biayaPerKg ? 'selisih ' + rp(jual - m.biayaPerKg) + ' per kg' : '') : '') +
+          (jual ? bRinci('Harga jual rata-rata ' + c.ini, rp(jual) + '/kg', m.biayaPerKg ? 'selisih ' + rp(jual - m.biayaPerKg) + ' per kg' : '') : '') +
           barisRata(c, 'biayaPerKg', 'untuk pembanding', rp),
         catatan: 'Kalau minyaknya baru disaring minggu depan, angka ini melonjak minggu ini lalu turun minggu depan. Angka per bulan lebih bisa dipegang.',
-        awas: [awasKoreksiSaring(c.rc)],
-        daftar: c.rc ? blokRinci('Operasional & perawatan · ' + c.rc.ops.length, daftarOps(c.rc)) : ''
+        awas: [awasKoreksiSaring(c)]
       };
     },
-    totalUpah: function (m) {
-      var orang = (m.orang || []).map(function (o) {
-        var r = [o.peran, o.hariMasuk + ' hari kerja'];
-        if (o.sulingan) r.push(o.sulingan + ' sulingan');
-        if (o.upahLain) r.push('kerja lain ' + rp(o.upahLain));
-        return bRinci(o.nama, rp(o.total), gabung(r));
-      }).join('');
+    biayaProduksi: function (m, c) {
       return {
-        cara: 'Upah pengumpul + upah penyuling + upah kerja harian & lain. Upah perawatan alat masuk Operasional, bukan di sini.',
-        hitung: bRinci('Upah pengumpul', rp(m.upahPengumpul)) + bRinci('Upah penyuling', rp(m.upahPenyuling)) +
-          bRinci('Upah kerja harian & lain', rp(m.upahHarian)) + bRinci('Total upah', rp(m.totalUpah), '', 'total'),
-        daftar: blokRinci('Per orang', orang || kosongRinci('Belum ada absensi atau produksi di minggu ini.'), 'Bonus yang dicatat di Kas belum termasuk.')
+        cara: 'Beli bahan + biaya di jalan + upah pengumpul + upah penyuling + operasional & perawatan. Ketuk komponennya untuk melihat catatannya.',
+        hitung: rincianBiaya(m, c) + bRinci('Biaya produksi', rp(m.biayaProduksi), '', 'total') +
+          (m.minyak > 0 ? bRinci('Biaya per kg minyak', rp(m.biayaPerKg), ang(m.minyak) + ' kg minyak') : '') +
+          (m.terjualKg > 0 && m.penjualan > 0 ? bRinci('Harga jual rata-rata', rp(m.penjualan / m.terjualKg) + '/kg') : ''),
+        awas: [awasKoreksiSaring(c)]
+      };
+    },
+    totalUpah: function (m, c) {
+      var ada = adaRincianOrang(m);
+      var orang = (m.orang || []).map(function (o) { return htmlOrang(o, true); }).join('');
+      var rawat = ada ? upahPos(m, 'Perawatan alat') : '';
+      return {
+        cara: 'Upah pengumpul + upah penyuling + upah kerja harian & lain, semuanya dari Absensi. Upah perawatan alat masuk Operasional, bukan di sini.',
+        hitung: lipatRinci('Upah pengumpul', rp(m.upahPengumpul), ada ? upahPos(m, 'Pengumpulan') || kosongRinci('Tidak ada.') : '') +
+          lipatRinci('Upah penyuling', rp(m.upahPenyuling), ada ? upahPos(m, 'Penyulingan') || kosongRinci('Tidak ada.') : '') +
+          lipatRinci('Upah kerja harian & lain', rp(m.upahHarian), ada ? upahPos(m, 'Harian & lain') || kosongRinci('Tidak ada.') : '') +
+          bRinci('Total upah', rp(m.totalUpah), '', 'total') +
+          (rawat ? lipatRinci('Upah perawatan alat', rp(jumlahkan((m.orang || []).reduce(function (t, o) {
+            return t.concat((o.rinci || []).filter(function (x) { return x.pos === 'Perawatan alat'; }));
+          }, []), 'upah')), rawat, 'masuk Operasional & perawatan') : ''),
+        daftar: blokRinci('Per orang (untuk gajian)', orang || kosongRinci('Belum ada absensi di ' + c.ini + '.'),
+          (ada ? 'Ketuk nama untuk upah per hari. ' : '') + 'Total per orang termasuk kerja lain dan upah perawatan alat. Bonus yang dicatat di Kas belum termasuk.')
       };
     },
     belumLunas: function (m, c) {
       var belum = c.rc ? c.rc.jual.filter(function (j) { return j.status && j.status !== 'Lunas'; }) : [];
       return {
-        cara: 'Jumlah penjualan minggu ini yang status bayarnya bukan "Lunas".',
+        cara: 'Jumlah penjualan di ' + c.ini + ' yang status bayarnya bukan "Lunas".',
         hitung: bRinci('Belum lunas', rp(m.belumLunas), '', 'total'),
         awas: m.belumLunas > 0 ? ['Setelah dibayar, ubah status bayarnya jadi Lunas lewat Riwayat › Penjualan.'] : [],
-        daftar: c.rc ? blokRinci('Penjualan belum lunas · ' + belum.length, daftarJual(belum, c.rc.jual.length ? 'Semua penjualan minggu ini sudah lunas.' : 'Tidak ada penjualan di minggu ini.')) : ''
+        daftar: c.rc ? blokRinci('Penjualan belum lunas · ' + belum.length, daftarJual(belum, c.rc.jual.length ? 'Semua penjualan sudah lunas.' : 'Tidak ada penjualan di ' + c.ini + '.')) : ''
+      };
+    },
+    belumDibayar: function (m, c) {
+      var belum = c.rc ? c.rc.jual.filter(function (j) { return j.status === 'Belum dibayar'; }) : [];
+      return {
+        cara: 'Jumlah penjualan di ' + c.ini + ' yang status bayarnya "Belum dibayar". Angka ini mengurangi perubahan kas.',
+        hitung: bRinci('Belum dibayar pembeli', rp(m.belumDibayar), '', 'total'),
+        awas: m.belumDibayar > 0 ? ['Setelah dibayar, ubah status bayarnya jadi Lunas lewat Riwayat › Penjualan.'] : [],
+        daftar: c.rc ? blokRinci('Penjualan belum dibayar · ' + belum.length, daftarJual(belum, c.rc.jual.length ? 'Semua penjualan sudah dibayar.' : 'Tidak ada penjualan di ' + c.ini + '.')) : ''
       };
     },
     hariKosong: function (m, c) {
       var alat = (m.alat || []).map(function (a) { return bRinci(a.nama, ang(a.hariKosong, 0) + ' hari kosong', ang(a.hariJalan, 0) + ' hari jalan'); }).join('');
       return {
-        cara: 'Hari yang ada catatan Absensi atau Produksi Suling, tapi tidak ada sulingan sama sekali. Hari tanpa catatan apa pun tidak dihitung.',
+        cara: 'Hari yang ada catatan Absensi, tapi tidak ada sulingan sama sekali. Hari tanpa catatan apa pun tidak dihitung.',
         hitung: alat + bRinci('Hari alat kosong', ang(m.hariKosong, 0) + ' hari', '', 'total'),
         daftar: blokRinci('Hari per hari', daftarHari(m, c, function (h) {
           var status = h.sulingan > 0 ? ang(h.sulingan, 0) + ' sulingan' : (h.catat ? 'Kosong' : 'Tidak ada catatan');
           return bRinci(hariPendek(h.tgl), status, h.catat ? ketHari(m, h.tgl) : '', h.catat && !(h.sulingan > 0) ? 'kosong' : '');
         }))
       };
+    },
+    cicilan: function (m, c) {
+      var d = kasKelompok(c, 'Cicilan kendaraan');
+      return {
+        cara: 'Jumlah catatan Kas kelompok "Cicilan kendaraan" di ' + c.ini + '.',
+        hitung: bRinci('Cicilan kendaraan', rp(m.cicilan), '', 'total'),
+        daftar: d ? blokRinci('Catatan kas · ' + d.length, daftarKas(d, 'Tidak ada cicilan di ' + c.ini + '.')) : ''
+      };
+    },
+    labaSetelahCicilan: function (m, c) {
+      var pg = kasKelompok(c, 'Pengembangan usaha'), ci = kasKelompok(c, 'Cicilan kendaraan');
+      return {
+        cara: 'Laba usaha − pengembangan usaha − cicilan kendaraan.',
+        hitung: bRinci('Laba usaha', rp(m.laba)) +
+          lipatRinci('Pengembangan usaha', kurang(m.pengembangan), daftarKas(pg, 'Tidak ada.')) +
+          lipatRinci('Cicilan kendaraan', kurang(m.cicilan), daftarKas(ci, 'Tidak ada.')) +
+          bRinci('Laba setelah cicilan', rp(m.labaSetelahCicilan), '', 'total')
+      };
+    },
+    keluarga: function (m, c) {
+      var d = kasKelompok(c, 'Keluarga & pribadi');
+      return {
+        cara: 'Jumlah catatan Kas kelompok "Keluarga & pribadi" di ' + c.ini + '.',
+        hitung: bRinci('Keluarga & pribadi', rp(m.keluarga), d ? d.length + ' catatan' : '', 'total') +
+          (m.labaSetelahCicilan > 0 ? bRinci('Dibanding laba setelah cicilan', Math.round(m.keluarga / m.labaSetelahCicilan * 100) + '%') : ''),
+        daftar: d ? perKategori(d) + blokRinci('Catatan kas · ' + d.length, daftarKas(d, 'Tidak ada.')) : ''
+      };
+    },
+    proyekLain: function (m, c) {
+      var d = kasKelompok(c, 'Proyek lain');
+      var harian = adaRincianOrang(m) ? upahPos(m, 'Harian & lain') : '';
+      return {
+        cara: 'Jumlah catatan Kas kelompok "Proyek lain" (bahan dan pembayaran untuk proyek di luar penyulingan) di ' + c.ini + '. Upah tukang dan kenek dari Absensi dihitung terpisah di "Upah kerja harian & lain".',
+        hitung: bRinci('Proyek lain (bahan & bayar)', rp(m.proyekLain)) +
+          lipatRinci('Upah kerja harian & lain', rp(m.upahHarian), harian, 'dari Absensi, dihitung terpisah') +
+          bRinci('Jumlah keduanya', rp((m.proyekLain || 0) + (m.upahHarian || 0)), '', 'total'),
+        daftar: d ? perKategori(d) + blokRinci('Catatan kas · ' + d.length, daftarKas(d, 'Tidak ada.')) : ''
+      };
+    },
+    pemasukanLain: function (m, c) {
+      var d = kasKelompok(c, 'Pemasukan lain');
+      return {
+        cara: 'Jumlah catatan Kas kelompok "Pemasukan lain" di ' + c.ini + ' (uang masuk di luar penjualan dan pinjaman).',
+        hitung: bRinci('Pemasukan lain', rp(m.pemasukanLain), '', 'total'),
+        daftar: d ? blokRinci('Catatan kas · ' + d.length, daftarKas(d, 'Tidak ada pemasukan lain di ' + c.ini + '.')) : ''
+      };
+    },
+    perubahanKas: function (m, c) {
+      var kas = function (kel) { return daftarKas(kasKelompok(c, kel), 'Tidak ada.'); };
+      var harian = adaRincianOrang(m) ? upahPos(m, 'Harian & lain') : '';
+      var belum = c.rc ? daftarJual(c.rc.jual.filter(function (j) { return j.status === 'Belum dibayar'; }), 'Tidak ada.') : '';
+      var awas = [];
+      if (m.perubahanKas < 0 && m.labaSetelahCicilan > 0) {
+        awas.push('Usaha masih untung ' + rp(m.labaSetelahCicilan) + ' setelah cicilan, tapi kas turun karena pengeluaran keluarga, proyek lain, dan upah harian lebih besar dari laba itu.');
+      }
+      if (m.pembiayaan > 0) awas.push('Ada uang pembiayaan (pinjaman) masuk bersih ' + rp(m.pembiayaan) + ' yang ikut menambah kas. Itu bukan hasil usaha. Tanpa itu, kas ' + c.ini + ' berubah ' + rp(m.perubahanKas - m.pembiayaan) + '.');
+      return {
+        cara: 'Perkiraan uang yang bertambah atau berkurang di ' + c.ini + ' menurut semua catatan. Bukan saldo kas. Ketuk komponennya untuk melihat catatannya.',
+        hitung: bRinci('Laba usaha', rp(m.laba)) +
+          lipatRinci('Pengembangan usaha', kurang(m.pengembangan), kas('Pengembangan usaha')) +
+          lipatRinci('Cicilan kendaraan', kurang(m.cicilan), kas('Cicilan kendaraan')) +
+          bRinci('Laba setelah cicilan', rp(m.labaSetelahCicilan), '', 'total') +
+          lipatRinci('Keluarga & pribadi', kurang(m.keluarga), kas('Keluarga & pribadi')) +
+          lipatRinci('Proyek lain', kurang(m.proyekLain), kas('Proyek lain')) +
+          lipatRinci('Upah kerja harian & lain', kurang(m.upahHarian), harian) +
+          lipatRinci('Pembiayaan bersih', (m.pembiayaan < 0 ? '− ' : '+ ') + rp(Math.abs(m.pembiayaan || 0)), kas('Pembiayaan'), 'pinjaman masuk − cicilan/pengembalian') +
+          lipatRinci('Pemasukan lain', plus(m.pemasukanLain), kas('Pemasukan lain')) +
+          lipatRinci('Penjualan belum dibayar', kurang(m.belumDibayar), belum) +
+          bRinci('Perubahan kas', rp(m.perubahanKas), '', 'total'),
+        awas: awas
+      };
     }
   };
 
-  function htmlRincianAngka(kunci, r, im) {
-    var a = ANGKA[kunci], dm = r.minggu, m = dm[im], ms = dm[im + 1];
-    var c = {rc: m.rinci || null, dm: dm, im: im, hariIni: r.hariIni || hariIni()};
+  function htmlRincianAngka(kunci, r, idx, jenis) {
+    var bulan = jenis === 'bulan';
+    var a = (bulan ? ANGKA_BULAN : ANGKA)[kunci], dm = bulan ? r.bulan : r.minggu, m = dm[idx], ms = dm[idx + 1];
+    var label = bulan ? labelBulan(m) : labelMinggu(m);
+    var c = {p: jenis, ini: (bulan ? 'bulan ' : 'minggu ') + (idx === 0 ? 'ini' : 'itu'), rc: m.rinci || null, dm: dm, im: idx, hariIni: r.hariIni || hariIni()};
     var R = RINCI_ANGKA[kunci](m, c);
     var awas = (R.awas || []).filter(function (x) { return x; });
-    var lama = !m.rinci || !m.hari;
-    return '<div class="rinci-kepala"><div><span class="label-kecil">' + esc(a.l) + ' · ' + esc(labelMinggu(m)) + (im === 0 ? ' (minggu ini)' : '') + '</span>' +
-      '<b class="rinci-besar' + (a.merah && a.merah(m) ? ' minus' : '') + '">' + esc(a.f(m)) + '</b>' + (a.b && ms ? banding(m[a.b], ms[a.b]) : '') + '</div>' +
+    var catatanTerbaru = dm[0] && dm[0].rinci;
+    var lama = !m.rinci ? (catatanTerbaru ? 'Daftar catatan asli hanya disiapkan untuk ' + (bulan ? '6 bulan' : '12 minggu') + ' terakhir.' :
+      'Daftar catatan aslinya muncul setelah Apps Script diperbarui (Terapkan › Versi baru).') : '';
+    var banding2 = !a.b || !ms ? '' : bulan ? '<small class="banding netral">' + esc(labelBulan(ms)) + ': ' + esc(a.f(ms)) + '</small>' : banding(m[a.b], ms[a.b]);
+    return '<div class="rinci-kepala"><div><span class="label-kecil">' + esc(a.l) + ' · ' + esc(label) + (idx === 0 ? (bulan ? ' (bulan ini)' : ' (minggu ini)') : '') + '</span>' +
+      '<b class="rinci-besar' + (a.merah && a.merah(m) ? ' minus' : '') + '">' + esc(a.f(m)) + '</b>' + banding2 + '</div>' +
       '<button class="tombol-tutup" data-aksi="tutup" aria-label="Tutup">×</button></div>' +
       '<p class="rinci-cara">' + esc(R.cara) + '</p>' +
       '<div class="rinci-hitung">' + R.hitung + '</div>' +
       (R.catatan ? '<p class="catatan rinci-catatan">' + esc(R.catatan) + '</p>' : '') +
       awas.map(function (x) { return '<div class="pratinjau awas">' + esc(x) + '</div>'; }).join('') +
       (R.daftar || '') +
-      (lama ? '<p class="catatan rinci-catatan">Daftar catatan aslinya muncul setelah Apps Script diperbarui (Terapkan › Versi baru).</p>' : '') +
+      (lama ? '<p class="catatan rinci-catatan">' + esc(lama) + '</p>' : '') +
       '<button class="tombol kedua penuh" data-aksi="tutup" style="margin-top:14px">Tutup</button>';
   }
 
-  function bukaRincianAngka(kunci, mulai) {
+  function bukaRincianAngka(kunci, id, jenis) {
     var r = ambil('ringkasan', null);
-    var im = r && r.minggu ? r.minggu.map(function (m) { return m.mulai; }).indexOf(mulai) : -1;
-    if (im < 0 || !RINCI_ANGKA[kunci]) { toast('Rincian belum tersedia. Muat ulang ringkasan.'); return; }
-    if (kunci === 'totalUpah' && !lihatUpah()) return;
-    var div = bukaLembar(htmlRincianAngka(kunci, r, im));
+    var bulan = jenis === 'bulan';
+    var dm = r ? (bulan ? r.bulan : r.minggu) : null;
+    var idx = dm ? dm.map(function (m) { return bulan ? m.bulan : m.mulai; }).indexOf(id) : -1;
+    if (idx < 0 || !RINCI_ANGKA[kunci] || !(bulan ? ANGKA_BULAN : ANGKA)[kunci]) { toast('Rincian belum tersedia. Muat ulang ringkasan.'); return; }
+    if (!lihatUpah() && ['totalUpah', 'laba', 'biayaPerKg', 'biayaProduksi', 'perubahanKas', 'proyekLain'].indexOf(kunci) >= 0) return;
+    var div = bukaLembar(htmlRincianAngka(kunci, r, idx, jenis));
     div.querySelector('.lembar').classList.add('lembar-rinci');
     div.addEventListener('click', function (ev) { if (ev.target.closest('[data-aksi="tutup"]')) div.remove(); });
   }
 
   function htmlUpah(m, berjalan) {
     var orang = m.orang || [];
-    if (!orang.length) return '<div class="daftar-baris"><div class="daftar-judul">Upah per orang</div><p class="catatan">Belum ada absensi atau produksi di minggu ini.</p></div>';
+    if (!orang.length) return '<div class="daftar-baris"><div class="daftar-judul">Upah per orang</div><p class="catatan">Belum ada absensi di minggu ini.</p></div>';
     var total = 0;
-    var baris = orang.map(function (o) {
-      total += o.total || 0;
-      var rinci = [o.hariMasuk + ' hari kerja'];
-      if (o.sulingan) rinci.push(o.sulingan + ' sulingan = ' + rp(o.upahSuling));
-      if (o.upahAbsensi) rinci.push('absensi ' + rp(o.upahAbsensi));
-      if (o.upahLain) rinci.push('kerja lain ' + rp(o.upahLain));
-      return '<details class="lipat"><summary><div class="baris-angka"><span>' + esc(o.nama) + '<small>' + esc(o.peran || '') + '</small></span><b>' + esc(rp(o.total)) + '</b></div></summary>' +
-        '<div class="lipat-isi">' + esc(rinci.join(' · ')) + '</div></details>';
-    }).join('');
+    var baris = orang.map(function (o) { total += o.total || 0; return htmlOrang(o, true); }).join('');
     return '<div class="daftar-baris"><div class="daftar-judul">Upah per orang (untuk gajian)' + (berjalan ? ' · sampai hari ini' : '') + '</div>' + baris +
       '<div class="baris-angka total"><span>Total</span><b>' + esc(rp(total)) + '</b></div>' +
-      '<p class="catatan">Ketuk nama untuk rinciannya. Bonus yang dicatat di Kas belum termasuk.</p></div>';
+      '<p class="catatan">Ketuk nama untuk upah per hari. Bonus yang dicatat di Kas belum termasuk.</p></div>';
   }
 
   function htmlKeterangan(m) {
@@ -1325,14 +1510,7 @@
     var b = db[ib];
     var bulan = b ? '<div class="kartu"><h2>Bulan</h2><select class="masukan pilih-periode" id="pilih-bulan" aria-label="Pilih bulan">' +
       db.map(function (x, i) { return '<option value="' + esc(x.bulan) + '"' + (i === ib ? ' selected' : '') + '>' + esc(labelBulan(x)) + (i === 0 ? ' (bulan ini)' : '') + '</option>'; }).join('') +
-      '</select><div class="angka-grid">' +
-      kotakAngka('Penjualan', rp(b.penjualan)) + kotakAngka('Laba usaha', rp(b.laba), b.laba < 0) +
-      kotakAngka('Minyak dihasilkan', ang(b.minyak) + ' kg') + kotakAngka('Sulingan', ang(b.sulingan, 0) + ' kali') +
-      kotakAngka('Biaya produksi', rp(b.biayaProduksi)) + kotakAngka('Total upah', rp(b.totalUpah)) +
-      kotakAngka('Cicilan kendaraan', rp(b.cicilan)) + kotakAngka('Laba setelah cicilan', rp(b.labaSetelahCicilan), b.labaSetelahCicilan < 0) +
-      kotakAngka('Keluarga & pribadi', rp(b.keluarga)) + kotakAngka('Proyek lain', rp(b.proyekLain)) +
-      kotakAngka('Pemasukan lain', rp(b.pemasukanLain)) + kotakAngka('Belum dibayar pembeli', rp(b.belumDibayar), b.belumDibayar > 0) +
-      kotakAngka('Perubahan kas', rp(b.perubahanKas), b.perubahanKas < 0) +
+      '</select><div class="angka-grid">' + URUT_BULAN.map(function (k) { return kotakBulan(k, b); }).join('') +
       '</div></div>' : '';
 
     return '<p class="sub" style="margin:0 0 12px;color:var(--teks-2)">Data sampai ' + esc(tglIndo(r.dataSampai) || '–') + '. Angka sama dengan Dashboard dan tab Rekap di Google Sheet.</p>' +
@@ -1483,6 +1661,7 @@
       // Isi cepat: pekerjaan utama tim (pengumpulan / penyulingan), kalau tidak ada pilihan pertama yang dihitung masuk.
       var cepat = tarif.filter(function (t) { return ['Pengumpulan', 'Penyulingan'].indexOf(jenisTarif(t)) >= 0; })[0] ||
         tarif.filter(function (t) { return tarifMasuk(t.nilai['Pilihan']); })[0];
+      if (anggota.length < 2) cepat = null;
       return '<div class="kelompok-orang"><div class="kelompok-judul"><span>' + esc(peran || 'Tanpa tim') + ' · ' + anggota.length + ' orang</span>' +
         (cepat ? '<button type="button" class="tombol-kecil" data-isi-semua="' + esc(peran) + '" data-nilai="' + esc(cepat.nilai['Pilihan']) + '">Semua yang kosong: ' + esc(cepat.nilai['Pilihan']) + '</button>' : '') + '</div>' +
         anggota.map(function (x) {
@@ -1490,12 +1669,14 @@
           var nm = id + '_o' + x.j;
           var v = d[nama] || '';
           var opsi = tarif.map(function (t) { return t.nilai['Pilihan']; });
-          if (v && opsi.indexOf(v) < 0) opsi.push(v);
-          return '<div class="baris-kisi" data-peran="' + esc(peran) + '" data-h="' + esc(b.k + '|' + nama) + '"><div class="nama">' + esc(nama) + '</div><div class="chips">' +
+          if (v && v !== KERJA_LAIN && opsi.indexOf(v) < 0) opsi.push(v);
+          return '<div class="baris-kisi" data-peran="' + esc(peran) + '" data-nama="' + esc(nama) + '" data-h="' + esc(b.k + '|' + nama) + '"><div class="nama">' + esc(nama) + '</div><div class="chips">' +
             '<label class="chip lewati"><input type="radio" name="' + nm + '" value=""' + (v ? '' : ' checked') + '><span>Tidak diisi</span></label>' +
             opsi.map(function (o) {
               return '<label class="chip"><input type="radio" name="' + nm + '" value="' + esc(o) + '"' + (v === o ? ' checked' : '') + '><span>' + esc(o) + '</span></label>';
-            }).join('') + '</div><div class="pesan-salah" hidden></div></div>';
+            }).join('') +
+            '<label class="chip"><input type="radio" name="' + nm + '" value="' + KERJA_LAIN + '"' + (v === KERJA_LAIN ? ' checked' : '') + '><span>Kerja lain…</span></label>' +
+            '</div><div class="pesan-salah" hidden></div></div>';
         }).join('') + '</div>';
     }).join('');
     return '<div class="bidang" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + html + '<div class="pesan-salah" hidden></div></div>';
@@ -1639,6 +1820,22 @@
     });
   }
 
+  function bukaKerjaLainUntuk(akar, nama) {
+    var bd = q(akar, '.bidang-kerja-lain');
+    if (!bd || !nama) return;
+    var px = bd.dataset.px;
+    var ya = qa(bd, 'input[name="' + px + '_ada"]').filter(function (x) { return x.value === 'Ya'; })[0];
+    if (ya) ya.checked = true;
+    var c = qa(bd, 'input[name="' + px + '_siapa"]').filter(function (x) { return x.value === nama; })[0];
+    if (c) c.checked = true;
+    bd.classList.remove('salah');
+    segarkanTampilanForm(akar);
+    var kerja = q(bd, '[name="' + px + '_kerja"]');
+    var upah = q(bd, '.upah-orang[data-nama="' + (window.CSS && CSS.escape ? CSS.escape(nama) : nama) + '"] input');
+    var fokus = kerja && !kerja.value ? kerja : upah;
+    if (fokus) { fokus.scrollIntoView({block: 'center', behavior: 'smooth'}); fokus.focus({preventScroll: true}); }
+  }
+
   function pasangFormDinamis(akar, segarkan) {
     var hapusSalah = function (t) {
       var b = t.closest && t.closest('[data-h]');
@@ -1652,6 +1849,7 @@
       hapusSalah(t);
       segarkanTampilanForm(akar);
       if (t.value === '__lain' && t.checked) { var lt = q(akar, '#' + t.name + '_lt'); if (lt) lt.focus(); }
+      if (t.value === KERJA_LAIN && t.checked) bukaKerjaLainUntuk(akar, (t.closest('.baris-kisi') || {dataset: {}}).dataset.nama);
       if (segarkan) segarkan();
     });
     akar.addEventListener('click', function (ev) {
@@ -2067,7 +2265,7 @@
       '<div class="info-baris"><span>Nama</span><b>' + esc(a.nama) + '</b></div>' +
       '<div class="info-baris"><span>Nama pengguna</span><b>' + esc(a.pengguna) + '</b></div>' +
       '<div class="info-baris"><span>Peran</span><b>' + esc(a.peran) + (a.admin && !a.pemilik ? ' (boleh mengatur)' : '') + '</b></div>' +
-      '<div class="info-baris"><span>Boleh mengisi</span><b>' + esc((a.tab || []).length === URUTAN_TAB.length ? 'Semua catatan' : (a.tab || []).map(function (t) { return labelTab(t); }).join(', ') || '–') + '</b></div>' +
+      '<div class="info-baris"><span>Boleh mengisi</span><b>' + esc(semuaTabAktif(a.tab) ? 'Semua catatan' : tabAktif(a.tab).map(function (t) { return labelTab(t); }).join(', ') || '–') + '</b></div>' +
       '<div class="info-baris"><span>Belum terkirim</span><b>' + antrian.length + ' catatan</b></div>' +
       '<div class="info-baris"><span>Versi aplikasi</span><b>' + esc(VERSI) + (DI_APK ? ' (APK)' : '') + (konfig && konfig.versiApi ? ' · API ' + konfig.versiApi : '') + '</b></div>' +
       '</div><div class="tumpuk" style="margin-top:16px">' +
@@ -2144,7 +2342,7 @@
         return [v['Tim'], v['Alat'], v['No HP'], m.aktif ? '' : (v['Tanggal keluar'] ? 'keluar ' + tglIndo(v['Tanggal keluar']) : 'tidak aktif')].filter(function (x) { return x; }).join(' · ');
       case 'Tarif Upah':
         return [v['Untuk'], jenisTarif(m) === 'Kerja lain' ? 'upah diisi saat absensi' : rp(v['Upah (Rp)']), v['Jenis kerja'],
-          Number(v['Jumlah sulingan']) > 0 ? v['Jumlah sulingan'] + ' sulingan (Produksi Suling)' : '', m.aktif ? '' : 'tidak aktif'].filter(function (x) { return x; }).join(' · ');
+          Number(v['Jumlah sulingan']) > 0 ? v['Jumlah sulingan'] + ' sulingan' : '', m.aktif ? '' : 'tidak aktif'].filter(function (x) { return x; }).join(' · ');
       case 'Produk': return [v['Satuan'], v['Harga biasa (Rp)'] !== '' && v['Harga biasa (Rp)'] !== undefined ? rp(v['Harga biasa (Rp)']) + '/' + v['Satuan'] : '',
         v['Dihitung sebagai minyak'] === 'Ya' ? 'dihitung minyak terjual' : ''].filter(function (x) { return x; }).join(' · ');
       case 'Kategori Kas': return [v['Arah'], v['Kelompok']].filter(function (x) { return x; }).join(' · ');
@@ -2171,9 +2369,9 @@
         '<button class="tombol-ikon" style="background:var(--latar);color:var(--teks-2)" data-edit="' + esc(m.id) + '" aria-label="Ubah">' + ikon('pensil') + '</button></div>';
     };
     var bantuan = {
-      'Alat Suling': 'Alat aktif muncul di formulir Produksi Suling. Alat yang tidak dipakai lagi cukup dinonaktifkan; catatan lamanya tetap ada.',
+      'Alat Suling': 'Sulingan dari absensi tim suling dicatat ke alat yang dipegangnya (kolom Alat di Karyawan), atau ke satu-satunya alat aktif. Alat yang tidak dipakai lagi cukup dinonaktifkan; catatan lamanya tetap ada.',
       'Karyawan': 'Karyawan aktif muncul di absensi, pilihan pengumpul, dan pilihan operator. Yang keluar cukup ditandai keluar; catatan lamanya tetap ada. Kolom upah per orang di Rekap ikut daftar ini.',
-      'Tarif Upah': 'Upah dikunci saat dicatat: mengubah tarif tidak mengubah catatan lama. Tarif Penyulingan dengan jumlah sulingan (1x, 2x, 3x) dipakai untuk upah di Produksi Suling.',
+      'Tarif Upah': 'Upah dikunci saat dicatat: mengubah tarif tidak mengubah catatan lama. Tarif Penyulingan dengan jumlah sulingan (1x, 2x, 3x) muncul di absensi tim suling; jumlah sulingan dan upahnya ikut tercatat.',
       'Pilihan': 'Pilihan yang muncul di formulir. Panah mengatur urutan tampilnya. Menghapus pilihan tidak mengubah catatan lama.',
       'Produk': 'Produk yang muncul di formulir Penjualan. Satuan dan "dihitung sebagai minyak" dipakai di Rekap.',
       'Kategori Kas': 'Kategori yang muncul di formulir Kas. Kelompoknya menentukan kolom di Rekap Bulanan.'
@@ -2299,7 +2497,7 @@
       var el = document.getElementById('daftar-pengguna');
       if (!el) return;
       el.innerHTML = '<div class="kartu">' + daftar.map(function (p, i) {
-        var hak = p.boleh === 'Semua' ? 'semua catatan' : (p.boleh.length ? p.boleh.join(', ') : 'belum ada catatan');
+        var hak = p.boleh === 'Semua' ? 'semua catatan' : (tabAktif(p.boleh).length ? tabAktif(p.boleh).map(function (t) { return labelTab(t); }).join(', ') : 'belum ada catatan');
         return '<div class="item-induk"><div class="teks" data-i="' + i + '"><b>' + esc(p.nama) + (p.saya ? ' (Anda)' : '') +
           (p.aktif ? '' : '<span class="lencana-kecil merah">nonaktif</span>') + (p.mengatur && p.peran !== 'Pemilik' ? '<span class="lencana-kecil hijau">mengatur</span>' : '') + '</b>' +
           '<small>' + esc(p.pengguna + ' · ' + p.peran + ' · ' + hak) + '</small>' +
@@ -2341,7 +2539,7 @@
         bantuan: p ? 'Isi hanya kalau mau mengganti sandinya. Minimal 4 huruf atau angka.' : 'Minimal 4 huruf atau angka. Berikan ke orangnya.'},
       {j: 'pilih', h: 'Minta ganti sandi saat masuk', opsi: ['Ya', 'Tidak']}
     ]);
-    var draf = p ? {'Nama': p.nama, 'Nama pengguna': p.pengguna, 'Peran': p.peran, 'Boleh mengisi': p.boleh === 'Semua' ? URUTAN_TAB.slice() : p.boleh,
+    var draf = p ? {'Nama': p.nama, 'Nama pengguna': p.pengguna, 'Peran': p.peran, 'Boleh mengisi': p.boleh === 'Semua' ? URUTAN_TAB.slice() : tabAktif(p.boleh),
       'Boleh mengatur': p.mengatur ? 'Ya' : 'Tidak', 'Aktif': p.aktif ? 'Ya' : 'Tidak', 'Minta ganti sandi saat masuk': 'Tidak'}
       : {'Peran': 'Pencatat', 'Boleh mengisi': URUTAN_TAB.slice(), 'Boleh mengatur': 'Tidak', 'Aktif': 'Ya', 'Minta ganti sandi saat masuk': 'Tidak'};
     var div = bukaLembar('<h2>' + (p ? 'Ubah ' + esc(p.nama) : 'Tambah pengguna') + '</h2><p class="sub">' + (p ? 'Nama pengguna: ' + esc(p.pengguna) : 'Untuk pencatat, mandor, atau keluarga') + '</p>' +
@@ -2624,13 +2822,13 @@
 
   document.addEventListener('click', function (ev) {
     var angka = ev.target.closest('[data-angka]');
-    if (angka) { bukaRincianAngka(angka.dataset.angka, angka.dataset.mulai); return; }
+    if (angka) { bukaRincianAngka(angka.dataset.angka, angka.dataset.id, angka.dataset.jenis); return; }
     var el = ev.target.closest('[data-ke]');
     if (el) { ev.preventDefault(); location.hash = el.dataset.ke; }
   });
   document.addEventListener('keydown', function (ev) {
     var angka = (ev.key === 'Enter' || ev.key === ' ') && ev.target.closest && ev.target.closest('[data-angka]');
-    if (angka) { ev.preventDefault(); bukaRincianAngka(angka.dataset.angka, angka.dataset.mulai); }
+    if (angka) { ev.preventDefault(); bukaRincianAngka(angka.dataset.angka, angka.dataset.id, angka.dataset.jenis); }
   });
   window.addEventListener('hashchange', tampilkan);
   window.addEventListener('online', function () { perbaruiStatus(); kirimAntrian(); });

@@ -327,6 +327,7 @@ cek('Pengguna: daftar, tambah, wajib ganti sandi, sandi minimal 4, nonaktif, gan
 // ------------------------------------------------------------------ 9. Ringkasan
 // Biaya operasional (Kas, kelompok Operasional usaha) dan upah perawatan alat (Absensi Harian) untuk rincian angka.
 sheets['Kas'].data.push(['', new Date(), tgl(hariIni), 'Bensin & servis pikap', 150000, 'ganti oli', 'Operasional usaha', 'Keluar']);
+sheets['Kas'].data.push(['', new Date(), tgl(hariIni), 'Keluarga & pribadi', 54000, 'jajan', 'Keluarga & pribadi', 'Keluar']);
 sheets['Absensi Harian'].data.push(['', new Date(), tgl(hariIni), 'Pak Muh', 'Pengumpul', 'Kerja lain', '', 0, 60000, 'Perawatan alat', 'las tungku', 'Perawatan alat suling', '', 'Mas Wildan']);
 r = panggil({ aksi: 'ringkasan', token: tokPemilik });
 assert.ok(r.ok, JSON.stringify(r));
@@ -374,7 +375,26 @@ assert.strictEqual(opsHariIni.filter(o => o.apa === 'Upah perawatan alat').lengt
 assert.ok(opsHariIni.some(o => o.apa === 'Bensin & servis pikap' && o.rp === 150000 && o.ket === 'ganti oli'), JSON.stringify(opsHariIni));
 assert.ok(opsHariIni.some(o => o.apa === 'Upah perawatan alat' && o.rp === 60000 && o.ket === 'Pak Muh: las tungku'), JSON.stringify(opsHariIni));
 assert.ok(!r.minggu[0].rinci.ops.some(o => o.apa === 'Proyek bangunan'), 'kas proyek lain tidak masuk operasional');
-cek('Ringkasan: catatan asli di balik setiap angka minggu (trip, saring, penjualan, operasional, hari per hari)');
+// Bulan: rincian catatan per bulan (termasuk Kas per kelompok) dan hari per hari.
+const b0 = r.bulan[0];
+assert.ok(b0.rinci && b0.rinci.kas && b0.hari, 'bulan terbaru punya rincian');
+const diBulan = v => isoT(v).slice(0, 7) === b0.bulan;
+assert.strictEqual(b0.rinci.bahan.length, objek('Ambil Bahan').filter(x => diBulan(x['Tanggal'])).length);
+assert.strictEqual(b0.rinci.jual.reduce((t, x) => t + x.total, 0), objek('Penjualan').filter(x => diBulan(x['Tanggal'])).reduce((t, x) => t + x['Total (Rp)'], 0));
+const kelBulan = ['Pengembangan usaha', 'Cicilan kendaraan', 'Keluarga & pribadi', 'Proyek lain', 'Pembiayaan', 'Pemasukan lain'];
+assert.strictEqual(b0.rinci.kas.reduce((t, x) => t + x.rp, 0), objek('Kas').filter(x => diBulan(x['Tanggal']) && kelBulan.includes(x['Kelompok'])).reduce((t, x) => t + x['Jumlah (Rp)'], 0));
+assert.ok(b0.rinci.kas.some(x => x.kel === 'Keluarga & pribadi' && x.rp === 54000 && x.arah === 'Keluar'));
+assert.ok(!b0.rinci.kas.some(x => x.kel === 'Operasional usaha') && b0.rinci.ops.some(x => x.apa === 'Bensin & servis pikap'));
+const [by, bm] = b0.bulan.split('-').map(Number);
+assert.strictEqual(b0.hari.length, new Date(by, bm, 0).getDate()); assert.strictEqual(b0.hari[0].tgl, b0.bulan + '-01');
+// Upah per orang per hari (untuk gajian): jumlah rinciannya = total orang itu.
+r.minggu.slice(0, 2).concat(r.bulan).forEach(m => m.orang.forEach(o => {
+  assert.ok(Array.isArray(o.rinci), 'rincian per hari ' + o.nama);
+  assert.strictEqual(o.rinci.reduce((t, x) => t + x.upah, 0), o.total, 'rincian upah ' + o.nama + ' ' + (m.mulai || m.bulan));
+}));
+const ekoBulan = b0.orang.find(o => o.nama === 'Eko & Pak Gatot');
+assert.ok(ekoBulan && ekoBulan.rinci.some(x => x.pos === 'Penyulingan' && x.sulingan > 0), JSON.stringify(ekoBulan));
+cek('Ringkasan: catatan asli di balik setiap angka minggu dan bulan (trip, saring, penjualan, kas, hari per hari, upah per orang per hari)');
 
 // ------------------------------------------------------------------ 9b. Stok minyak
 // Data: saring 5,44 kg (9 hari lalu) + 3,4? -> lihat fixture; penjualan 15,94 kg kemarin.
