@@ -100,6 +100,21 @@ function buatData(opsi) {
   s['Dashboard'].data[1] = ['Data sampai', tgl(h1)];
   s['Dashboard'].data[14] = ['Harga bahan per kg vs rata-rata', '', 'Rp378', '15%', 'PERHATIAN', 'Bandingkan harga antar daerah.'];
   s['Dashboard'].data[15] = ['Rendemen', '', '0,26%', '20%', 'Aman', ''];
+  s['Dashboard'].data[16] = ['Hari ketel kosong minggu berjalan', '', '1 hari', '2 hari', 'Aman', ''];
+  s['Dashboard'].data[17] = ['Laba usaha minggu penuh terakhir', '', '-Rp2.846.000', 0, 'PERHATIAN', 'Laba minggu lalu minus.'];
+  s['Dashboard'].data[18] = ['Pangsa pembeli terbesar (90 hari terakhir)', '', '98,4%', '80%', 'PERHATIAN', 'Mulai cari pembeli kedua.'];
+  s['Dashboard'].data[19] = ['Keluarga & pribadi bulan ini', '', 'Rp6.850.700', 'Rp7.000.000', 'Aman', 'Sudah 98% dari jatah bulan ini.'];
+  s['Dashboard'].data[20] = ['Penjualan belum dibayar', '', 'Rp0', 0, 'Aman', ''];
+  s['Dashboard'].data[21] = ['Keterangan tidak biasa (14 hari terakhir)', '', '15', 0, 'BACA', 'Baca daftar keterangan.'];
+  s['Dashboard'].data[22] = ['Catatan kas tanpa kategori', '', '0', 0, 'Aman', ''];
+  ['15,4', '16,4', '17,4', '19,4', '20,4'].forEach(k => { s['Dashboard'].rumus[k] = '=Pengaturan!B'; });
+  s['Pengaturan'] = buatSheet('Pengaturan', [['Pengaturan'], ['Sel kuning boleh diubah.'], ['Pengaturan', 'Nilai', 'Keterangan'],
+    ['Minggu pertama rekap (hari Senin)', tgl('2026-07-13'), ''], ['Bulan pertama rekap', tgl('2026-07-01'), ''],
+    ['Batas kenaikan harga bahan dan biaya per kg', 0.15, 'Usulan awal'], ['Batas penurunan rendemen', 0.2, 'Usulan awal'],
+    ['Batas hari ketel kosong per minggu', 2, 'Usulan awal'], ['Batas pangsa satu pembeli', 0.8, 'Usulan awal'],
+    ['Jatah keluarga & pribadi per bulan (Rp)', 7000000, 'Isi sendiri'], ['Periode pangsa pembeli (hari)', 90, ''],
+    ['Cicilan pikap per bulan (Rp)', 3632000, ''], ['Nilai alat suling (Rp)', 150000000, ''], ['Umur pakai alat (tahun)', 15, ''],
+    ['Gaji pribadi per bulan (Rp)', 2000000, ''], [], [], ['PIN aplikasi Catatan Sembada']]);
   return s;
 }
 

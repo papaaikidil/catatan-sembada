@@ -419,3 +419,8 @@ details.rinci-lipat[open] > summary .baris-angka { font-weight: 700; }
 details.rinci-lipat > .lipat-isi { margin: 0 0 .5rem .25rem; padding: 0 0 0 .75rem; border-left: 2px solid var(--garis); }
 details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; padding: .3125rem 0; font-weight: 400; }
 .lembar-rinci .banding.netral { color: var(--teks-2); font-weight: 600; }
+
+/* Batas peringatan */
+.status-batas { display: flex; gap: .5rem; align-items: flex-start; font-size: .8125rem; color: var(--teks-2); margin: .75rem 0 .375rem; }
+.status-batas b { color: var(--teks); }
+#atur-batas { margin-top: 10px; }

@@ -339,7 +339,7 @@ assert.strictEqual(m0.totalUpah, 228000 + 180000 + 730000);
 assert.ok(m0.orang.length >= 4);
 assert.ok(m0.alat.some(a => a.nama === 'Ketel 1'));
 assert.ok(r.bulan.length === 1 && r.bulan[0].laba === 1564000 && r.bulan[0].cicilan === 3632000);
-assert.deepStrictEqual(r.peringatan.map(p => p.status), ['PERHATIAN', 'Aman']);
+assert.deepStrictEqual(r.peringatan.map(p => p.status), ['PERHATIAN', 'Aman', 'Aman', 'PERHATIAN', 'PERHATIAN', 'Aman', 'Aman', 'BACA', 'Aman']);
 const ket = m0.keterangan.map(k => k.bagian + ': ' + k.isi);
 assert.ok(ket.includes('Absensi: hujan sore'), ket.join(' / '));
 assert.ok(ket.some(k => /^Kerja lain: Pak Muhammad: tambal kolam \(untuk proyek bangunan & lainnya\), upah Rp50\.000$/.test(k)), ket.join(' / '));
@@ -424,6 +424,40 @@ assert.strictEqual(st.dasar.sumber, 'Saring'); assert.strictEqual(st.dasar.tgl, 
 assert.strictEqual(st.kg, Math.round((20 - objek('Penjualan').filter(x => formatTanggal(x['Tanggal'], 'yyyy-MM-dd') > kemarin).reduce((t, x) => t + x['Minyak terjual (kg)'], 0)) * 100) / 100);
 assert.ok(/tidak boleh setelah/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: besok, kg: 1 }).galat));
 cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai');
+
+// ------------------------------------------------------------------ 9c. Batas peringatan
+assert.strictEqual(panggil({ aksi: 'batas', token: tokRofik }).ok, false, 'pencatat tidak boleh');
+r = panggil({ aksi: 'batas', token: tokPemilik });
+assert.ok(r.ok, JSON.stringify(r));
+const bt = Object.fromEntries(r.batas.map(x => [x.k, x]));
+assert.deepStrictEqual(['hargaBahan', 'rendemen', 'ketelKosong', 'laba', 'periodeLaba', 'pangsa', 'periodePangsa', 'jatahKeluarga', 'belumDibayar', 'keterangan', 'kasTanpaKategori']
+  .map(k => bt[k].nilai), [15, 20, 2, 0, 1, 80, 90, 7000000, 0, 0, 0]);
+assert.ok(r.batas.every(x => !x.rusak), JSON.stringify(r.batas.filter(x => x.rusak)));
+assert.strictEqual(bt.laba.sekarang.status, 'PERHATIAN'); assert.strictEqual(bt.pangsa.sekarang.nilai, '98,4%');
+const pg = (sel) => sheets['Pengaturan'].getRange(sel).getValue(), db = (sel) => sheets['Dashboard'].getRange(sel).getValue();
+r = panggil({ aksi: 'batasSimpan', token: tokPemilik, nilai: { hargaBahan: 12.5, periodeLaba: 4, jatahKeluarga: '', keterangan: 20 } });
+assert.ok(r.ok, JSON.stringify(r));
+assert.strictEqual(pg('B6'), 0.125); assert.strictEqual(pg('B10'), ''); assert.strictEqual(db('D22'), 20);
+assert.deepStrictEqual([pg('A16'), pg('B16')], ['Periode laba di peringatan (minggu)', 4], 'baris periode laba dibuat');
+assert.strictEqual(pg('B7'), 0.2, 'yang tidak dikirim tidak berubah');
+assert.strictEqual(sheets['Pengaturan'].getRange('A18').getValue(), 'PIN aplikasi Catatan Sembada', 'bagian lain Pengaturan tidak bergeser');
+assert.strictEqual(Object.fromEntries(r.batas.map(x => [x.k, x.nilai])).periodeLaba, 4);
+const logBatas = sheets['Log Aplikasi'].data.filter(x => x[1] === 'Ubah batas peringatan');
+assert.strictEqual(logBatas.length, 1); assert.strictEqual(logBatas[0][6], 'Mas Wildan');
+r = panggil({ aksi: 'batasSimpan', token: tokPemilik, nilai: { pangsa: 150, ketelKosong: 1.5, hargaBahan: '' } });
+assert.ok(!r.ok && /10 sampai 100/.test(r.salah.pangsa) && /bulat/.test(r.salah.ketelKosong) && /Wajib/.test(r.salah.hargaBahan), JSON.stringify(r));
+assert.strictEqual(pg('B6'), 0.125, 'tidak ada yang ditulis kalau ada yang salah');
+sheets['Dashboard'].rumus['21,4'] = '=X';
+r = panggil({ aksi: 'batasSimpan', token: tokPemilik, nilai: { belumDibayar: 500000 } });
+assert.ok(!r.ok && /rumus/.test(r.salah.belumDibayar), 'sel berumus tidak ditimpa');
+delete sheets['Dashboard'].rumus['21,4'];
+sheets['Pengaturan'].data[6][0] = 'Catatan lain';
+r = panggil({ aksi: 'batasSimpan', token: tokPemilik, nilai: { rendemen: 25 } });
+assert.ok(!r.ok && /Susunan tab Pengaturan berubah/.test(r.salah.rendemen), JSON.stringify(r));
+assert.strictEqual(pg('B7'), 0.2);
+assert.ok(panggil({ aksi: 'batas', token: tokPemilik }).batas.find(x => x.k === 'rendemen').rusak);
+sheets['Pengaturan'].data[6][0] = 'Batas penurunan rendemen';
+cek('Batas peringatan: dibaca dan diubah di sel yang sama dengan Dashboard, judul baris & rumus dicek, dicatat di Log');
 
 // ------------------------------------------------------------------ 10. Tampilan & logo
 r = panggil({ aksi: 'tampilanSimpan', token: tokPemilik, tampilan: { warna: 'biru', beranda: 1 }, namaAplikasi: 'Catatan SKW', logo: 'data:image/png;base64,iVBORw0KGgo=' });

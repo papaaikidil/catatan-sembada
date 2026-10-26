@@ -1514,7 +1514,8 @@
       '</div></div>' : '';
 
     return '<p class="sub" style="margin:0 0 12px;color:var(--teks-2)">Data sampai ' + esc(tglIndo(r.dataSampai) || '–') + '. Angka sama dengan Dashboard dan tab Rekap di Google Sheet.</p>' +
-      htmlStok(r.stok) + minggu + bulan + '<div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') + '</div>';
+      htmlStok(r.stok) + minggu + bulan + '<div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') +
+      '<button class="tautan" data-ke="#/batas" id="atur-batas">Atur batas peringatan ›</button></div>';
   }
 
   // ------------------------------------------------------------ bidang formulir
@@ -2319,6 +2320,8 @@
         var lencana = m.tab === 'Tarif Upah' && tanpaTarif ? '<span class="lencana-kecil merah">tarif suling belum ada</span>' : '';
         return kartu('#/kelola/' + sk.kunci, sk.judul, m.ikon, m.ket(), lencana);
       }).join('');
+    isi += '<div class="judul-bagian">Ringkasan</div>' +
+      kartu('#/batas', 'Batas peringatan', 'awan', 'Kapan peringatan di Ringkasan muncul: harga bahan, rendemen, laba, jatah keluarga, dan lainnya');
     if (pemilik()) {
       isi += '<div class="judul-bagian">Aplikasi</div>' +
         kartu('#/pengguna', 'Pengguna & sandi', 'kunci', 'Tambah orang lain dengan nama pengguna dan sandi sendiri') +
@@ -2794,6 +2797,129 @@
     });
   }
 
+  // ------------------------------------------------------------ layar: batas peringatan
+  // Angkanya disimpan di Google Sheet (tab Pengaturan dan Dashboard), jadi Dashboard dan aplikasi selalu sama.
+  var BATAS_UI = [
+    {judul: 'Produksi', isi: [
+      {k: 'hargaBahan', l: 'Harga bahan naik lebih dari (%)', bantuan: 'Harga bahan per kg minggu ini dibanding rata-rata 4 minggu sebelumnya.'},
+      {k: 'rendemen', l: 'Rendemen turun lebih dari (%)', bantuan: 'Rendemen 4 minggu terakhir dibanding 4 minggu sebelumnya.'},
+      {k: 'ketelKosong', l: 'Hari ketel kosong dalam seminggu', bantuan: 'Peringatan muncul kalau hari kosong di minggu berjalan sudah sebanyak ini.'}
+    ]},
+    {judul: 'Keuangan', isi: [
+      {k: 'periodeLaba', l: 'Laba usaha dihitung untuk', pilih: [1, 2, 3, 4],
+        bantuan: 'Disarankan 4 minggu: penjualan tidak datang tiap minggu, jadi laba 1 minggu sering minus padahal usaha tidak rugi.'},
+      {k: 'laba', l: 'Peringatan kalau laba di bawah (Rp)', bantuan: '0 = peringatan muncul saat rugi.'},
+      {k: 'jatahKeluarga', l: 'Jatah keluarga & pribadi per bulan (Rp)', bantuan: 'Mulai 80% dari jatah sudah ada catatan. Dikosongkan = peringatan ini mati.'},
+      {k: 'belumDibayar', l: 'Penjualan belum dibayar lebih dari (Rp)', bantuan: '0 = setiap penjualan yang belum dibayar diingatkan untuk ditagih.'},
+      {k: 'kasTanpaKategori', l: 'Catatan kas tanpa kategori lebih dari', bantuan: '0 = setiap catatan kas tanpa kategori diingatkan.'}
+    ]},
+    {judul: 'Pembeli', isi: [
+      {k: 'pangsa', l: 'Satu pembeli lebih dari (%) penjualan', bantuan: 'Mengingatkan risiko bergantung pada satu pembeli. Jangan dinaikkan hanya supaya peringatannya hilang.'},
+      {k: 'periodePangsa', l: 'Dihitung dari penjualan berapa hari terakhir'}
+    ]},
+    {judul: 'Catatan', isi: [
+      {k: 'keterangan', l: 'Keterangan tidak biasa (14 hari) lebih dari', bantuan: '0 = selalu diingatkan untuk dibaca kalau ada keterangan.'}
+    ]}
+  ];
+  function nilaiBatasKeDraf(b) {
+    if (b.nilai === null || b.nilai === undefined) return '';
+    if (b.k === 'periodeLaba') return b.nilai + ' minggu';
+    if (b.jenis === 'persen') return String(b.nilai).replace('.', ',');
+    return String(b.nilai);
+  }
+  function bidangBatas(u, b) {
+    var x = {h: u.k, label: u.l, bantuan: u.bantuan, wajib: !b.bolehKosong};
+    if (u.pilih) { x.j = 'pilih'; x.opsi = u.pilih.map(function (n) { return n + ' minggu'; }); }
+    else x.j = b.jenis === 'rupiah' ? 'rupiah' : (b.jenis === 'persen' ? 'desimal' : 'angka');
+    return x;
+  }
+  function htmlStatusBatas(s) {
+    if (!s || !s.hal) return '';
+    var kelas = s.status === 'Aman' ? 'aman' : (s.status === 'ISI' || s.status === 'BACA' ? 'isi' : (s.status ? 'perlu' : 'netral'));
+    return '<div class="status-batas"><span class="chip-status ' + kelas + '">' + esc(s.status || '–') + '</span><span>' + esc(s.hal) +
+      (s.nilai ? ': <b>' + esc(s.nilai) + '</b>' : '') + '</span></div>';
+  }
+
+  function layarBatas() {
+    if (!admin()) { location.hash = '#/'; return; }
+    kerangka('Batas peringatan', 'Kapan peringatan di Ringkasan muncul', '<div id="isi-batas"><div class="memuat">Memuat…</div></div>', {kembali: '#/kelola', tanpaNav: true});
+    var data = null, bidang = [];
+    var tulis = function () {
+      var el = document.getElementById('isi-batas');
+      if (!el) return;
+      var per = {};
+      data.forEach(function (b) { per[b.k] = b; });
+      var draf = {}, sudahStatus = {};
+      bidang = [];
+      var html = BATAS_UI.map(function (g) {
+        return '<div class="kartu"><h2>' + esc(g.judul) + '</h2>' + g.isi.map(function (u) {
+          var b = per[u.k];
+          if (!b) return '';
+          var st = sudahStatus[b.sekarang.hal] ? '' : htmlStatusBatas(b.sekarang);
+          sudahStatus[b.sekarang.hal] = true;
+          if (b.rusak) return st + '<div class="bidang"><span class="label">' + esc(u.l) + '</span><div class="galat-kartu">' + esc(b.rusak) + '</div></div>';
+          var x = bidangBatas(u, b);
+          bidang.push(x);
+          draf[u.k] = nilaiBatasKeDraf(b);
+          return st + htmlBidang(x, bidang.length - 1, draf, 'p');
+        }).join('') + '</div>';
+      }).join('');
+      el.innerHTML = '<form novalidate id="form-batas">' + html + '</form>' +
+        '<button class="tombol utama penuh" id="simpan-batas" style="margin-top:4px">Simpan batas</button>' +
+        '<p class="redup" style="font-size:.8125rem;margin-top:12px">Batas ini disimpan di Google Sheet (tab Pengaturan dan Dashboard), jadi Dashboard dan aplikasi selalu memakai angka yang sama.</p>';
+      var form = document.getElementById('form-batas');
+      pasangFormDinamis(form);
+      document.getElementById('simpan-batas').addEventListener('click', function () { simpanBatas(form); });
+    };
+    var simpanBatas = function (form) {
+      var h = bacaIsian(bidang, false, 'p', form);
+      var salah = h.salah.slice();
+      var kirim = {}, ada = false;
+      bidang.forEach(function (b) {
+        var lama = data.filter(function (x) { return x.k === b.h; })[0];
+        var v = h.nilai[b.h];
+        if (b.h === 'periodeLaba' && v) v = parseInt(v, 10);
+        if (v === undefined) v = '';
+        if (v !== '' && (v < lama.min || v > lama.maks)) {
+          salah.push([b.h, 'Isi angka ' + lama.min + ' sampai ' + (lama.maks >= 1e9 ? 'berapa saja' : lama.maks) + '.']);
+          return;
+        }
+        var awal = lama.nilai === null || lama.nilai === undefined ? '' : lama.nilai;
+        if (v !== awal) { kirim[b.h] = v; ada = true; }
+      });
+      tandaiSalah(salah, form);
+      if (salah.length) return;
+      if (!ada) { toast('Tidak ada yang berubah.'); return; }
+      var tombol = document.getElementById('simpan-batas');
+      tombol.disabled = true; tombol.textContent = 'Menyimpan…';
+      panggil('batasSimpan', {nilai: kirim}).then(function (r) {
+        tombol.disabled = false; tombol.textContent = 'Simpan batas';
+        if (!r.ok) {
+          tandaiSalah(Object.keys(r.salah || {}).map(function (k) { return [k, r.salah[k]]; }), form);
+          toast(r.galat || 'Gagal menyimpan.', 5000);
+          return;
+        }
+        data = r.batas;
+        buang('ringkasan');
+        tulis();
+        toast('Batas tersimpan. Peringatan di Ringkasan sudah memakai batas baru.', 4000);
+      }, function (e) {
+        tombol.disabled = false; tombol.textContent = 'Simpan batas';
+        toast(e.jaringan ? 'Perlu sinyal untuk menyimpan.' : e.message, 5000);
+      });
+    };
+    panggil('batas').then(function (r) {
+      if (location.hash !== '#/batas') return;
+      if (!r.ok) throw new Error(r.galat || 'Gagal memuat batas.');
+      data = r.batas;
+      tulis();
+    }).catch(function (e) {
+      var el = document.getElementById('isi-batas');
+      if (el) el.innerHTML = '<div class="galat-kartu">' + esc(e.jaringan ? 'Perlu sinyal untuk memuat batas peringatan.' : (/tidak dikenal/i.test(e.message) ?
+        'Apps Script belum diperbarui. Perbarui dulu (Terapkan › Versi baru), lalu buka lagi.' : e.message)) + '</div>';
+    });
+  }
+
   // ------------------------------------------------------------ router
   function tampilkan() {
     var tirai = document.querySelector('.tirai'); if (tirai) tirai.remove();
@@ -2816,6 +2942,7 @@
       case 'kelola': if (bagian[1]) layarMaster(bagian[1]); else layarKelola(); break;
       case 'pengguna': layarPengguna(); break;
       case 'tampilan': layarTampilan(); break;
+      case 'batas': layarBatas(); break;
       default: layarBeranda();
     }
   }

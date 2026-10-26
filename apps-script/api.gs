@@ -117,6 +117,8 @@ function layani_(ss, req) {
     case 'tampilanSimpan': return tampilanSimpan_(ss, akses, req);
     case 'stok': return stokUntukAplikasi_(ss, akses);
     case 'stokCatat': return stokCatat_(ss, akses, req);
+    case 'batas': return batas_(ss, akses);
+    case 'batasSimpan': return denganKunci_(function () { return batasSimpan_(ss, akses, req); });
   }
   return {ok: false, galat: 'Aksi tidak dikenal: ' + aksi};
 }
@@ -2028,6 +2030,99 @@ function stokCatat_(ss, akses, req) {
     catatLog_(ss, 'Timbang stok', SH_STOK, 2, 'catatan ' + catatan + ' kg', 'ditimbang ' + bulat_(kg, 2) + ' kg', akses.nama);
     return {ok: true, selisih: bulat_(kg - catatan, 2), catatan: catatan, stok: hitungStok_(ss)};
   });
+}
+
+// ---------------------------------------------------------------- BATAS PERINGATAN
+// Batas peringatan Dashboard (baris 15-23) diubah dari aplikasi. Angkanya tetap di sel yang sama:
+// tab Pengaturan kolom B (sel kuning) dan Dashboard kolom D yang isinya angka biasa.
+// Sebelum menulis, judul barisnya dicek supaya tidak menimpa sel lain kalau susunan sheet berubah.
+// jenis: persen (aplikasi mengirim 15 untuk 15%), angka, rupiah. baris = baris peringatannya di Dashboard.
+var BATAS_PERINGATAN = [
+  {k: 'hargaBahan', sh: 'Pengaturan', sel: 'B6', judul: 'A6', cek: /harga bahan/i, jenis: 'persen', min: 1, maks: 100, baris: 15},
+  {k: 'rendemen', sh: 'Pengaturan', sel: 'B7', judul: 'A7', cek: /rendemen/i, jenis: 'persen', min: 1, maks: 100, baris: 16},
+  {k: 'ketelKosong', sh: 'Pengaturan', sel: 'B8', judul: 'A8', cek: /ketel kosong/i, jenis: 'angka', min: 1, maks: 7, baris: 17},
+  {k: 'laba', sh: 'Dashboard', sel: 'D18', judul: 'A18', cek: /^laba usaha/i, jenis: 'rupiah', min: 0, maks: 1e10, baris: 18},
+  {k: 'periodeLaba', sh: 'Pengaturan', sel: 'B16', judul: 'A16', cek: /periode laba/i, jenis: 'angka', min: 1, maks: 4, baris: 18, bawaan: 1,
+    buat: ['Periode laba di peringatan (minggu)', 'Laba usaha di peringatan dijumlah untuk sekian minggu penuh terakhir. 1 = minggu terakhir saja.']},
+  {k: 'pangsa', sh: 'Pengaturan', sel: 'B9', judul: 'A9', cek: /pangsa/i, jenis: 'persen', min: 10, maks: 100, baris: 19},
+  {k: 'periodePangsa', sh: 'Pengaturan', sel: 'B11', judul: 'A11', cek: /periode pangsa/i, jenis: 'angka', min: 7, maks: 365, baris: 19},
+  {k: 'jatahKeluarga', sh: 'Pengaturan', sel: 'B10', judul: 'A10', cek: /keluarga/i, jenis: 'rupiah', min: 0, maks: 1e10, bolehKosong: true, baris: 20},
+  {k: 'belumDibayar', sh: 'Dashboard', sel: 'D21', judul: 'A21', cek: /belum dibayar/i, jenis: 'rupiah', min: 0, maks: 1e10, baris: 21},
+  {k: 'keterangan', sh: 'Dashboard', sel: 'D22', judul: 'A22', cek: /keterangan/i, jenis: 'angka', min: 0, maks: 500, baris: 22},
+  {k: 'kasTanpaKategori', sh: 'Dashboard', sel: 'D23', judul: 'A23', cek: /tanpa kategori/i, jenis: 'angka', min: 0, maks: 500, baris: 23}
+];
+
+// Memeriksa satu batas: sheet ada, judul baris cocok, sel batas berisi angka (bukan rumus). Kembali '' kalau aman.
+function periksaBatas_(ss, b) {
+  var sh = ss.getSheetByName(b.sh);
+  if (!sh) return 'Tab ' + b.sh + ' tidak ada.';
+  var judul = teks_(sh.getRange(b.judul).getDisplayValue());
+  if (!judul && b.buat) return '';
+  if (!b.cek.test(judul)) return 'Susunan tab ' + b.sh + ' berubah (' + b.judul + ': "' + judul + '"). Ubah langsung di Google Sheet.';
+  if (teks_(sh.getRange(b.sel).getFormulas()[0][0])) return b.sh + '!' + b.sel + ' berisi rumus. Ubah langsung di Google Sheet.';
+  return '';
+}
+
+function daftarBatas_(ss) {
+  var dash = ss.getSheetByName('Dashboard');
+  var status = dash ? dash.getRange('A15:F23').getDisplayValues() : [];
+  return BATAS_PERINGATAN.map(function (b) {
+    var rusak = periksaBatas_(ss, b);
+    var sh = ss.getSheetByName(b.sh);
+    var v = !rusak && sh ? sh.getRange(b.sel).getValue() : '';
+    var nilai = teks_(v) === '' ? (b.bawaan !== undefined ? b.bawaan : null) : angka_(v);
+    if (nilai !== null && b.jenis === 'persen') nilai = bulat_(Math.abs(nilai) * 100, 2);
+    var r = status[b.baris - 15] || [];
+    return {k: b.k, jenis: b.jenis, nilai: nilai, min: b.min, maks: b.maks, bolehKosong: !!b.bolehKosong, rusak: rusak || undefined,
+      sekarang: {hal: teks_(r[0]), nilai: teks_(r[2]), status: teks_(r[4]), saran: teks_(r[5])}};
+  });
+}
+
+function batas_(ss, akses) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur.'};
+  return {ok: true, batas: daftarBatas_(ss)};
+}
+
+// req.nilai = {kunci: angka atau ''}. Hanya kunci yang dikirim yang diubah.
+function batasSimpan_(ss, akses, req) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur.'};
+  var nilai = req.nilai || {};
+  var tulis = [], salah = {};
+  BATAS_PERINGATAN.forEach(function (b) {
+    if (!(b.k in nilai)) return;
+    var mentah = nilai[b.k];
+    var kosong = mentah === '' || mentah === null || mentah === undefined;
+    if (kosong && !b.bolehKosong) { salah[b.k] = 'Wajib diisi.'; return; }
+    var x = kosong ? '' : (typeof mentah === 'number' ? mentah : angka_(mentah));
+    if (!kosong && (!isFinite(x) || x < b.min || x > b.maks)) {
+      salah[b.k] = 'Isi angka ' + b.min + ' sampai ' + (b.maks >= 1e9 ? 'berapa saja' : b.maks) + (b.jenis === 'persen' ? ' (persen)' : '') + '.';
+      return;
+    }
+    if (!kosong && b.jenis !== 'persen' && Math.floor(x) !== x) { salah[b.k] = 'Tulis angka bulat.'; return; }
+    var rusak = periksaBatas_(ss, b);
+    if (rusak) { salah[b.k] = rusak; return; }
+    tulis.push({b: b, nilai: kosong ? '' : (b.jenis === 'persen' ? bulat_(x / 100, 4) : x)});
+  });
+  if (Object.keys(salah).length) return {ok: false, galat: 'Ada batas yang belum benar.', salah: salah};
+  var lama = {}, baru = {};
+  tulis.forEach(function (t) {
+    var sh = ss.getSheetByName(t.b.sh);
+    var sel = sh.getRange(t.b.sel);
+    lama[t.b.k] = sel.getValue();
+    if (t.b.buat && !teks_(sh.getRange(t.b.judul).getDisplayValue())) {
+      var baris = +t.b.judul.replace(/\D/g, '');
+      sh.getRange(baris, 1).setValue(t.b.buat[0]);
+      sh.getRange(baris, 3).setValue(t.b.buat[1]);
+      sel.setNumberFormat('0');
+    }
+    sel.setValue(t.nilai);
+    baru[t.b.k] = t.nilai;
+  });
+  if (tulis.length) {
+    SpreadsheetApp.flush();
+    catatLog_(ss, 'Ubah batas peringatan', 'Pengaturan/Dashboard', 0, JSON.stringify(lama), JSON.stringify(baru), akses.nama);
+  }
+  return {ok: true, batas: daftarBatas_(ss)};
 }
 
 // ---------------------------------------------------------------- LOG

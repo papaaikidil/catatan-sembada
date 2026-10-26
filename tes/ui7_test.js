@@ -388,6 +388,34 @@ function pngPolos(w, h) {
   assert.ok((await page.$$eval('.baris-kisi[data-peran="Tim suling"] input', i => i.map(x => x.value))).includes('4x suling'), 'tarif baru langsung tampil di absensi tim suling');
   cek('kelola karyawan, tarif borongan, dan daftar pilihan dari aplikasi');
 
+  console.log('Batas peringatan');
+  await page.goto(ASAL + '#/ringkasan');
+  await page.waitForSelector('#atur-batas');
+  await page.click('#atur-batas');
+  await page.waitForSelector('#form-batas');
+  assert.strictEqual(await page.inputValue('#form-batas [name=p0]'), '15', 'harga bahan 15%');
+  assert.ok(await page.$eval('#form-batas input[value="1 minggu"]', e => e.checked), 'laba dihitung 1 minggu (seperti semula)');
+  assert.ok(/Pangsa pembeli terbesar[\s\S]*98,4%/.test(await page.textContent('#form-batas')), 'status sekarang ikut tampil');
+  await isi(page, '#form-batas [name=p0]', '12,5');
+  await pilih(page, 'p3', '4 minggu', '#form-batas');
+  await isi(page, '#form-batas [name=p9]', '');
+  await page.click('#simpan-batas');
+  await page.waitForSelector('#form-batas .bidang.salah');
+  assert.ok(/Wajib/.test(await page.textContent('#form-batas .bidang.salah')), 'yang wajib tidak boleh kosong');
+  await isi(page, '#form-batas [name=p9]', '5');
+  await page.click('#simpan-batas');
+  await page.waitForFunction(() => /7 sampai 365/.test(document.querySelector('#form-batas').textContent));
+  await isi(page, '#form-batas [name=p9]', '90');
+  await foto(page, '12b-batas', true);
+  await page.click('#simpan-batas');
+  await page.waitForFunction(() => /tersimpan/i.test(document.getElementById('toast').textContent));
+  assert.strictEqual(sheets['Pengaturan'].getRange('B6').getValue(), 0.125);
+  assert.strictEqual(sheets['Pengaturan'].getRange('B16').getValue(), 4);
+  assert.strictEqual(sheets['Pengaturan'].getRange('B7').getValue(), 0.2, 'yang tidak diubah tidak ditulis');
+  await page.goto(ASAL + '#/kelola');
+  await page.waitForSelector('a[href="#/batas"]');
+  cek('batas peringatan: dibuka dari Ringkasan atau Kelola, diubah, tersimpan di Google Sheet');
+
   console.log('Tampilan, nama & logo');
   await page.goto(ASAL + '#/tampilan');
   await page.waitForSelector('#kartu-identitas');
