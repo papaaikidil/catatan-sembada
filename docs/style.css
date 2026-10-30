@@ -138,7 +138,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .chip-status { font-size: .6875rem; font-weight: 800; padding: .1875rem .5rem; border-radius: 999px; letter-spacing: .03em; height: fit-content; flex: none; white-space: nowrap; }
 .chip-status.aman { background: var(--aksen-muda); color: var(--aksen); }
 .chip-status.perlu { background: var(--merah-muda); color: var(--merah); }
-.chip-status.isi { background: var(--kuning-muda); color: var(--kuning); }
+.chip-status.baca { background: var(--kuning-muda); color: var(--kuning); }
 .chip-status.netral { background: var(--latar); color: var(--teks-2); }
 
 /* ---------- formulir */
@@ -424,3 +424,158 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 .status-batas { display: flex; gap: .5rem; align-items: flex-start; font-size: .8125rem; color: var(--teks-2); margin: .75rem 0 .375rem; }
 .status-batas b { color: var(--teks); }
 #atur-batas { margin-top: 10px; }
+
+/* ======================================================================
+   Layar lebar: tablet, dan HP/tablet posisi landscape.
+   Di HP tegak tidak ada yang berubah. Semua aturan di bawah hanya aktif
+   kalau layar cukup lebar.
+   ====================================================================== */
+.nav-logo { display: none; }
+.tombol-akun { margin-top: 16px; }
+.kartu-stok .pratinjau { margin-bottom: 0; }
+
+/* Ringkasan: di HP satu kolom dengan urutan stok, minggu, bulan, peringatan */
+.tata-ringkasan { display: flex; flex-direction: column; gap: var(--celah); }
+.tata-ringkasan > .kol-kiri, .tata-ringkasan > .kol-kanan { display: contents; }
+.tata-ringkasan .kartu + .kartu { margin-top: 0; }
+.tata-ringkasan .catatan-data { margin: 0; color: var(--teks-2); order: 0; }
+.tata-ringkasan .kartu-stok { order: 1; }
+.tata-ringkasan .kartu-minggu { order: 2; }
+.tata-ringkasan .kartu-bulan { order: 3; }
+.tata-ringkasan .bagian-peringatan { order: 4; }
+.tata-ringkasan .bagian-peringatan .judul-bagian { margin-top: .625rem; }
+
+@media (min-width: 760px) {
+  :root { --rail: 6rem; }
+
+  /* Navigasi pindah ke samping kiri */
+  #app.ada-nav { padding-left: var(--rail); }
+  .nav {
+    top: 0; bottom: 0; right: auto; width: var(--rail);
+    flex-direction: column; gap: .25rem; border-top: 0; border-right: 1px solid var(--garis);
+    padding: calc(.875rem + env(safe-area-inset-top)) .375rem calc(.75rem + env(safe-area-inset-bottom));
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-logo { display: block; width: 2.75rem; height: 2.75rem; border-radius: 12px; margin: 0 auto .875rem; box-shadow: var(--bayang); flex: none; }
+  .ada-nav .kepala .logo-kecil { display: none; }
+  .nav a { flex: none; padding: .375rem .125rem .5rem; gap: .25rem; border-radius: var(--radius-kecil); text-align: center; }
+  .nav a svg { width: 1.5rem; height: 1.5rem; padding: .3125rem 1.0625rem; box-sizing: content-box; border-radius: 999px; transition: background-color .15s; }
+  .nav a.aktif svg { background: var(--aksen-muda); }
+  .nav .lencana { top: .125rem; left: calc(50% + .625rem); }
+
+  .kepala { padding-left: 1.5rem; padding-right: 1.5rem; }
+
+  /* Lebar isi */
+  .isi { padding: 1.25rem 1.5rem calc(6rem + env(safe-area-inset-bottom)); }
+  .ada-nav .isi { padding-bottom: calc(2.5rem + env(safe-area-inset-bottom)); }
+  .isi.lebar-penuh { max-width: 92rem; }
+  .isi.lebar-sedang { max-width: 54rem; }
+  .isi.lebar-form { max-width: 70rem; }
+
+  /* Tombol bawah formulir sejajar dengan isi, rata kanan */
+  .aksi-bawah {
+    --lebar-isi: 70rem;
+    padding-left: max(1rem, calc((100% - var(--lebar-isi)) / 2 + 1.5rem));
+    padding-right: max(1rem, calc((100% - var(--lebar-isi)) / 2 + 1.5rem));
+    justify-content: flex-end;
+  }
+  .isi.lebar-sedang ~ .aksi-bawah { --lebar-isi: 54rem; }
+  .aksi-bawah > * { flex: 0 1 14rem; }
+
+  #app.ada-nav ~ #toast { left: calc(var(--rail) + 1rem); bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+
+  /* Dialog jadi kotak di tengah, bukan lembar dari bawah */
+  .tirai { align-items: center; padding: 1.5rem; }
+  .lembar { max-width: 40rem; border-radius: calc(var(--radius) + 6px); padding: 1.5rem 1.5rem 1.25rem; max-height: min(88vh, 56rem); box-shadow: 0 20px 60px rgba(0, 0, 0, .25); }
+  :root[data-sudut="kotak"] .lembar { border-radius: 4px; }
+
+  /* Kotak angka: sebanyak mungkin kolom yang muat */
+  .angka-grid { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+
+  /* Tombol catatan di beranda */
+  .grid-catatan.k2, .grid-catatan.k3 { grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); }
+  .grid-catatan.k1 { grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); }
+
+  /* Riwayat & antrian: kartu berjajar */
+  .kisi-entri { display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); gap: var(--celah); align-items: start; }
+  .kisi-entri > .kartu + .kartu { margin-top: 0; }
+  .kisi-entri > :not(.kartu) { grid-column: 1 / -1; margin-top: 0 !important; }
+
+  /* Menu Kelola berjajar */
+  .kisi-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: var(--celah); }
+  .kisi-menu > .kartu + .kartu { margin-top: 0; }
+
+  /* Formulir catatan: dua kolom di dalam panel */
+  .form-isi {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.75rem; align-items: start;
+    background: var(--kartu); border: 1px solid var(--garis); border-radius: var(--radius); box-shadow: var(--bayang);
+    padding: 1.375rem 1.5rem .375rem;
+  }
+  .form-isi > .bidang-lebar, .form-isi > .pratinjau { grid-column: 1 / -1; }
+  .form-isi .baris-kisi { display: grid; grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr); column-gap: 1rem; align-items: center; }
+  .form-isi .baris-kisi .nama { margin: 0; }
+  .form-isi .baris-kisi > .pesan-salah { grid-column: 2; }
+
+  /* Batas peringatan: kartu berjajar */
+  #form-batas { display: grid; grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr)); gap: var(--celah); align-items: start; margin-bottom: var(--celah); }
+  #form-batas > .kartu + .kartu { margin-top: 0; }
+  #simpan-batas { max-width: 22rem; margin-left: auto; display: flex; }
+
+  /* Rincian di kartu Minggu: dua kolom kalau kartunya cukup lebar */
+  .kartu-minggu { container-type: inline-size; }
+}
+
+@container (min-width: 50rem) {
+  .rinci-minggu { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); column-gap: 2rem; align-items: start; }
+  .rinci-minggu > .daftar-upah { grid-column: 1; grid-row: 1 / span 3; }
+  .rinci-minggu > .daftar-alat, .rinci-minggu > #daftar-keterangan { grid-column: 2; }
+}
+
+/* Layar lebar sekali (tablet landscape, laptop): halaman dibagi dua kolom */
+@media (min-width: 1080px) {
+  /* Beranda pemilik: ringkasan minggu di kiri, status kirim, stok & tombol catatan di kanan */
+  .tata-beranda.ada-ringkas {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+    grid-template-areas: "ringkas status" "ringkas stok" "ringkas catat" "ringkas .";
+    grid-template-rows: auto auto auto 1fr; column-gap: 1.25rem; row-gap: var(--celah); align-items: start;
+  }
+  .tata-beranda.ada-ringkas > #kotak-status { grid-area: status; }
+  .tata-beranda.ada-ringkas > #kotak-status .status { margin-bottom: 0; }
+  .tata-beranda.ada-ringkas > #kotak-ringkas { display: contents; }
+  .tata-beranda.ada-ringkas #kotak-ringkas > .kartu-stok { grid-area: stok; }
+  .tata-beranda.ada-ringkas #kotak-ringkas > .kartu-ringkas { grid-area: ringkas; }
+  .tata-beranda.ada-ringkas > .bagian-catat { grid-area: catat; }
+  .tata-beranda.ada-ringkas .kartu + .kartu { margin-top: 0; }
+  .tata-beranda.ada-ringkas .bagian-catat .judul-bagian { margin-top: .5rem; }
+  .tata-beranda.ada-ringkas .grid-catatan { grid-template-columns: 1fr; }
+  .tata-beranda.ada-ringkas .tombol-catatan { flex-direction: row; align-items: center; text-align: left; min-height: 4.25rem; padding: .75rem .875rem; }
+  .tata-beranda.ada-ringkas .tombol-catatan .teks-tombol { align-items: flex-start; }
+  .tata-beranda.ada-ringkas .tombol-catatan small { display: block; }
+  .tata-beranda.ada-ringkas .tombol-catatan b { font-size: 1rem; }
+
+  /* Ringkasan: Minggu & Bulan di kiri; stok & peringatan di kanan */
+  .tata-ringkasan { display: grid; grid-template-columns: minmax(0, 1fr) minmax(21rem, 26rem); column-gap: 1.25rem; row-gap: 0; align-items: start; }
+  .tata-ringkasan > .catatan-data { grid-column: 1 / -1; margin-bottom: var(--celah); }
+  .tata-ringkasan > .kol-kiri, .tata-ringkasan > .kol-kanan { display: flex; flex-direction: column; gap: var(--celah); min-width: 0; }
+  .tata-ringkasan .bagian-peringatan .judul-bagian { margin-top: .25rem; }
+
+  /* Akun: data di kiri, tombol di kanan */
+  .tata-akun { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+  .tata-akun .tombol-akun { margin-top: 0; }
+}
+
+/* HP landscape (layar pendek): logo navigasi disembunyikan supaya menu muat */
+@media (min-width: 760px) and (max-height: 520px) {
+  .nav-logo { display: none; }
+  .nav { gap: 0; padding-top: calc(.375rem + env(safe-area-inset-top)); }
+  .nav a { padding: .25rem .125rem .375rem; }
+}
+
+/* Efek arahkan kursor (tablet dengan mouse, laptop) */
+@media (hover: hover) and (pointer: fine) {
+  .nav a:hover { color: var(--teks); }
+  .nav a:not(.aktif):hover svg { background: var(--latar); }
+  .tombol-catatan:hover, .menu-kelola:hover, .entri.bisa-ketuk:hover { border-color: var(--aksen); }
+  .angka.ketuk:hover { background: var(--garis); }
+}

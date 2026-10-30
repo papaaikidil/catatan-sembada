@@ -707,9 +707,13 @@
     var kiri = opsi.kembali ? '<button class="tombol-ikon" data-ke="' + opsi.kembali + '" aria-label="Kembali">' + ikon('kembali', 2.2) + '</button>'
       : (t.logo !== false ? '<img class="logo-kecil" src="' + esc(logoSrc()) + '" alt="">' : '');
     var kanan = opsi.kanan || (opsi.muat ? '<button class="tombol-ikon" id="tombol-muat" aria-label="Muat ulang">' + ikon('muat') + '</button>' : '');
+    // Lebar isi di layar lebar (tablet/landscape): 'penuh' untuk layar ringkasan & daftar, 'sedang' untuk pengaturan,
+    // 'form' untuk formulir dua kolom. Di HP semuanya tetap satu kolom.
+    var lebar = opsi.lebar || (opsi.tanpaNav ? 'sedang' : 'penuh');
     var html = '<header class="kepala">' + kiri + '<h1>' + esc(judul) + (sub ? '<span class="kecil">' + esc(sub) + '</span>' : '') + '</h1>' + kanan + '</header>' +
-      '<main class="isi">' + isi + '</main>';
+      '<main class="isi lebar-' + lebar + '">' + isi + '</main>';
     if (!opsi.tanpaNav) html += navBawah(opsi.aktif);
+    app.className = opsi.tanpaNav ? '' : 'ada-nav';
     app.innerHTML = html;
     window.scrollTo(0, 0);
   }
@@ -720,7 +724,9 @@
     item.push(['#/terbaru', 'Riwayat', 'jam', 'terbaru']);
     if (admin()) item.push(['#/kelola', 'Kelola', 'atur', 'kelola']);
     item.push(['#/akun', 'Akun', 'akun', 'akun']);
-    return '<nav class="nav">' + item.map(function (i) {
+    // Logo di bagian atas navigasi samping (hanya tampil di layar lebar).
+    var logo = tampilanAktif().logo !== false ? '<img class="logo-kecil nav-logo" src="' + esc(logoSrc()) + '" alt="">' : '';
+    return '<nav class="nav" aria-label="Menu utama">' + logo + item.map(function (i) {
       var lencana = i[3] === 'beranda' ? '<span class="lencana"' + (antrian.length ? '' : ' hidden') + '>' + antrian.length + '</span>' : '';
       return '<a href="' + i[0] + '" class="' + (aktif === i[3] ? 'aktif' : '') + '">' + ikon(i[2]) + i[1] + lencana + '</a>';
     }).join('') + '</nav>';
@@ -738,6 +744,7 @@
   // ------------------------------------------------------------ layar: masuk & sandi
   function layarMasuk(pesan, namaDiketik) {
     var namaTerakhir = namaDiketik || ambil('penggunaTerakhir', '');
+    app.className = '';
     app.innerHTML = '<div class="layar-masuk">' +
       '<img class="logo" src="' + esc(logoSrc()) + '" alt="Logo Sembada Karya Wangi">' +
       '<h1>' + esc(namaApp()) + '</h1>' +
@@ -862,10 +869,13 @@
       return '<a class="tombol-catatan" href="#/isi/' + f.kunci + '"><span class="lingkar">' + ikon(f.ikon) + '</span>' +
         '<span class="teks-tombol"><b>' + esc(m.label) + '</b><small>' + esc(f.ket) + '</small></span></a>';
     }).join('');
-    var isi = '<div id="kotak-status">' + htmlStatus() + '</div>';
-    if (admin() && t.ringkas !== false) isi += '<div id="kotak-ringkas">' + htmlRingkasMini(ambil('ringkasan', null)) + '</div>';
-    isi += '<div class="judul-bagian">Isi catatan</div>' +
-      (menu.length ? '<div class="grid-catatan k' + kolom + '">' + tombol + '</div>' : '<div class="kosong">Akun ini belum diberi akses ke catatan mana pun.</div>');
+    var adaRingkas = admin() && t.ringkas !== false;
+    // Di layar lebar: ringkasan minggu di kiri, stok & tombol catatan di kanan (lihat .tata-beranda di style.css).
+    var isi = '<div class="tata-beranda' + (adaRingkas ? ' ada-ringkas' : '') + '"><div id="kotak-status">' + htmlStatus() + '</div>';
+    if (adaRingkas) isi += '<div id="kotak-ringkas">' + htmlRingkasMini(ambil('ringkasan', null)) + '</div>';
+    isi += '<section class="bagian-catat"><div class="judul-bagian">Isi catatan</div>' +
+      (menu.length ? '<div class="grid-catatan k' + kolom + '">' + tombol + '</div>' : '<div class="kosong">Akun ini belum diberi akses ke catatan mana pun.</div>') +
+      '</section></div>';
     kerangka(namaApp(), 'Masuk sebagai ' + (akses().nama || ''), isi, {aktif: 'beranda'});
     if (!admin() || t.ringkas === false) return;
     var kotak = document.getElementById('kotak-ringkas');
@@ -1327,10 +1337,10 @@
 
   function htmlUpah(m, berjalan) {
     var orang = m.orang || [];
-    if (!orang.length) return '<div class="daftar-baris"><div class="daftar-judul">Upah per orang</div><p class="catatan">Belum ada absensi di minggu ini.</p></div>';
+    if (!orang.length) return '<div class="daftar-baris daftar-upah"><div class="daftar-judul">Upah per orang</div><p class="catatan">Belum ada absensi di minggu ini.</p></div>';
     var total = 0;
     var baris = orang.map(function (o) { total += o.total || 0; return htmlOrang(o, true); }).join('');
-    return '<div class="daftar-baris"><div class="daftar-judul">Upah per orang (untuk gajian)' + (berjalan ? ' · sampai hari ini' : '') + '</div>' + baris +
+    return '<div class="daftar-baris daftar-upah"><div class="daftar-judul">Upah per orang (untuk gajian)' + (berjalan ? ' · sampai hari ini' : '') + '</div>' + baris +
       '<div class="baris-angka total"><span>Total</span><b>' + esc(rp(total)) + '</b></div>' +
       '<p class="catatan">Ketuk nama untuk upah per hari. Bonus yang dicatat di Kas belum termasuk.</p></div>';
   }
@@ -1348,7 +1358,7 @@
   function htmlAlat(m) {
     var alat = m.alat || [];
     if (!alat.length) return '';
-    return '<div class="daftar-baris"><div class="daftar-judul">Per alat suling</div>' + alat.map(function (a) {
+    return '<div class="daftar-baris daftar-alat"><div class="daftar-judul">Per alat suling</div>' + alat.map(function (a) {
       var rinci = [a.operator || (a.sulingan ? '' : 'belum ada catatan')].filter(function (x) { return x; });
       rinci.push(a.hariKosong ? a.hariKosong + ' hari kosong' : 'jalan terus');
       if (a.minyakPerSulingan) rinci.push(ang(a.minyakPerSulingan, 3) + ' kg/sulingan');
@@ -1364,7 +1374,7 @@
     var m = daftar[idx], sebelum = daftar[idx + 1];
     var perlu = (r.peringatan || []).filter(function (p) { return ['Aman', 'BACA', ''].indexOf(p.status) < 0; }).length;
     var angka = (t.ringkasAngka || []).filter(function (k) { return ANGKA[k]; });
-    return (t.stokBeranda !== false ? htmlStokMini(r.stok) : '') + '<div class="kartu"><h2>Ringkasan minggu</h2>' + selectMinggu(daftar, idx) +
+    return (t.stokBeranda !== false ? htmlStokMini(r.stok) : '') + '<div class="kartu kartu-ringkas"><h2>Ringkasan minggu</h2>' + selectMinggu(daftar, idx) +
       '<p class="sub">' + (idx === 0 ? 'Data sampai ' + esc(tglIndo(r.dataSampai) || '–') : 'Minggu yang sudah lewat') + '</p>' +
       (angka.length ? '<div class="angka-grid">' + angka.map(function (k) { return kotakDari(k, m, sebelum); }).join('') + '</div>' : '') +
       (t.upahBeranda !== false ? htmlUpah(m, idx === 0) : '') +
@@ -1492,7 +1502,7 @@
       if (/^keterangan/i.test(x.hal) && r.minggu && r.minggu[0] && r.minggu[0].keterangan) {
         x = Object.assign({}, x, {saran: 'Daftarnya ada di kartu Minggu di atas, bagian "Keterangan & kejadian tidak biasa" (pilih minggu ini dan minggu lalu).'});
       }
-      var kelas = x.status === 'Aman' ? 'aman' : (x.status === 'ISI' || x.status === 'BACA' ? 'isi' : 'perlu');
+      var kelas = x.status === 'Aman' ? 'aman' : (x.status === 'ISI' || x.status === 'BACA' ? 'baca' : 'perlu');
       return '<div class="peringatan"><span class="chip-status ' + kelas + '">' + esc(x.status || '–') + '</span><div><p>' + esc(x.hal) +
         (x.nilai ? ': <b>' + esc(x.nilai) + '</b>' : '') + '</p>' + (x.saran ? '<p class="saran">' + esc(x.saran) + '</p>' : '') + '</div></div>';
     }).join('');
@@ -1500,22 +1510,25 @@
     var dm = r.minggu;
     var im = indeksPilihan(dm, 'mingguDipilih', function (m) { return m.mulai; });
     var m = dm[im], ms = dm[im + 1];
-    var minggu = m ? '<div class="kartu"><h2>Minggu</h2>' + selectMinggu(dm, im) +
+    var minggu = m ? '<div class="kartu kartu-minggu"><h2>Minggu</h2>' + selectMinggu(dm, im) +
       (ms ? '<p class="sub">Panah membandingkan dengan minggu sebelumnya (' + esc(labelMinggu(ms)) + ').</p>' : '<p class="sub"></p>') +
       '<div class="angka-grid">' + URUT_ANGKA.map(function (k) { return kotakDari(k, m, ms); }).join('') + '</div>' +
-      htmlAlat(m) + htmlUpah(m, im === 0) + htmlKeterangan(m) + '</div>' : '';
+      '<div class="rinci-minggu">' + htmlAlat(m) + htmlUpah(m, im === 0) + htmlKeterangan(m) + '</div></div>' : '';
 
     var db = r.bulan || [];
     var ib = indeksPilihan(db, 'bulanDipilih', function (x) { return x.bulan; });
     var b = db[ib];
-    var bulan = b ? '<div class="kartu"><h2>Bulan</h2><select class="masukan pilih-periode" id="pilih-bulan" aria-label="Pilih bulan">' +
+    var bulan = b ? '<div class="kartu kartu-bulan"><h2>Bulan</h2><select class="masukan pilih-periode" id="pilih-bulan" aria-label="Pilih bulan">' +
       db.map(function (x, i) { return '<option value="' + esc(x.bulan) + '"' + (i === ib ? ' selected' : '') + '>' + esc(labelBulan(x)) + (i === 0 ? ' (bulan ini)' : '') + '</option>'; }).join('') +
       '</select><div class="angka-grid">' + URUT_BULAN.map(function (k) { return kotakBulan(k, b); }).join('') +
       '</div></div>' : '';
 
-    return '<p class="sub" style="margin:0 0 12px;color:var(--teks-2)">Data sampai ' + esc(tglIndo(r.dataSampai) || '–') + '. Angka sama dengan Dashboard dan tab Rekap di Google Sheet.</p>' +
-      htmlStok(r.stok) + minggu + bulan + '<div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') +
-      '<button class="tautan" data-ke="#/batas" id="atur-batas">Atur batas peringatan ›</button></div>';
+    // Urutan di HP: stok, minggu, bulan, peringatan (diatur lewat CSS order).
+    // Di layar lebar: kolom kiri Minggu & Bulan, kolom kanan stok & peringatan.
+    return '<div class="tata-ringkasan"><p class="sub catatan-data">Data sampai ' + esc(tglIndo(r.dataSampai) || '–') + '. Angka sama dengan Dashboard dan tab Rekap di Google Sheet.</p>' +
+      '<div class="kol-kiri">' + minggu + bulan + '</div>' +
+      '<div class="kol-kanan">' + htmlStok(r.stok) + '<section class="bagian-peringatan"><div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') +
+      '<button class="tautan" data-ke="#/batas" id="atur-batas">Atur batas peringatan ›</button></div></section></div></div>';
   }
 
   // ------------------------------------------------------------ bidang formulir
@@ -1555,7 +1568,7 @@
     } else if (b.j === 'paragraf') {
       isi = '<textarea class="masukan" name="' + id + '">' + esc(d || '') + '</textarea>';
     }
-    return '<div class="bidang" id="' + id + '" data-h="' + esc(b.h) + '">' + kepala + isi + '<div class="pesan-salah" hidden></div></div>';
+    return '<div class="bidang' + (b.j === 'paragraf' ? ' bidang-lebar' : '') + '" id="' + id + '" data-h="' + esc(b.h) + '">' + kepala + isi + '<div class="pesan-salah" hidden></div></div>';
   }
 
   function htmlChips(b, nama, d, opsiPaksa) {
@@ -1593,7 +1606,7 @@
     var d = draf[b.k] || {};
     var kepala = '<span class="label">' + esc(b.label) + '</span>' + (b.bantuan ? '<div class="bantuan">' + esc(b.bantuan) + '</div>' : '');
     if (!alat.length) {
-      return '<div class="bidang" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + '<div class="galat-kartu">Belum ada alat suling aktif. Tambahkan di Kelola > Alat suling.</div></div>';
+      return '<div class="bidang bidang-lebar" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + '<div class="galat-kartu">Belum ada alat suling aktif. Tambahkan di Kelola > Alat suling.</div></div>';
     }
     var ops = opsiBidang({sumber: 'operator'});
     var kondisi = pilihanDaftar('Kondisi alat');
@@ -1630,7 +1643,7 @@
         (chipK ? '<div class="sub-label">Kondisi alat</div>' + chipK : '') + '</div>' +
         '<div class="pesan-salah" hidden></div></div>';
     }).join('');
-    return '<div class="bidang" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + kotak + '<div class="pesan-salah" hidden></div></div>';
+    return '<div class="bidang bidang-lebar" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + kotak + '<div class="pesan-salah" hidden></div></div>';
   }
 
   function bacaGridAlat(b, i, px, akar) {
@@ -1651,7 +1664,7 @@
     var orang = daftarInduk('Karyawan');
     var kepala = '<span class="label">' + esc(b.label) + '</span>' + (b.bantuan ? '<div class="bantuan">' + esc(b.bantuan) + '</div>' : '');
     if (!orang.length) {
-      return '<div class="bidang" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + '<div class="galat-kartu">Belum ada karyawan aktif. Tambahkan di Kelola > Karyawan.</div></div>';
+      return '<div class="bidang bidang-lebar" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + '<div class="galat-kartu">Belum ada karyawan aktif. Tambahkan di Kelola > Karyawan.</div></div>';
     }
     var semuaTimKini = daftarTim();
     orang.forEach(function (o) { var t = o.nilai['Tim'] || ''; if (semuaTimKini.indexOf(t) < 0) semuaTimKini.push(t); });
@@ -1680,7 +1693,7 @@
             '</div><div class="pesan-salah" hidden></div></div>';
         }).join('') + '</div>';
     }).join('');
-    return '<div class="bidang" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + html + '<div class="pesan-salah" hidden></div></div>';
+    return '<div class="bidang bidang-lebar" id="' + id + '" data-h="' + esc(b.k) + '">' + kepala + html + '<div class="pesan-salah" hidden></div></div>';
   }
 
   function bacaGridOrang(b, i, px, akar) {
@@ -1696,7 +1709,7 @@
     var ada = d.ada === 'Ya';
     var siapa = d.siapa || [];
     var upah = d.upah || {};
-    return '<div class="bidang bidang-kerja-lain" id="' + id + '" data-px="' + id + '" data-h="' + esc(b.k) + '">' +
+    return '<div class="bidang bidang-lebar bidang-kerja-lain" id="' + id + '" data-px="' + id + '" data-h="' + esc(b.k) + '">' +
       '<span class="label">Ada kerja lain dengan upah khusus?</span><div class="bantuan">Pekerjaan di luar tarif biasa, misalnya tambal kolam atau angkut kayu.</div>' +
       '<div class="chips">' + ['Tidak', 'Ya'].map(function (x) {
         return '<label class="chip"><input type="radio" name="' + id + '_ada" value="' + x + '"' + ((ada ? 'Ya' : 'Tidak') === x ? ' checked' : '') + '><span>' + x + '</span></label>';
@@ -1918,7 +1931,7 @@
       '<div class="pratinjau" id="pratinjau" hidden></div>';
     var tglLama = ubah ? (ubah.nilai['Tanggal'] || ubah.nilai['Tanggal saring'] || '') : '';
     kerangka(ubah ? 'Ubah ' + labelTab(tab) : labelTab(tab), ubah ? 'Catatan tanggal ' + tglIndo(tglLama) : FORM[tab].ket,
-      '<form id="formulir" novalidate>' + html + '</form>', {kembali: kembali, tanpaNav: true});
+      '<form id="formulir" class="form-isi" novalidate>' + html + '</form>', {kembali: kembali, tanpaNav: true, lebar: 'form'});
     app.insertAdjacentHTML('beforeend', '<div class="aksi-bawah"><button class="tombol kedua" id="tombol-kosong" type="button">' + (ubah ? 'Batal' : 'Kosongkan') + '</button>' +
       '<button class="tombol utama" id="tombol-simpan" type="button">' + (ubah ? 'Simpan perubahan' : 'Simpan') + '</button></div>');
 
@@ -2055,7 +2068,7 @@
     var htmlTunggu = tunggu.length ? '<div class="pratinjau awas">' + tunggu.length + ' catatan ' + esc(labelTab(tab)) + ' masih di HP, belum masuk Sheet.</div>' : '';
     var cache = ambil('terbaru.' + k, null);
     var data = cache;
-    kerangka('Riwayat', 'Catatan terakhir di Google Sheet', pilih + htmlTunggu + '<div id="daftar-entri">' +
+    kerangka('Riwayat', 'Catatan terakhir di Google Sheet', pilih + htmlTunggu + '<div id="daftar-entri" class="kisi-entri">' +
       (cache ? htmlEntri(tab, cache) : '<div class="memuat">Memuat…</div>') + '</div>', {aktif: 'terbaru', muat: true});
     var pilihTab = document.querySelector('.pilih-tab .aktif');
     if (pilihTab && pilihTab.scrollIntoView) pilihTab.scrollIntoView({block: 'nearest', inline: 'center'});
@@ -2244,7 +2257,7 @@
         '<div class="aksi-entri"><button class="tombol kedua" data-ulang="' + esc(a.id) + '">Kirim ulang</button>' +
         '<button class="tombol bahaya" data-hapus-antrian="' + esc(a.id) + '">Hapus</button></div></div>';
     }).join('') : '<div class="kosong">Tidak ada catatan yang menunggu. Semua sudah masuk Google Sheet.</div>';
-    kerangka('Belum terkirim', antrian.length + ' catatan', isi, {kembali: '#/', aktif: 'beranda'});
+    kerangka('Belum terkirim', antrian.length + ' catatan', '<div class="kisi-entri">' + isi + '</div>', {kembali: '#/', aktif: 'beranda'});
     app.querySelector('.isi').addEventListener('click', function (ev) {
       var u = ev.target.closest('[data-ulang]'), h = ev.target.closest('[data-hapus-antrian]');
       if (u) {
@@ -2262,20 +2275,20 @@
   // ------------------------------------------------------------ layar: akun
   function layarAkun() {
     var a = akses();
-    var isi = '<div class="kartu">' +
+    var isi = '<div class="tata-akun"><div class="kartu">' +
       '<div class="info-baris"><span>Nama</span><b>' + esc(a.nama) + '</b></div>' +
       '<div class="info-baris"><span>Nama pengguna</span><b>' + esc(a.pengguna) + '</b></div>' +
       '<div class="info-baris"><span>Peran</span><b>' + esc(a.peran) + (a.admin && !a.pemilik ? ' (boleh mengatur)' : '') + '</b></div>' +
       '<div class="info-baris"><span>Boleh mengisi</span><b>' + esc(semuaTabAktif(a.tab) ? 'Semua catatan' : tabAktif(a.tab).map(function (t) { return labelTab(t); }).join(', ') || '–') + '</b></div>' +
       '<div class="info-baris"><span>Belum terkirim</span><b>' + antrian.length + ' catatan</b></div>' +
       '<div class="info-baris"><span>Versi aplikasi</span><b>' + esc(VERSI) + (DI_APK ? ' (APK)' : '') + (konfig && konfig.versiApi ? ' · API ' + konfig.versiApi : '') + '</b></div>' +
-      '</div><div class="tumpuk" style="margin-top:16px">' +
+      '</div><div class="tumpuk tombol-akun">' +
       '<button class="tombol kedua penuh" data-ke="#/sandi">' + ikon('kunci') + 'Ganti sandi</button>' +
       '<button class="tombol kedua penuh" data-ke="#/tampilan">' + ikon('palet') + (a.pemilik ? 'Tampilan & tata letak' : 'Ukuran huruf & mode gelap') + '</button>' +
       '<button class="tombol kedua penuh" id="perbarui">' + ikon('muat') + 'Perbarui data (nama, alat, pilihan)</button>' +
       (promptPasang && !DI_APK ? '<button class="tombol utama penuh" id="pasang">Pasang aplikasi di HP ini</button>' : '') +
-      '<button class="tombol bahaya penuh" id="keluar">Keluar</button></div>';
-    kerangka('Akun', '', isi, {aktif: 'akun'});
+      '<button class="tombol bahaya penuh" id="keluar">Keluar</button></div></div>';
+    kerangka('Akun', '', isi, {aktif: 'akun', lebar: 'sedang'});
     document.getElementById('perbarui').addEventListener('click', function (ev) {
       var t = ev.currentTarget;
       t.disabled = true; t.lastChild.textContent = 'Memuat…';
@@ -2314,18 +2327,18 @@
       return '<a class="kartu menu-kelola" href="' + href + '"><div class="baris"><span class="lingkar">' + ikon(ik) + '</span><span><b>' + esc(judul) +
         (lencana || '') + '</b><small>' + esc(ket) + '</small></span><span class="panah">›</span></div></a>';
     };
-    var isi = '<div class="judul-bagian" style="margin-top:4px">Data yang dipakai di formulir</div>' +
+    var isi = '<div class="judul-bagian" style="margin-top:4px">Data yang dipakai di formulir</div><div class="kisi-menu">' +
       MENU_KELOLA.map(function (m) {
         var sk = skema(m.tab);
         var lencana = m.tab === 'Tarif Upah' && tanpaTarif ? '<span class="lencana-kecil merah">tarif suling belum ada</span>' : '';
         return kartu('#/kelola/' + sk.kunci, sk.judul, m.ikon, m.ket(), lencana);
-      }).join('');
-    isi += '<div class="judul-bagian">Ringkasan</div>' +
-      kartu('#/batas', 'Batas peringatan', 'awan', 'Kapan peringatan di Ringkasan muncul: harga bahan, rendemen, laba, jatah keluarga, dan lainnya');
+      }).join('') + '</div>';
+    isi += '<div class="judul-bagian">Ringkasan</div><div class="kisi-menu">' +
+      kartu('#/batas', 'Batas peringatan', 'awan', 'Kapan peringatan di Ringkasan muncul: harga bahan, rendemen, laba, jatah keluarga, dan lainnya') + '</div>';
     if (pemilik()) {
-      isi += '<div class="judul-bagian">Aplikasi</div>' +
+      isi += '<div class="judul-bagian">Aplikasi</div><div class="kisi-menu">' +
         kartu('#/pengguna', 'Pengguna & sandi', 'kunci', 'Tambah orang lain dengan nama pengguna dan sandi sendiri') +
-        kartu('#/tampilan', 'Tampilan & tata letak', 'palet', 'Nama, logo, warna, ukuran huruf, urutan menu dan isian formulir') +
+        kartu('#/tampilan', 'Tampilan & tata letak', 'palet', 'Nama, logo, warna, ukuran huruf, urutan menu dan isian formulir') + '</div>' +
         '<p class="redup" style="font-size:.8125rem;margin-top:12px">Rekap dan gajian dihitung per minggu Senin sampai Minggu, sama dengan Dashboard di Google Sheet.</p>';
     }
     kerangka('Kelola', 'Alat, karyawan, tarif, dan pengaturan', isi, {aktif: 'kelola', muat: true});
@@ -2835,14 +2848,14 @@
   }
   function htmlStatusBatas(s) {
     if (!s || !s.hal) return '';
-    var kelas = s.status === 'Aman' ? 'aman' : (s.status === 'ISI' || s.status === 'BACA' ? 'isi' : (s.status ? 'perlu' : 'netral'));
+    var kelas = s.status === 'Aman' ? 'aman' : (s.status === 'ISI' || s.status === 'BACA' ? 'baca' : (s.status ? 'perlu' : 'netral'));
     return '<div class="status-batas"><span class="chip-status ' + kelas + '">' + esc(s.status || '–') + '</span><span>' + esc(s.hal) +
       (s.nilai ? ': <b>' + esc(s.nilai) + '</b>' : '') + '</span></div>';
   }
 
   function layarBatas() {
     if (!admin()) { location.hash = '#/'; return; }
-    kerangka('Batas peringatan', 'Kapan peringatan di Ringkasan muncul', '<div id="isi-batas"><div class="memuat">Memuat…</div></div>', {kembali: '#/kelola', tanpaNav: true});
+    kerangka('Batas peringatan', 'Kapan peringatan di Ringkasan muncul', '<div id="isi-batas"><div class="memuat">Memuat…</div></div>', {kembali: '#/kelola', tanpaNav: true, lebar: 'form'});
     var data = null, bidang = [];
     var tulis = function () {
       var el = document.getElementById('isi-batas');
