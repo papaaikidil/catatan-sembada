@@ -186,6 +186,23 @@ function pngPolos(w, h) {
   await simpanDanKonfirmasi(page);
   const sm = objek('Saring Minyak')[0];
   assert.strictEqual(sm['Minyak (kg)'], 3.4); assert.strictEqual(sm['Kondisi alat'], 'Normal');
+  // Minyak dari sisa saringan: 0 sulingan, kondisi boleh kosong, keterangan wajib.
+  await page.goto(ASAL + '#/isi/saring');
+  await page.waitForSelector('#formulir');
+  await isi(page, '[name=b1]', '0');
+  await isi(page, '[name=b2]', '0,85');
+  assert.ok(/sisa saringan/.test(await page.textContent('#pratinjau')), 'pratinjau minyak sisa saringan');
+  await page.click('#tombol-simpan');
+  await page.waitForSelector('.bidang.salah[data-h="Keterangan"]');
+  assert.strictEqual(await page.$('.bidang.salah[data-h="Kondisi bahan"]'), null, 'kondisi bahan boleh kosong');
+  await isi(page, '[name=b7]', 'kumpulan sisa saringan seminggu');
+  await simpanDanKonfirmasi(page);
+  const smSisa = objek('Saring Minyak').find(x => x['Keterangan'] === 'kumpulan sisa saringan seminggu');
+  assert.ok(smSisa && smSisa['Jumlah sulingan yang disaring'] === 0 && smSisa['Minyak (kg)'] === 0.85 && smSisa['Kondisi bahan'] === '', JSON.stringify(smSisa));
+  await page.goto(ASAL + '#/terbaru/saring');
+  await page.waitForFunction(() => /dari sisa saringan/.test(document.querySelector('#daftar-entri').textContent));
+  await foto(page, 'saring-sisa');
+  { const shS = sheets['Saring Minyak']; const j = shS.data.findIndex(x => x.includes('kumpulan sisa saringan seminggu')); shS.data.splice(j, 1); }
   await page.goto(ASAL + '#/isi/jual');
   await page.waitForSelector('#formulir');
   await pilih(page, 'b1', 'Lusiani');

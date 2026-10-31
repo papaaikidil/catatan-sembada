@@ -98,6 +98,8 @@
     });
   }
   function salin(o) { return JSON.parse(JSON.stringify(o)); }
+  // Saring Minyak dengan 0 sulingan = minyak yang dikumpulkan dari sisa saringan.
+  function bukanSisaSaringan(n) { return n['Jumlah sulingan yang disaring'] !== 0; }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function hariIni() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   // Tanggal boleh di masa depan (misal isi untuk besok), paling jauh MAKS_HARI_DEPAN hari (sama dengan API).
@@ -503,19 +505,25 @@
       kunci: 'saring', ikon: 'tetes', ket: 'Setiap kali menyaring minyak.',
       bidang: [
         {j: 'tanggal', h: 'Tanggal saring'},
-        {j: 'angka', h: 'Jumlah sulingan yang disaring', bantuan: 'Berapa kali suling sejak saringan terakhir.'},
+        {j: 'angka', h: 'Jumlah sulingan yang disaring', bantuan: 'Berapa kali suling sejak saringan terakhir. Isi 0 kalau ini minyak yang dikumpulkan dari sisa saringan (endapan, kain saring, wadah).'},
         {j: 'desimal', h: 'Minyak (kg)', bantuan: 'Contoh 3,28 atau 3.28.'},
         {j: 'desimal', h: 'Hidrosol diambil (liter)', wajib: false},
-        {j: 'pilih', h: 'Kondisi bahan', daftar: 'Kondisi bahan'},
-        {j: 'centang', h: 'Kondisi alat', daftar: 'Kondisi alat', lainnya: true},
+        // Minyak dari sisa saringan (0 sulingan): kondisi bahan & alat boleh kosong.
+        {j: 'pilih', h: 'Kondisi bahan', daftar: 'Kondisi bahan', wajib: bukanSisaSaringan},
+        {j: 'centang', h: 'Kondisi alat', daftar: 'Kondisi alat', lainnya: true, wajib: bukanSisaSaringan},
         {j: 'desimal', h: 'Stok minyak di gudang (kg)', wajib: false, bantuan: 'Timbang semua minyak yang ada setelah disaring.'},
-        {j: 'paragraf', h: 'Keterangan', wajib: false, bantuan: 'Isi kalau minyak lebih sedikit, bahan terlalu kering atau basah, alat rusak, atau minyak dicampur.'}
+        {j: 'paragraf', h: 'Keterangan', wajib: false, bantuan: 'Isi kalau minyak lebih sedikit, bahan terlalu kering atau basah, alat rusak, atau minyak dicampur. Untuk minyak dari sisa saringan, tulis asalnya.'}
       ],
       pratinjau: function (n) {
+        if (n['Jumlah sulingan yang disaring'] === 0 && n['Minyak (kg)'] !== undefined) {
+          return ['Minyak dari sisa saringan: ' + ang(n['Minyak (kg)'], 2) + ' kg menambah stok dan minyak dihasilkan minggu ini, tanpa menambah jumlah sulingan.'];
+        }
         if (!(n['Jumlah sulingan yang disaring'] > 0) || n['Minyak (kg)'] === undefined) return null;
         return ['Minyak per sulingan: ' + ang(n['Minyak (kg)'] / n['Jumlah sulingan yang disaring'], 3) + ' kg'];
       },
-      cek: function (n) { return n['Jumlah sulingan yang disaring'] === 0 ? [['Jumlah sulingan yang disaring', 'Tidak boleh 0.']] : []; }
+      cek: function (n) {
+        return n['Jumlah sulingan yang disaring'] === 0 && !n['Keterangan'] ? [['Keterangan', 'Tulis asal minyaknya, contoh: kumpulan sisa saringan minggu ini.']] : [];
+      }
     },
     'Absensi': {
       kunci: 'absensi', ikon: 'orang', ket: 'Sekali sehari untuk semua karyawan.',
@@ -1010,7 +1018,7 @@
   function daftarSaring(c) {
     if (!c.rc.saring.length) return kosongRinci('Tidak ada catatan Saring Minyak di ' + c.ini + '.');
     return c.rc.saring.map(function (s) {
-      return bRinci(hariPendek(s.tgl), ang(s.kg) + ' kg', gabung([ang(s.sulingan, 0) + ' sulingan', s.sulingan > 0 ? ang(s.kg / s.sulingan, 3) + ' kg/sulingan' : '', s.ket]));
+      return bRinci(hariPendek(s.tgl), ang(s.kg) + ' kg', gabung([s.sulingan > 0 ? ang(s.sulingan, 0) + ' sulingan' : 'sisa saringan', s.sulingan > 0 ? ang(s.kg / s.sulingan, 3) + ' kg/sulingan' : '', s.ket]));
     }).join('');
   }
   function daftarTrip(c, cara) {
@@ -1847,7 +1855,7 @@
     bidang.forEach(function (b) {
       if (!b.h || b.k) return;
       var v = mentah[b.h];
-      var wajib = b.wajib !== false;
+      var wajib = typeof b.wajib === 'function' ? b.wajib(nilai) : b.wajib !== false;
       var kosong = v === undefined || v === '' || (Array.isArray(v) && !v.length);
       if (kosong) { if (wajib) salah.push([b.h, (b.j === 'pilih' || b.j === 'centang') ? 'Pilih salah satu.' : 'Wajib diisi.']); return; }
       if (b.j === 'rupiah' || b.j === 'angka') {
@@ -2220,8 +2228,14 @@
         baris.push('<span class="redup">' + f('Daerah') + '</span>');
       } else if (tab === 'Saring Minyak') {
         judul = tglIndo(g('Tanggal saring')) + ' · ' + formatNilai('Minyak (kg)', g('Minyak (kg)'));
-        baris.push(f('Minyak (kg)') + ' dari ' + f('Jumlah sulingan yang disaring') + ' sulingan (' + f('Minyak per sulingan (kg)') + '/sulingan)');
-        baris.push('Bahan: ' + f('Kondisi bahan') + ' · Alat: ' + f('Kondisi alat') + (g('Hidrosol diambil (liter)') !== '' ? ' · hidrosol ' + f('Hidrosol diambil (liter)') : ''));
+        if (Number(g('Jumlah sulingan yang disaring')) === 0 && g('Jumlah sulingan yang disaring') !== '') {
+          baris.push(f('Minyak (kg)') + ' dari sisa saringan');
+        } else {
+          baris.push(f('Minyak (kg)') + ' dari ' + f('Jumlah sulingan yang disaring') + ' sulingan (' + f('Minyak per sulingan (kg)') + '/sulingan)');
+        }
+        var kondisiSaring = [g('Kondisi bahan') !== '' ? 'Bahan: ' + f('Kondisi bahan') : '', g('Kondisi alat') !== '' ? 'Alat: ' + f('Kondisi alat') : '',
+          g('Hidrosol diambil (liter)') !== '' ? 'hidrosol ' + f('Hidrosol diambil (liter)') : ''].filter(function (x) { return x; });
+        if (kondisiSaring.length) baris.push(kondisiSaring.join(' · '));
       } else if (tab === 'Penjualan') {
         judul = tglIndo(g('Tanggal')) + ' · ' + g('Pembeli');
         baris.push(f('Jumlah') + ' ' + f('Satuan') + ' ' + f('Produk'));

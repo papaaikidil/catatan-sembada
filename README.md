@@ -25,6 +25,8 @@ Catatan lama tidak diubah.
   dengan Dashboard (tab Pengaturan kolom B dan Dashboard kolom D). Laba usaha di peringatan bisa dihitung 1–4 minggu terakhir.
 - **Semua upah dari Absensi**: tim suling memilih 1x, 2x, atau 3x suling (jumlah sulingan dan upahnya ikut tercatat),
   atau "Kerja lain…" untuk pekerjaan dengan upah khusus. Formulir Produksi Suling tidak ditampilkan lagi supaya tidak tercatat dua kali.
+- **Minyak dari sisa saringan** (endapan, kain saring, wadah): dicatat di Saring Minyak dengan jumlah sulingan 0.
+  Kondisi bahan & alat boleh kosong, keterangan wajib. Ikut menambah stok dan minyak dihasilkan, tidak menambah sulingan.
 - **Stok minyak**: hasil timbang jadi patokan; saring dan penjualan yang dicatat sesudah timbangan (termasuk di hari yang sama)
   ikut menambah atau mengurangi stok. Hasil timbang di Ringkasan bisa diketuk untuk diubah atau dihapus (tercatat di Log Aplikasi).
 - **Tanggal masa depan**: semua isian boleh diisi untuk besok atau beberapa hari ke depan (paling jauh 30 hari),
