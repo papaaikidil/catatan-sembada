@@ -117,6 +117,7 @@ function layani_(ss, req) {
     case 'tampilanSimpan': return tampilanSimpan_(ss, akses, req);
     case 'stok': return stokUntukAplikasi_(ss, akses);
     case 'stokCatat': return stokCatat_(ss, akses, req);
+    case 'stokUbah': return stokUbah_(ss, akses, req);
     case 'batas': return batas_(ss, akses);
     case 'batasSimpan': return denganKunci_(function () { return batasSimpan_(ss, akses, req); });
   }
@@ -136,6 +137,12 @@ function teks_(v) { return v === null || v === undefined ? '' : String(v).trim()
 function ya_(v) { return !/^(tidak|no|0|false|nonaktif)$/i.test(teks_(v)); }   // kosong dianggap Ya
 function tglIso_(d) { return Utilities.formatDate(d, API_ZONA, 'yyyy-MM-dd'); }
 function hariIniIso_() { return tglIso_(new Date()); }
+// Tanggal boleh di masa depan (misal isi untuk besok), paling jauh MAKS_HARI_DEPAN hari, supaya salah ketik bulan/tahun tetap tertangkap.
+var MAKS_HARI_DEPAN = 30;
+function galatTanggal_(tgl) {
+  var batas = tglIso_(new Date(Date.now() + MAKS_HARI_DEPAN * 864e5));
+  return tgl > batas ? 'Tanggal paling jauh ' + MAKS_HARI_DEPAN + ' hari dari hari ini.' : '';
+}
 function tglDariIso_(s) { return Utilities.parseDate(s, API_ZONA, 'yyyy-MM-dd'); }
 function tglIndo_(iso) { return iso ? String(iso).split('-').reverse().join('/') : ''; }
 function normalNama_(s) { return teks_(s).toLowerCase(); }
@@ -1090,7 +1097,7 @@ function simpanUmum_(ss, tab, nilai) {
   var kolTgl = info.kepala[1];
   var tgl = teks_(nilai[kolTgl]);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: kolTgl + ' wajib diisi.'};
-  if (tgl > hariIniIso_()) return {ok: false, galat: 'Tanggal tidak boleh setelah hari ini.'};
+  if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
   var baris = susunBaris_(info.kepala, nilai, new Date());
   if (baris.asing.length) {
     return {ok: false, galat: 'Kolom tidak ditemukan di tab ' + tab + ': ' + baris.asing.join(', ') +
@@ -1220,7 +1227,7 @@ function periksaEntri_(entri, akses, ref, sistem) {
   for (var i = 0; i < entri.length; i++) {
     var e = entri[i];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.tanggal)) return 'Tanggal tidak valid.';
-    if (!sistem && e.tanggal > hariIniIso_()) return 'Tanggal tidak boleh setelah hari ini.';
+    if (!sistem && galatTanggal_(e.tanggal)) return galatTanggal_(e.tanggal);
     if (!e.nama) continue;                                         // hanya keterangan
     var k = ref.karyawan.filter(function (x) { return x.nama === e.nama; })[0];
     if (!k) { if (sistem) continue; return e.nama + ' tidak ada di daftar karyawan.'; }
@@ -1390,7 +1397,7 @@ function simpanProduksi_(ss, akses, req, id) {
   var nilai = req.nilai || {};
   var tgl = teks_(nilai['Tanggal']), ket = teks_(nilai['Keterangan']);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal wajib diisi.'};
-  if (tgl > hariIniIso_()) return {ok: false, galat: 'Tanggal tidak boleh setelah hari ini.'};
+  if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
   var baris = Array.isArray(req.baris) ? req.baris : [];
   if (!baris.length) return {ok: false, galat: 'Isi minimal satu alat suling.'};
   var ref = bacaReferensi_(ss);
@@ -1512,6 +1519,7 @@ function ubah_(ss, akses, req) {
       if (asing.length) return {ok: false, galat: 'Kolom tidak ditemukan di tab ' + tab + ': ' + asing.join(', ') + '.'};
       var kolTgl = info.kepala[1];
       if (nilai[kolTgl] !== undefined && !adalahTanggal_(baru[1])) return {ok: false, galat: kolTgl + ' wajib diisi.'};
+      if (nilai[kolTgl] !== undefined && galatTanggal_(tglKunci_(baru[1]))) return {ok: false, galat: galatTanggal_(tglKunci_(baru[1]))};
     }
     sh.getRange(r, 2, 1, baru.length).setValues([baru]);
     SpreadsheetApp.flush();
@@ -1556,7 +1564,7 @@ function ubahProduksi_(ss, akses, req) {
   var ambil = function (h, i) { return nilai[h] !== undefined ? nilai[h] : lama[i]; };
   var tgl = nilai['Tanggal'] !== undefined ? teks_(nilai['Tanggal']) : tglKunci_(lama[1]);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal wajib diisi.'};
-  if (tgl > hariIniIso_()) return {ok: false, galat: 'Tanggal tidak boleh setelah hari ini.'};
+  if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
   var alat = teks_(ambil('Alat suling', 2)), op = teks_(ambil('Operator', 3));
   var nMentah = ambil('Jumlah sulingan', 4);
   var n = nMentah === '' || nMentah === undefined ? NaN : angka_(nMentah);
@@ -1969,17 +1977,20 @@ function bacaKolom_(ss, nama, judul) {
 function waktuMs_(v) { return adalahTanggal_(v) ? v.getTime() : 0; }
 
 // sampai: 'yyyy-MM-dd' (opsional) = hitung stok di akhir tanggal itu, tanpa memakai timbangan pada/sesudah tanggal itu.
-function hitungStok_(ss, sampai) {
+// batasW (opsional, ms): di tanggal 'sampai', hanya saring & penjualan yang dicatat sampai jam itu (stok saat timbangan dicatat).
+// lewatiBaris (opsional): baris tab Stok Minyak yang tidak dipakai (timbangan yang sedang diubah).
+function hitungStok_(ss, sampai, batasW, lewatiBaris) {
+  var sebelum = function (x) { return !sampai || x.tgl < sampai || (x.tgl === sampai && (!batasW || !x.w || x.w <= batasW)); };
   var saring = bacaKolom_(ss, 'Saring Minyak', ['Timestamp', 'Tanggal saring', 'Minyak (kg)', 'Stok minyak di gudang (kg)'])
     .map(function (r) { return {w: waktuMs_(r[0]), tgl: tglKunci_(r[1]), kg: angka_(r[2]), stok: teks_(r[3]) === '' ? null : angka_(r[3])}; })
-    .filter(function (x) { return x.tgl && (!sampai || x.tgl <= sampai); });
+    .filter(function (x) { return x.tgl && sebelum(x); });
   var jual = bacaKolom_(ss, 'Penjualan', ['Tanggal', 'Minyak terjual (kg)', 'Pembeli', 'Timestamp'])
     .map(function (r) { return {tgl: tglKunci_(r[0]), kg: angka_(r[1]), pembeli: teks_(r[2]), w: waktuMs_(r[3])}; })
-    .filter(function (x) { return x.tgl && x.kg > 0 && (!sampai || x.tgl <= sampai); });
+    .filter(function (x) { return x.tgl && x.kg > 0 && sebelum(x); });
   var timbang = bacaKolom_(ss, SH_STOK, ['Timestamp', 'Tanggal', 'Stok ditimbang (kg)', 'Selisih (kg)', 'Keterangan', 'Diisi oleh'])
-    .map(function (r) { return {w: waktuMs_(r[0]), tgl: tglKunci_(r[1]), kg: angka_(r[2]), selisih: teks_(r[3]) === '' ? null : angka_(r[3]),
+    .map(function (r, i) { return {baris: i + 2, w: waktuMs_(r[0]), tgl: tglKunci_(r[1]), kg: angka_(r[2]), selisih: teks_(r[3]) === '' ? null : angka_(r[3]),
       ket: teks_(r[4]), oleh: teks_(r[5]), sumber: 'Timbang'}; })
-    .filter(function (x) { return x.tgl; });
+    .filter(function (x) { return x.tgl && x.baris !== lewatiBaris; });
   var dasar = timbang.filter(function (x) { return !sampai || x.tgl < sampai; })
     .concat(saring.filter(function (x) { return x.stok !== null && (!sampai || x.tgl < sampai); })
       .map(function (x) { return {w: x.w, tgl: x.tgl, kg: x.stok, sumber: 'Saring'}; }))
@@ -1997,7 +2008,7 @@ function hitungStok_(ss, sampai) {
     akhirMasuk: akhirMasuk ? {tgl: akhirMasuk.tgl, kg: akhirMasuk.kg} : null,
     akhirKeluar: akhirKeluar ? {tgl: akhirKeluar.tgl, kg: akhirKeluar.kg, pembeli: akhirKeluar.pembeli} : null,
     riwayat: sampai ? undefined : timbang.sort(function (a, b) { return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : b.w - a.w; }).slice(0, 5)
-      .map(function (x) { return {tgl: x.tgl, kg: x.kg, selisih: x.selisih, ket: x.ket, oleh: x.oleh}; })
+      .map(function (x) { return {tgl: x.tgl, kg: x.kg, selisih: x.selisih, ket: x.ket, oleh: x.oleh, baris: x.baris, w: x.w}; })
   };
 }
 
@@ -2011,18 +2022,19 @@ function stokCatat_(ss, akses, req) {
   if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa mencatat stok.'};
   var tgl = teks_(req.tanggal);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal wajib diisi.'};
-  if (tgl > hariIniIso_()) return {ok: false, galat: 'Tanggal tidak boleh setelah hari ini.'};
+  if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
   var kg = typeof req.kg === 'number' ? req.kg : angka_(req.kg);
   if (!(kg >= 0) || kg > 10000) return {ok: false, galat: 'Tulis berat stok dalam kg, contoh 12,5.'};
   return denganKunci_(function () {
-    var catatan = hitungStok_(ss, tgl).kg;
+    var waktu = new Date();
+    var catatan = hitungStok_(ss, tgl, waktu.getTime()).kg;
     var sh = ss.getSheetByName(SH_STOK);
     if (!sh) {
       sh = siapkanSheet_(ss, SH_STOK, KEPALA_STOK);
       var contoh = ss.getSheetByName('Saring Minyak');
       if (contoh) contoh.getRange(1, 2, 1, KEPALA_STOK.length).copyTo(sh.getRange(1, 1, 1, KEPALA_STOK.length), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
     }
-    var baris = [new Date(), tglDariIso_(tgl), bulat_(kg, 2), catatan, bulat_(kg - catatan, 2), teks_(req.keterangan), akses.nama];
+    var baris = [waktu, tglDariIso_(tgl), bulat_(kg, 2), catatan, bulat_(kg - catatan, 2), teks_(req.keterangan), akses.nama];
     sh.insertRowBefore(2);
     sh.getRange(2, 1, 1, baris.length).setValues([baris]);
     sh.getRange(2, 1).setNumberFormat('dd/MM/yyyy HH:mm');
@@ -2030,6 +2042,54 @@ function stokCatat_(ss, akses, req) {
     sh.getRange(2, 3, 1, 3).setNumberFormat('0.00');
     sh.getRange(2, 1, 1, baris.length).setFontWeight('normal');
     catatLog_(ss, 'Timbang stok', SH_STOK, 2, 'catatan ' + catatan + ' kg', 'ditimbang ' + bulat_(kg, 2) + ' kg', akses.nama);
+    return {ok: true, selisih: bulat_(kg - catatan, 2), catatan: catatan, stok: hitungStok_(ss)};
+  });
+}
+
+// Mengubah atau menghapus satu hasil timbang. Baris dicocokkan dengan nomor baris + Timestamp + tanggal,
+// supaya tidak salah baris kalau tab sudah berubah. Jam timbang (Timestamp) tidak diubah.
+// Stok menurut catatan dihitung ulang untuk tanggal (baru) itu, sampai jam timbangan dicatat.
+function stokUbah_(ss, akses, req) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa mengubah hasil timbang.'};
+  var hapus = req.hapus === true;
+  var tgl = teks_(req.tanggal);
+  var kg = typeof req.kg === 'number' ? req.kg : angka_(req.kg);
+  if (!hapus) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal wajib diisi.'};
+    if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
+    if (!(kg >= 0) || kg > 10000) return {ok: false, galat: 'Tulis berat stok dalam kg, contoh 12,5.'};
+  }
+  return denganKunci_(function () {
+    var sh = ss.getSheetByName(SH_STOK);
+    var r = Math.floor(Number(req.baris));
+    var berubah = {ok: false, kode: 'BERUBAH', galat: 'Hasil timbang ini sudah berubah atau terhapus. Muat ulang Ringkasan, lalu coba lagi.'};
+    if (!sh || !(r >= 2) || r > sh.getLastRow()) return berubah;
+    var kepala = kepalaSheet_(sh);
+    var k = function (h) { return kepala.indexOf(h); };
+    if (k('Timestamp') < 0 || k('Tanggal') < 0 || k('Stok ditimbang (kg)') < 0) return {ok: false, galat: 'Judul kolom tab Stok Minyak berubah.'};
+    var lama = sh.getRange(r, 1, 1, kepala.length).getValues()[0];
+    if (waktuMs_(lama[k('Timestamp')]) !== Number(req.w || 0) || tglKunci_(lama[k('Tanggal')]) !== teks_(req.tanggalLama)) return berubah;
+    var teksLama = JSON.stringify({tanggal: tglKunci_(lama[k('Tanggal')]), kg: lama[k('Stok ditimbang (kg)')], ket: k('Keterangan') >= 0 ? lama[k('Keterangan')] : ''});
+    if (hapus) {
+      sh.deleteRow(r);
+      catatLog_(ss, 'Hapus timbang', SH_STOK, r, teksLama, '', akses.nama);
+      return {ok: true, stok: hitungStok_(ss)};
+    }
+    var w = waktuMs_(lama[k('Timestamp')]);
+    var catatan = hitungStok_(ss, tgl, w || null, r).kg;
+    var baru = lama.slice();
+    baru[k('Tanggal')] = tglDariIso_(tgl);
+    baru[k('Stok ditimbang (kg)')] = bulat_(kg, 2);
+    if (k('Stok menurut catatan (kg)') >= 0) baru[k('Stok menurut catatan (kg)')] = catatan;
+    if (k('Selisih (kg)') >= 0) baru[k('Selisih (kg)')] = bulat_(kg - catatan, 2);
+    if (k('Keterangan') >= 0) baru[k('Keterangan')] = teks_(req.keterangan);
+    if (k('Diisi oleh') >= 0) {
+      var oleh = String(lama[k('Diisi oleh')] || '').replace(/ \(diubah .*\)$/, '');
+      baru[k('Diisi oleh')] = oleh + (oleh === akses.nama ? '' : ' (diubah ' + akses.nama + ')');
+    }
+    sh.getRange(r, 1, 1, baru.length).setValues([baru]);
+    sh.getRange(r, k('Tanggal') + 1).setNumberFormat('dd/MM/yyyy');
+    catatLog_(ss, 'Ubah timbang', SH_STOK, r, teksLama, JSON.stringify({tanggal: tgl, kg: bulat_(kg, 2), ket: teks_(req.keterangan)}), akses.nama);
     return {ok: true, selisih: bulat_(kg - catatan, 2), catatan: catatan, stok: hitungStok_(ss)};
   });
 }

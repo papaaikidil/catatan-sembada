@@ -100,6 +100,19 @@
   function salin(o) { return JSON.parse(JSON.stringify(o)); }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function hariIni() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  // Tanggal boleh di masa depan (misal isi untuk besok), paling jauh MAKS_HARI_DEPAN hari (sama dengan API).
+  var MAKS_HARI_DEPAN = 30;
+  function batasTanggal() { var d = new Date(); d.setDate(d.getDate() + MAKS_HARI_DEPAN); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function selisihHari(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return 0;
+    var h = new Date(); h = new Date(h.getFullYear(), h.getMonth(), h.getDate());
+    return Math.round((new Date(+m[1], +m[2] - 1, +m[3]) - h) / 864e5);
+  }
+  function teksMasaDepan(iso) {
+    var n = selisihHari(iso);
+    if (n <= 0) return '';
+    return 'Tanggal ' + tglIndo(iso) + ' adalah ' + (n === 1 ? 'besok' : n === 2 ? 'lusa' : n + ' hari lagi') + '. Catatan ini langsung ikut dihitung di stok dan rekap minggu itu.';
+  }
   function tglIndo(iso) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
     return m ? m[3] + '/' + m[2] + '/' + m[1] : (iso || '');
@@ -1411,9 +1424,13 @@
     var akhir = [];
     if (st.akhirMasuk) akhir.push('Saring terakhir ' + tglIndo(st.akhirMasuk.tgl) + ': ' + ang(st.akhirMasuk.kg) + ' kg');
     if (st.akhirKeluar) akhir.push('Jual terakhir ' + tglIndo(st.akhirKeluar.tgl) + ': ' + ang(st.akhirKeluar.kg) + ' kg' + (st.akhirKeluar.pembeli ? ' ke ' + st.akhirKeluar.pembeli : ''));
-    var riwayat = (st.riwayat || []).map(function (x) {
+    // Hasil timbang bisa diketuk untuk diubah atau dihapus (butuh API yang mengirim nomor baris).
+    var riwayat = (st.riwayat || []).map(function (x, i) {
       var sel = x.selisih === null || x.selisih === undefined ? '' : (x.selisih > 0 ? '+' : '') + ang(x.selisih) + ' kg dari catatan';
-      return '<div class="baris-angka"><span>' + esc(tglIndo(x.tgl)) + '<small>' + esc([x.oleh, x.ket].filter(function (y) { return y; }).join(' · ')) + '</small></span>' +
+      var bisa = !!x.baris && admin();
+      return '<div class="baris-angka' + (bisa ? ' timbang-ketuk" data-timbang="' + i + '" role="button" tabindex="0" aria-label="Ubah hasil timbang ' + esc(tglIndo(x.tgl)) : '') + '">' +
+        '<span>' + esc(tglIndo(x.tgl)) + (bisa ? ' <i class="ubah-kecil">' + ikon('pensil') + '</i>' : '') +
+        '<small>' + esc([x.oleh, x.ket].filter(function (y) { return y; }).join(' · ')) + '</small></span>' +
         '<b>' + esc(ang(x.kg)) + ' kg<small class="' + (x.selisih < 0 ? 'merah' : '') + '">' + esc(sel) + '</small></b></div>';
     }).join('');
     return '<div class="kartu kartu-stok"><h2>Stok minyak</h2>' +
@@ -1422,38 +1439,67 @@
       (akhir.length ? '<p class="sub">' + esc(akhir.join(' · ')) + '</p>' : '') +
       (awas ? '<div class="pratinjau awas">' + esc(awas) + '</div>' : '') +
       '<button class="tombol utama penuh" id="catat-timbang" style="margin-top:12px">' + ikon('kotak') + 'Catat hasil timbang</button>' +
-      (riwayat ? '<div class="daftar-baris"><div class="daftar-judul">Timbang terakhir</div>' + riwayat + '</div>' : '') + '</div>';
+      (riwayat ? '<div class="daftar-baris"><div class="daftar-judul">Timbang terakhir' + (admin() && (st.riwayat || []).some(function (x) { return x.baris; }) ? ' · ketuk untuk mengubah' : '') + '</div>' + riwayat + '</div>' : '') + '</div>';
   }
-  function lembarTimbang(selesai) {
+  // Catat hasil timbang baru, atau ubah/hapus hasil timbang lama (lama = satu baris dari stok.riwayat).
+  function lembarTimbang(selesai, lama) {
     var bidang = [
       {j: 'tanggal', h: 'Tanggal'},
       {j: 'desimal', h: 'Stok ditimbang (kg)', bantuan: 'Timbang semua minyak di gudang. Saring dan penjualan yang dicatat sesudah ini otomatis menambah atau mengurangi stok. Contoh 12,5.'},
       {j: 'teks', h: 'Keterangan', wajib: false, bantuan: 'Contoh: termasuk 2 jeriken di rumah.'}
     ];
-    var div = bukaLembar('<h2>Catat hasil timbang</h2><p class="sub">Dipakai sebagai patokan stok. Selisih dengan catatan akan terlihat.</p>' +
-      '<form novalidate>' + bidang.map(function (b, i) { return htmlBidang(b, i, {}, 't'); }).join('') + '</form>' +
-      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">Simpan</button></div>');
+    var draf = lama ? {'Tanggal': lama.tgl, 'Stok ditimbang (kg)': String(lama.kg).replace('.', ','), 'Keterangan': lama.ket || ''} : {};
+    var labelSimpan = lama ? 'Simpan perubahan' : 'Simpan';
+    var div = bukaLembar((lama ? '<h2>Ubah hasil timbang</h2><p class="sub">Dicatat ' + esc(lama.oleh || '') + '. Selisih dengan catatan dihitung ulang.</p>'
+      : '<h2>Catat hasil timbang</h2><p class="sub">Dipakai sebagai patokan stok. Selisih dengan catatan akan terlihat.</p>') +
+      '<form novalidate>' + bidang.map(function (b, i) { return htmlBidang(b, i, draf, 't'); }).join('') + '</form>' +
+      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">' + labelSimpan + '</button></div>' +
+      (lama ? '<div class="baris-tombol"><button class="tombol bahaya" data-aksi="hapus">' + ikon('sampah') + 'Hapus hasil timbang ini</button></div>' : ''));
     var form = q(div, 'form');
     pasangFormDinamis(form);
+    var beres = function (r) {
+      var rk = ambil('ringkasan', null);
+      if (rk) { rk.stok = r.stok; simpan('ringkasan', rk); }
+      selesai();
+    };
+    var gagal = function (a, label) {
+      return function (e) {
+        a.disabled = false; a.textContent = label;
+        toast(e.jaringan ? 'Perlu sinyal untuk menyimpan.' : e.message, 5000);
+      };
+    };
     div.addEventListener('click', function (ev) {
       var a = ev.target.closest('[data-aksi]');
       if (!a) return;
       if (a.dataset.aksi === 'batal') { div.remove(); return; }
+      if (a.dataset.aksi === 'hapus') {
+        tanyaHapus('Hasil timbang', tglIndo(lama.tgl) + ' · ' + ang(lama.kg) + ' kg', function () {
+          a.disabled = true;
+          panggil('stokUbah', {hapus: true, baris: lama.baris, w: lama.w, tanggalLama: lama.tgl}).then(function (r) {
+            a.disabled = false;
+            if (!r.ok) { toast(r.galat || 'Gagal menghapus.', 6000); return; }
+            div.remove();
+            toast('Hasil timbang dihapus. Isinya tetap ada di tab Log Aplikasi.', 5000);
+            beres(r);
+          }, gagal(a, 'Hapus hasil timbang ini'));
+        });
+        return;
+      }
       var h = bacaIsian(bidang, false, 't', form);
       tandaiSalah(h.salah, form);
       if (h.salah.length) return;
       a.disabled = true; a.textContent = 'Menyimpan…';
-      panggil('stokCatat', {tanggal: h.nilai['Tanggal'], kg: h.nilai['Stok ditimbang (kg)'], keterangan: h.nilai['Keterangan'] || ''}).then(function (r) {
-        a.disabled = false; a.textContent = 'Simpan';
+      var data = {tanggal: h.nilai['Tanggal'], kg: h.nilai['Stok ditimbang (kg)'], keterangan: h.nilai['Keterangan'] || ''};
+      if (lama) { data.baris = lama.baris; data.w = lama.w; data.tanggalLama = lama.tgl; }
+      panggil(lama ? 'stokUbah' : 'stokCatat', data).then(function (r) {
+        a.disabled = false; a.textContent = labelSimpan;
         if (!r.ok) { toast(r.galat || 'Gagal menyimpan.', 5000); return; }
         div.remove();
         var sel = r.selisih;
         toast(sel === 0 ? 'Tersimpan. Cocok dengan catatan.' : 'Tersimpan. ' + (sel > 0 ? 'Lebih ' : 'Kurang ') + ang(Math.abs(sel)) + ' kg dari catatan (' + ang(r.catatan) + ' kg).', 6000);
-        var rk = ambil('ringkasan', null);
-        if (rk) { rk.stok = r.stok; simpan('ringkasan', rk); }
-        selesai();
+        beres(r);
       }, function (e) {
-        a.disabled = false; a.textContent = 'Simpan';
+        a.disabled = false; a.textContent = labelSimpan;
         toast(e.jaringan ? 'Perlu sinyal untuk menyimpan.' : e.message, 5000);
       });
     });
@@ -1489,10 +1535,17 @@
       });
     };
     document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
-    isi.addEventListener('click', function (ev) {
-      if (!ev.target.closest('#catat-timbang')) return;
-      lembarTimbang(function () { isi.innerHTML = htmlRingkasan(ambil('ringkasan', null)); muat(); });
-    });
+    var bukaTimbang = function (ev) {
+      var t = ev.target.closest('[data-timbang]');
+      if (!t && !ev.target.closest('#catat-timbang')) return false;
+      var rk = ambil('ringkasan', null);
+      var lama = t && rk && rk.stok && rk.stok.riwayat ? rk.stok.riwayat[Number(t.dataset.timbang)] : null;
+      if (t && !lama) return false;
+      lembarTimbang(function () { isi.innerHTML = htmlRingkasan(ambil('ringkasan', null)); muat(); }, lama);
+      return true;
+    };
+    isi.addEventListener('click', bukaTimbang);
+    isi.addEventListener('keydown', function (ev) { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[data-timbang]')) { ev.preventDefault(); bukaTimbang(ev); } });
     muat();
   }
 
@@ -1546,7 +1599,7 @@
     var isi = '';
     if (b.j === 'tanggal') {
       var awal = d !== undefined ? d : (wajib ? hariIni() : '');
-      isi = '<input class="masukan" type="date" name="' + id + '" value="' + esc(awal) + '" max="' + hariIni() + '">';
+      isi = '<input class="masukan" type="date" name="' + id + '" value="' + esc(awal) + '" max="' + batasTanggal() + '">';
     } else if (b.j === 'pilih' || b.j === 'centang') {
       isi = htmlChips(b, id, d);
     } else if (b.j === 'daftar') {
@@ -1782,7 +1835,7 @@
         if (isNaN(y)) { salah.push([b.h, 'Tulis angka, contoh 3,28.']); return; }
         nilai[b.h] = y;
       } else if (b.j === 'tanggal') {
-        if (v > hariIni()) { salah.push([b.h, 'Tanggal tidak boleh setelah hari ini.']); return; }
+        if (v > batasTanggal()) { salah.push([b.h, 'Tanggal paling jauh ' + MAKS_HARI_DEPAN + ' hari dari hari ini.']); return; }
         nilai[b.h] = v;
       } else if (b.j === 'sandi') {
         nilai[b.h] = v;
@@ -1898,7 +1951,9 @@
     if (baris && FORM[tab].baris) {
       isi += baris.map(function (r) { var x = FORM[tab].baris(r); return '<li><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></li>'; }).join('');
     }
+    var depan = teksMasaDepan(nilai['Tanggal'] || nilai['Tanggal saring'] || '');
     var div = bukaLembar('<h2>Periksa lagi</h2><p class="sub">' + esc(labelTab(tab)) + '</p>' +
+      (depan ? '<div class="pratinjau awas">' + esc(depan) + '</div>' : '') +
       '<ul class="ringkas">' + isi + '</ul>' +
       (pratinjau ? '<div class="pratinjau">' + pratinjau.map(function (x) { return '<div>' + esc(x) + '</div>'; }).join('') + '</div>' : '') +
       '<div class="baris-tombol"><button class="tombol kedua" data-aksi="ubah">Ubah</button><button class="tombol utama" data-aksi="kirim">' + esc(labelKirim || 'Benar, simpan') + '</button></div>');

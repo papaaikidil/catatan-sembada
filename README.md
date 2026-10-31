@@ -25,6 +25,10 @@ Catatan lama tidak diubah.
   dengan Dashboard (tab Pengaturan kolom B dan Dashboard kolom D). Laba usaha di peringatan bisa dihitung 1–4 minggu terakhir.
 - **Semua upah dari Absensi**: tim suling memilih 1x, 2x, atau 3x suling (jumlah sulingan dan upahnya ikut tercatat),
   atau "Kerja lain…" untuk pekerjaan dengan upah khusus. Formulir Produksi Suling tidak ditampilkan lagi supaya tidak tercatat dua kali.
+- **Stok minyak**: hasil timbang jadi patokan; saring dan penjualan yang dicatat sesudah timbangan (termasuk di hari yang sama)
+  ikut menambah atau mengurangi stok. Hasil timbang di Ringkasan bisa diketuk untuk diubah atau dihapus (tercatat di Log Aplikasi).
+- **Tanggal masa depan**: semua isian boleh diisi untuk besok atau beberapa hari ke depan (paling jauh 30 hari),
+  dengan peringatan di layar "Periksa lagi".
 - **Tablet dan layar landscape**: menu pindah ke samping kiri, beranda dan ringkasan dibagi dua kolom
   (ringkasan minggu di kiri; stok, peringatan, dan tombol catatan di kanan), riwayat dan menu Kelola berjajar,
   formulir dua kolom di dalam panel, dan rincian tampil sebagai kotak di tengah. Di HP tegak tampilannya tetap sama.

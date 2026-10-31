@@ -202,7 +202,24 @@ function pngPolos(w, h) {
   await isi(page, '[name=b3]', 'bensin grandmax');
   await simpanDanKonfirmasi(page);
   assert.strictEqual(objek('Kas')[0]['Kategori'], 'Bensin & servis pikap');
-  cek('ambil bahan, saring minyak, penjualan (harga otomatis), kas');
+  // Tanggal masa depan: besok boleh (dengan peringatan di layar periksa), lebih dari 30 hari ditolak.
+  await page.goto(ASAL + '#/isi/kas');
+  await page.waitForSelector('#formulir');
+  await page.fill('[name=b0]', isoHari(31));
+  await page.selectOption('[name=b1]', 'Bensin & servis pikap');
+  await isi(page, '[name=b2]', '1000');
+  await isi(page, '[name=b3]', 'uji tanggal');
+  await page.click('#tombol-simpan');
+  await page.waitForSelector('.bidang.salah .pesan-salah:not([hidden])');
+  assert.ok(/paling jauh 30 hari/.test(await page.textContent('.bidang.salah .pesan-salah')));
+  await page.fill('[name=b0]', isoHari(1));
+  await page.click('#tombol-simpan');
+  await page.waitForSelector('.tirai [data-aksi="kirim"]');
+  assert.ok(/adalah besok/.test(await page.textContent('.tirai .pratinjau.awas')), 'peringatan tanggal besok');
+  await foto(page, 'konfirmasi-besok');
+  await page.click('.tirai [data-aksi="ubah"]');
+  await page.click('#tombol-kosong');
+  cek('ambil bahan, saring minyak, penjualan (harga otomatis), kas; tanggal besok boleh, lebih dari 30 hari ditolak');
 
   console.log('Ringkasan & riwayat');
   await page.goto(ASAL + '#/ringkasan');
@@ -220,6 +237,16 @@ function pngPolos(w, h) {
   const stokSheet = objek('Stok Minyak');
   assert.strictEqual(stokSheet.length, 1); assert.strictEqual(stokSheet[0]['Stok ditimbang (kg)'], 12.5); assert.strictEqual(stokSheet[0]['Diisi oleh'], 'Mas Wildan');
   assert.ok(/12,5 kg/.test(await page.textContent('.kartu-stok')));
+  // Hasil timbang bisa diketuk lalu diubah
+  await page.click('.kartu-stok [data-timbang="0"]');
+  await page.waitForSelector('.tirai [data-aksi="hapus"]');
+  assert.strictEqual(await page.inputValue('.tirai [name=t1]'), '12,5', 'isian terisi hasil timbang lama');
+  await isi(page, '.tirai [name=t1]', '13,25');
+  await foto(page, '05b-ubah-timbang');
+  await page.click('.tirai [data-aksi="simpan"]');
+  await page.waitForFunction(() => !document.querySelector('.tirai') && /13,25 kg/.test(document.querySelector('.kartu-stok').textContent));
+  assert.strictEqual(objek('Stok Minyak').length, 1); assert.strictEqual(objek('Stok Minyak')[0]['Stok ditimbang (kg)'], 13.25);
+  assert.strictEqual(objek('Stok Minyak')[0]['Keterangan'], 'dua jeriken');
   assert.ok(/Tambal kolam/.test(await page.textContent('#daftar-keterangan')), 'kerja lain muncul di daftar keterangan');
   await page.click('details.lipat summary');
   await foto(page, '05-ringkasan', true);

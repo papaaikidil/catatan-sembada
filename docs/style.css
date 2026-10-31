@@ -579,3 +579,12 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
   .tombol-catatan:hover, .menu-kelola:hover, .entri.bisa-ketuk:hover { border-color: var(--aksen); }
   .angka.ketuk:hover { background: var(--garis); }
 }
+
+/* Hasil timbang yang bisa diketuk untuk diubah */
+.timbang-ketuk { cursor: pointer; border-radius: 8px; margin: 0 -.375rem; padding-left: .375rem; padding-right: .375rem; }
+.timbang-ketuk:active { background: var(--latar); }
+.timbang-ketuk:focus-visible { outline: 2px solid var(--aksen); outline-offset: 1px; }
+.ubah-kecil { display: inline-flex; vertical-align: -2px; color: var(--aksen); margin-left: .25rem; }
+.ubah-kecil svg { width: .875rem; height: .875rem; }
+@media (hover: hover) and (pointer: fine) { .timbang-ketuk:hover { background: var(--latar); } }
+.lembar .baris-tombol .tombol.bahaya svg { width: 1.125rem; height: 1.125rem; }

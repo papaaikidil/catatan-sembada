@@ -29,6 +29,7 @@ ctx.urutkanTab_ = sh => {
   const akhir = sh.getLastRow();
   if (akhir >= 3) sh.getRange(2, 2, akhir - 1, info.kepala.length).sort([{ column: 3, ascending: false }, { column: 2, ascending: false }]);
 };
+const waktuMs = v => isDate(v) ? v.getTime() : 0;
 const hariIni = isoHari(0), kemarin = isoHari(-1), lusa = isoHari(-2), besok = isoHari(1);
 const objek = n => { const sh = sheets[n]; const k = sh.data[0]; return sh.data.slice(1).filter(r => r.some(v => v !== '' && v !== undefined)).map(r => Object.fromEntries(k.map((h, j) => [h, r[j] === undefined ? '' : r[j]]))); };
 
@@ -92,14 +93,20 @@ assert.strictEqual(ab['Pengumpul'], 'Rofik, Pak Muh'); assert.strictEqual(ab['Ke
 assert.strictEqual(ab['Uang beli bahan (Rp)'], '', 'kolom rumus tidak ditulis');
 r = panggil({ aksi: 'simpan', token: tokRofik, tab: 'Ambil Bahan', id: 'a1', nilai: isiAmbil });
 assert.strictEqual(r.dobel, true); assert.strictEqual(sheets['Ambil Bahan'].data.length, ambilAwal + 1, 'kirim ulang tidak dobel');
-r = panggil({ aksi: 'simpan', token: tokRofik, tab: 'Ambil Bahan', id: 'a2', nilai: Object.assign({}, isiAmbil, { 'Tanggal': besok }) });
-assert.ok(/setelah hari ini/.test(r.galat));
+r = panggil({ aksi: 'simpan', token: tokRofik, tab: 'Ambil Bahan', id: 'a2', nilai: Object.assign({}, isiAmbil, { 'Tanggal': isoHari(31) }) });
+assert.ok(/paling jauh 30 hari/.test(r.galat), 'lebih dari 30 hari ke depan ditolak: ' + r.galat);
+// Tanggal besok boleh (isi untuk hari berikutnya). Baris uji dibuang lagi supaya data uji berikutnya tetap sama.
+r = panggil({ aksi: 'simpan', token: tokRofik, tab: 'Ambil Bahan', id: 'a2b', nilai: Object.assign({}, isiAmbil, { 'Tanggal': besok }) });
+assert.ok(r.ok, 'tanggal besok boleh: ' + JSON.stringify(r));
+{ const shA = sheets['Ambil Bahan']; const j = shA.data.findIndex(x => isDate(x[2]) && formatTanggal(x[2], 'yyyy-MM-dd') === besok); assert.ok(j > 0); shA.data.splice(j, 1); }
+r = panggil({ aksi: 'simpan', token: tokPemilik, tab: 'Absensi', id: 'ab-depan', nilai: { 'Tanggal': isoHari(40) }, baris: [{ 'Nama': 'Rofik', 'Pekerjaan': '1 trip' }] });
+assert.ok(/paling jauh 30 hari/.test(r.galat), 'absensi 40 hari lagi ditolak: ' + JSON.stringify(r));
 r = panggil({ aksi: 'simpan', token: tokRofik, tab: 'Ambil Bahan', id: 'a3', nilai: { 'Tanggal': hariIni, 'Kolom aneh': 1 } });
 assert.ok(/Kolom aneh/.test(r.galat));
 r = panggil({ aksi: 'simpan', token: tokRofik, tab: 'Kas', id: 'a4', nilai: { 'Tanggal': hariIni } });
 assert.ok(/tidak boleh mengisi Kas/.test(r.galat));
 assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Tambah' && x[2] === 'Ambil Bahan' && x[6] === 'Rofik'), 'dicatat di Log siapa yang mengisi');
-cek('simpan Ambil Bahan: tidak dobel, tanggal besok ditolak, kolom asing ditolak, hak akses dicek');
+cek('simpan Ambil Bahan: tidak dobel, tanggal besok boleh, lebih dari 30 hari ditolak, kolom asing ditolak, hak akses dicek');
 
 // ------------------------------------------------------------------ 4. Produksi Suling
 assert.ok(!sheets['Produksi Suling']);
@@ -422,7 +429,7 @@ panggil({ aksi: 'simpan', token: tokPemilik, tab: 'Saring Minyak', id: 'sm-stok'
 st = panggil({ aksi: 'stok', token: tokPemilik }).stok;
 assert.strictEqual(st.dasar.sumber, 'Saring'); assert.strictEqual(st.dasar.tgl, kemarin);
 assert.strictEqual(st.kg, Math.round((20 - objek('Penjualan').filter(x => formatTanggal(x['Tanggal'], 'yyyy-MM-dd') > kemarin).reduce((t, x) => t + x['Minyak terjual (kg)'], 0)) * 100) / 100);
-assert.ok(/tidak boleh setelah/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: besok, kg: 1 }).galat));
+assert.ok(/paling jauh/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: isoHari(31), kg: 1 }).galat));
 // Timbang pagi, jual siang di tanggal yang sama: penjualan yang dicatat sesudah timbangan mengurangi stok,
 // yang dicatat sebelum timbangan dianggap sudah termasuk.
 r = panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, kg: 16.58, keterangan: 'timbang pagi' });
@@ -436,7 +443,32 @@ st = panggil({ aksi: 'stok', token: tokPemilik }).stok;
 assert.strictEqual(st.kg, 6.58, 'jual 10 kg sesudah timbang dikurangi, jual 3 kg sebelum timbang tidak: ' + JSON.stringify(st));
 assert.strictEqual(st.nKeluar, 1);
 shJual.data.splice(nJualAwal, 2);
-cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai, jual sesudah timbang di hari yang sama ikut dikurangi');
+// Ubah & hapus hasil timbang: baris dicocokkan dengan nomor baris + Timestamp, selisih dihitung ulang, dicatat di Log.
+st = panggil({ aksi: 'stok', token: tokPemilik }).stok;
+let tb = st.riwayat[0];
+assert.ok(tb.baris >= 2 && tb.w > 0 && tb.ket === 'timbang pagi', JSON.stringify(tb));
+assert.strictEqual(panggil({ aksi: 'stokUbah', token: tokRofik, baris: tb.baris, w: tb.w, tanggalLama: tb.tgl, tanggal: hariIni, kg: 1 }).ok, false, 'pencatat tidak boleh');
+r = panggil({ aksi: 'stokUbah', token: tokPemilik, baris: tb.baris, w: tb.w + 1, tanggalLama: tb.tgl, tanggal: hariIni, kg: 1 });
+assert.strictEqual(r.kode, 'BERUBAH', 'Timestamp tidak cocok = baris lain');
+const catatanLama = sheets['Stok Minyak'].data[tb.baris - 1][3];
+r = panggil({ aksi: 'stokUbah', token: tokPemilik, baris: tb.baris, w: tb.w, tanggalLama: tb.tgl, tanggal: hariIni, kg: 17.1, keterangan: '3 jerigen' });
+assert.ok(r.ok, JSON.stringify(r));
+assert.strictEqual(r.catatan, catatanLama, 'stok menurut catatan tetap (tanggal & jam timbang sama)');
+assert.strictEqual(r.selisih, Math.round((17.1 - catatanLama) * 100) / 100);
+assert.strictEqual(r.stok.kg, 17.1); assert.strictEqual(r.stok.riwayat[0].ket, '3 jerigen');
+const brs = sheets['Stok Minyak'].data[tb.baris - 1];
+assert.strictEqual(brs[2], 17.1); assert.strictEqual(waktuMs(brs[0]), tb.w, 'jam timbang tidak berubah');
+assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Ubah timbang'), 'ubah timbang dicatat di Log');
+// Hasil timbang untuk besok boleh; lalu dihapus.
+r = panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: besok, kg: 5, keterangan: 'uji besok' });
+assert.ok(r.ok && r.stok.dasar.tgl === besok, 'timbang tanggal besok boleh');
+tb = r.stok.riwayat[0];
+const nStok = sheets['Stok Minyak'].getLastRow();
+r = panggil({ aksi: 'stokUbah', token: tokPemilik, hapus: true, baris: tb.baris, w: tb.w, tanggalLama: tb.tgl });
+assert.ok(r.ok && r.stok.dasar.tgl === hariIni && r.stok.kg === 17.1, JSON.stringify(r.stok));
+assert.strictEqual(sheets['Stok Minyak'].getLastRow(), nStok - 1);
+assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Hapus timbang'), 'hapus timbang dicatat di Log');
+cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai, jual sesudah timbang di hari yang sama ikut dikurangi, timbang bisa diubah & dihapus');
 
 // ------------------------------------------------------------------ 9c. Batas peringatan
 assert.strictEqual(panggil({ aksi: 'batas', token: tokRofik }).ok, false, 'pencatat tidak boleh');
