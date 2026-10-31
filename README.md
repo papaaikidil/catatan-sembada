@@ -29,6 +29,9 @@ Catatan lama tidak diubah.
   ikut menambah atau mengurangi stok. Hasil timbang di Ringkasan bisa diketuk untuk diubah atau dihapus (tercatat di Log Aplikasi).
 - **Tanggal masa depan**: semua isian boleh diisi untuk besok atau beberapa hari ke depan (paling jauh 30 hari),
   dengan peringatan di layar "Periksa lagi".
+- **Cepat dibuka**: aplikasi dibuka dari salinan di HP (tidak menunggu sinyal); versi baru diambil di belakang dan
+  ditawarkan lewat "Versi baru aplikasi sudah siap". Ringkasan disimpan sebentar di server (cache 10 menit) dan
+  dihitung ulang setiap ada catatan baru lewat aplikasi; tombol muat ulang di Ringkasan selalu menghitung ulang.
 - **Tablet dan layar landscape**: menu pindah ke samping kiri, beranda dan ringkasan dibagi dua kolom
   (ringkasan minggu di kiri; stok, peringatan, dan tombol catatan di kanan), riwayat dan menu Kelola berjajar,
   formulir dua kolom di dalam panel, dan rincian tampil sebagai kotak di tengah. Di HP tegak tampilannya tetap sama.
@@ -41,7 +44,7 @@ Catatan lama tidak diubah.
 | `apps-script/api.gs` | API versi 7. Ditempel di file "api" pada project Apps Script "Sembada Sheet". |
 | `apps-script/Kode.gs`, `urut_otomatis.gs`, `ubah_kondisi_bahan.gs` | Cadangan file Apps Script lain di project yang sama (form, pengurutan otomatis). |
 | `android/` | Pembungkus APK Android. Isinya hanya membuka aplikasi web, jadi perbaikan aplikasi tidak perlu pasang ulang APK. |
-| `tes/` | Uji otomatis: `node tes/api7_test.js` (logika API) dan `node tes/ui7_test.js` (alur aplikasi di browser), dan `node tes/lebar_test.js` (tata letak tablet, landscape, dan HP). |
+| `tes/` | Uji otomatis: `node tes/api7_test.js` (logika API) dan `node tes/ui7_test.js` (alur aplikasi di browser), `node tes/lebar_test.js` (tata letak tablet, landscape, dan HP), dan `node tes/sw_test.js` (buka cepat & versi baru). |
 
 ## Memperbarui
 

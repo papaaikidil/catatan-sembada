@@ -132,7 +132,11 @@ function muat(sheets, opsi) {
       parseDate: (s) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw new Error('parseDate: ' + s); return tgl(s); },
       formatDate: (d, z, f) => formatTanggal(d, f)
     },
-    CacheService: { getScriptCache: () => ({ get: k => cache[k] === undefined ? null : cache[k], put: (k, v) => { cache[k] = v; } }) },
+    CacheService: { getScriptCache: () => ({
+      get: k => cache[k] === undefined ? null : cache[k], put: (k, v) => { cache[k] = String(v); },
+      putAll: (o) => { Object.keys(o).forEach(k => { if (String(o[k]).length > 100 * 1024) throw new Error('Nilai cache terlalu besar'); cache[k] = String(o[k]); }); },
+      getAll: (ks) => { const o = {}; ks.forEach(k => { if (cache[k] !== undefined) o[k] = cache[k]; }); return o; },
+      remove: k => { delete cache[k]; } }) },
     PropertiesService: {
       getScriptProperties: () => ({
         getProperty: k => props[k] === undefined ? null : props[k],

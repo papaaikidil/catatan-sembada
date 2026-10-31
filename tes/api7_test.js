@@ -470,6 +470,23 @@ assert.strictEqual(sheets['Stok Minyak'].getLastRow(), nStok - 1);
 assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Hapus timbang'), 'hapus timbang dicatat di Log');
 cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai, jual sesudah timbang di hari yang sama ikut dikurangi, timbang bisa diubah & dihapus');
 
+// ------------------------------------------------------------------ 9b2. Cache ringkasan
+{
+  const r1 = panggil({ aksi: 'ringkasan', token: tokPemilik, segar: true });
+  assert.ok(r1.ok && !r1.dariCache && /^\d\d:\d\d$/.test(r1.dihitung), 'segar: dihitung ulang');
+  const r2 = panggil({ aksi: 'ringkasan', token: tokPemilik });
+  assert.ok(r2.dariCache, 'kedua kalinya dari cache');
+  delete r2.dariCache;
+  assert.deepStrictEqual(r2, r1, 'isi cache sama persis dengan hasil hitung');
+  panggil({ aksi: 'stok', token: tokPemilik });
+  assert.ok(panggil({ aksi: 'ringkasan', token: tokPemilik }).dariCache, 'aksi baca tidak membuang cache');
+  panggil({ aksi: 'simpan', token: tokPemilik, tab: 'Kas', id: 'kas-cache', nilai: { 'Tanggal': hariIni, 'Kategori': objek('Kas')[0]['Kategori'], 'Jumlah (Rp)': 1000, 'Keterangan': 'uji cache' } });
+  const r3 = panggil({ aksi: 'ringkasan', token: tokPemilik });
+  assert.ok(r3.ok && !r3.dariCache, 'sesudah ada catatan baru, ringkasan dihitung ulang');
+  assert.strictEqual(panggil({ aksi: 'ringkasan', token: tokRofik }).ok, false, 'pencatat tetap tidak boleh melihat ringkasan (walau ada cache)');
+}
+cek('Ringkasan disimpan sebentar di cache, dibuang setiap ada perubahan data, tombol muat ulang menghitung ulang');
+
 // ------------------------------------------------------------------ 9c. Batas peringatan
 assert.strictEqual(panggil({ aksi: 'batas', token: tokRofik }).ok, false, 'pencatat tidak boleh');
 r = panggil({ aksi: 'batas', token: tokPemilik });

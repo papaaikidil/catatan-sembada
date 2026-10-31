@@ -588,3 +588,14 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 .ubah-kecil svg { width: .875rem; height: .875rem; }
 @media (hover: hover) and (pointer: fine) { .timbang-ketuk:hover { background: var(--latar); } }
 .lembar .baris-tombol .tombol.bahaya svg { width: 1.125rem; height: 1.125rem; }
+
+/* Tawaran versi baru (dari service worker) */
+#versi-baru {
+  position: fixed; left: 1rem; right: 1rem; bottom: calc(5.75rem + env(safe-area-inset-bottom)); z-index: 41; max-width: 30rem; margin: 0 auto;
+  display: flex; align-items: center; gap: .625rem; background: var(--kartu); color: var(--teks); border: 1.5px solid var(--aksen);
+  border-radius: var(--radius-kecil); padding: .5rem .5rem .5rem .875rem; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); font-size: .875rem; font-weight: 600;
+}
+#versi-baru span { flex: 1; }
+#versi-baru .tombol { min-height: 2.5rem; padding: .375rem .875rem; font-size: .875rem; }
+#versi-baru .tombol-tutup { width: 2.25rem; height: 2.25rem; font-size: 1.25rem; }
+@media (min-width: 760px) { #app.ada-nav ~ #versi-baru { left: calc(var(--rail) + 1rem); bottom: calc(1.5rem + env(safe-area-inset-bottom)); } }

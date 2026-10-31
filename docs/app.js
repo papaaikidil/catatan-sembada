@@ -685,7 +685,7 @@
     }, Promise.resolve(true));
     return urut.then(function () {
       mengirim = false;
-      if (terkirim) { toast(terkirim === 1 ? 'Catatan terkirim ke Google Sheet.' : terkirim + ' catatan terkirim ke Google Sheet.'); buang('ringkasan'); }
+      if (terkirim) { toast(terkirim === 1 ? 'Catatan terkirim ke Google Sheet.' : terkirim + ' catatan terkirim ke Google Sheet.'); segarkanRingkasanBeranda(); }
       perbaruiStatus();
       if (location.hash === '#/antrian') tampilkan();
     });
@@ -897,9 +897,9 @@
       simpan('mingguDipilih', ev.target.value);
       kotak.innerHTML = htmlRingkasMini(ambil('ringkasan', null));
     });
-    muatRingkasan().then(function (r) {
+    muatRingkasan().then(function (h) {
       var el = document.getElementById('kotak-ringkas');
-      if (el && r) el.innerHTML = htmlRingkasMini(r);
+      if (el && h.r && (!h.sama || !el.innerHTML)) el.innerHTML = htmlRingkasMini(h.r);
     }, function () { /* tetap pakai data tersimpan */ });
   }
 
@@ -1505,11 +1505,33 @@
     });
   }
 
-  function muatRingkasan() {
-    return panggil('ringkasan').then(function (r) {
-      if (r && r.ok) { simpan('ringkasan', r); return r; }
-      throw new Error((r && r.galat) || 'Gagal memuat ringkasan.');
+  // Ringkasan dimuat sekali dan dipakai bersama: panggilan yang sedang berjalan tidak diulang, dan kalau baru dimuat
+  // kurang dari 1 menit lalu cukup pakai yang tersimpan. paksa = hitung ulang di server (tombol muat ulang).
+  // Hasil {r, sama}: sama = true kalau isinya tidak berubah, jadi layar tidak perlu digambar ulang.
+  var ringkasanJalan = null, ringkasanWaktu = 0;
+  function ringkasanBasi() { ringkasanWaktu = 0; }
+  function segarkanRingkasanBeranda() {
+    ringkasanBasi();
+    var el = document.getElementById('kotak-ringkas');
+    if (!el || !admin()) return;
+    muatRingkasan().then(function (h) { var k = document.getElementById('kotak-ringkas'); if (k && !h.sama) k.innerHTML = htmlRingkasMini(h.r); }, function () {});
+  }
+  function muatRingkasan(paksa) {
+    var lama = ambil('ringkasan', null);
+    if (!paksa && ringkasanJalan) return ringkasanJalan;
+    if (!paksa && lama && Date.now() - ringkasanWaktu < 60000) return Promise.resolve({r: lama, sama: true});
+    var p = panggil('ringkasan', paksa ? {segar: true} : {}).then(function (r) {
+      if (!r || !r.ok) throw new Error((r && r.galat) || 'Gagal memuat ringkasan.');
+      delete r.dariCache;
+      var sekarang = ambil('ringkasan', null);
+      var sama = !!sekarang && JSON.stringify(sekarang) === JSON.stringify(r);
+      simpan('ringkasan', r);
+      ringkasanWaktu = Date.now();
+      return {r: r, sama: sama};
     });
+    ringkasanJalan = p;
+    p.then(function () { ringkasanJalan = null; }, function () { ringkasanJalan = null; });
+    return p;
   }
 
   // ------------------------------------------------------------ layar: ringkasan
@@ -1524,24 +1546,25 @@
       else return;
       isi.innerHTML = htmlRingkasan(ambil('ringkasan', null));
     });
-    var muat = function () {
-      muatRingkasan().then(function (r) {
+    var muat = function (paksa) {
+      muatRingkasan(paksa).then(function (h) {
         if (location.hash !== '#/ringkasan') return;
-        isi.innerHTML = htmlRingkasan(r);
+        if (!h.sama || !tersimpan || paksa) isi.innerHTML = htmlRingkasan(h.r);
+        if (paksa) toast('Ringkasan dihitung ulang dari Google Sheet.', 2000);
       }, function (e) {
         if (location.hash !== '#/ringkasan') return;
         if (!tersimpan) isi.innerHTML = '<div class="galat-kartu">' + esc(e.message) + '</div>';
         else toast(e.message);
       });
     };
-    document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
+    document.getElementById('tombol-muat').addEventListener('click', function () { toast('Menghitung ulang…', 4000); muat(true); });
     var bukaTimbang = function (ev) {
       var t = ev.target.closest('[data-timbang]');
       if (!t && !ev.target.closest('#catat-timbang')) return false;
       var rk = ambil('ringkasan', null);
       var lama = t && rk && rk.stok && rk.stok.riwayat ? rk.stok.riwayat[Number(t.dataset.timbang)] : null;
       if (t && !lama) return false;
-      lembarTimbang(function () { isi.innerHTML = htmlRingkasan(ambil('ringkasan', null)); muat(); }, lama);
+      lembarTimbang(function () { ringkasanBasi(); isi.innerHTML = htmlRingkasan(ambil('ringkasan', null)); muat(); }, lama);
       return true;
     };
     isi.addEventListener('click', bukaTimbang);
@@ -1578,7 +1601,8 @@
 
     // Urutan di HP: stok, minggu, bulan, peringatan (diatur lewat CSS order).
     // Di layar lebar: kolom kiri Minggu & Bulan, kolom kanan stok & peringatan.
-    return '<div class="tata-ringkasan"><p class="sub catatan-data">Data sampai ' + esc(tglIndo(r.dataSampai) || '–') + '. Angka sama dengan Dashboard dan tab Rekap di Google Sheet.</p>' +
+    return '<div class="tata-ringkasan"><p class="sub catatan-data">Data sampai ' + esc(tglIndo(r.dataSampai) || '–') + '. Angka sama dengan Dashboard dan tab Rekap di Google Sheet' +
+      (r.dihitung ? ', dihitung jam ' + esc(r.dihitung) + '. Ubahan langsung di Sheet: ketuk tombol muat ulang di kanan atas.' : '.') + '</p>' +
       '<div class="kol-kiri">' + minggu + bulan + '</div>' +
       '<div class="kol-kanan">' + htmlStok(r.stok) + '<section class="bagian-peringatan"><div class="judul-bagian">Peringatan (kondisi terbaru)</div><div class="kartu">' + (p || '<div class="kosong">Tidak ada peringatan.</div>') +
       '<button class="tautan" data-ke="#/batas" id="atur-batas">Atur batas peringatan ›</button></div></section></div></div>';
@@ -2042,7 +2066,7 @@
         konfirmasi(tab, bidang, nilai, null, function () {
           tombolSimpan.disabled = true; tombolSimpan.textContent = 'Menyimpan…';
           panggil('ubah', {tab: tab, id: ubah.id, nilai: nilaiUbah}).then(function (r) {
-            if (r && r.ok) { sedangDiubah = null; buang('ringkasan'); toast('Catatan sudah diperbarui di Google Sheet.'); location.hash = kembali; return; }
+            if (r && r.ok) { sedangDiubah = null; ringkasanBasi(); toast('Catatan sudah diperbarui di Google Sheet.'); location.hash = kembali; return; }
             tombolSimpan.disabled = false; tombolSimpan.textContent = 'Simpan perubahan';
             toast((r && r.galat) || 'Gagal menyimpan perubahan.', 6000);
             if (r && r.kode === 'BERUBAH') { sedangDiubah = null; location.hash = kembali; }
@@ -2161,7 +2185,7 @@
         tanyaHapus(labelTab(tab), judul, function () {
           tHapus.disabled = true;
           panggil('hapus', {tab: tab, id: dh.id}).then(function (r) {
-            if (r && r.ok) { toast('Catatan dihapus dari Google Sheet.'); buang('ringkasan'); muat(); return; }
+            if (r && r.ok) { toast('Catatan dihapus dari Google Sheet.'); ringkasanBasi(); muat(); return; }
             toast((r && r.galat) || 'Gagal menghapus.', 6000); muat();
           }, function (e) {
             tHapus.disabled = false;
@@ -2532,7 +2556,7 @@
           if (!r.ok) { toast(r.galat || 'Gagal menyimpan.', 5000); return; }
           div.remove();
           toast(r.catatanDiganti ? 'Tersimpan. ' + r.catatanDiganti + ' catatan lama ikut diganti.' : 'Tersimpan.');
-          if (r.catatanDiganti) { buang('ringkasan'); buangAwalan('terbaru.'); }
+          if (r.catatanDiganti) { ringkasanBasi(); buangAwalan('terbaru.'); }
           muatKonfig().then(selesai, function () { selesai(); });
         }, function (e) {
           a.disabled = false; a.textContent = 'Simpan';
@@ -2968,7 +2992,7 @@
           return;
         }
         data = r.batas;
-        buang('ringkasan');
+        ringkasanBasi();
         tulis();
         toast('Batas tersimpan. Peringatan di Ringkasan sudah memakai batas baru.', 4000);
       }, function (e) {
@@ -3032,8 +3056,22 @@
   setInterval(function () { if (antrian.length) kirimAntrian(); }, 30000);
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); promptPasang = e; });
 
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(function () { /* tetap jalan tanpa offline */ });
+    // Aplikasi dibuka dari salinan di HP; kalau di belakang ternyata ada versi baru, tawarkan untuk langsung dipakai.
+    navigator.serviceWorker.addEventListener('message', function (ev) {
+      if (!ev.data || ev.data.jenis !== 'versiBaru' || document.getElementById('versi-baru')) return;
+      var bar = document.createElement('div');
+      bar.id = 'versi-baru';
+      bar.setAttribute('role', 'status');
+      bar.innerHTML = '<span>Versi baru aplikasi sudah siap.</span><button type="button" class="tombol utama">Pakai sekarang</button>' +
+        '<button type="button" class="tombol-tutup" aria-label="Nanti saja">×</button>';
+      bar.addEventListener('click', function (e) {
+        if (e.target.closest('.tombol-tutup')) { bar.remove(); return; }
+        if (e.target.closest('.tombol')) location.reload();
+      });
+      document.body.appendChild(bar);
+    });
   }
 
   tampilkan();

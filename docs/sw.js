@@ -1,21 +1,36 @@
-// Service worker: aplikasi tetap bisa dibuka tanpa sinyal.
-// Strategi "jaringan dulu": kalau ada sinyal, selalu ambil versi terbaru dari GitHub,
-// jadi perbaikan langsung sampai ke semua HP. Kalau tidak ada sinyal, pakai salinan terakhir.
+// Service worker: aplikasi terbuka cepat dan tetap bisa dibuka tanpa sinyal.
+// Strategi "simpanan dulu, perbarui di belakang": aplikasi langsung dibuka dari salinan di HP (tidak menunggu sinyal),
+// sambil mengambil versi terbaru dari GitHub. Kalau ada yang berubah, aplikasi diberi tahu dan menawarkan
+// "Versi baru siap" (dipakai setelah diketuk, atau otomatis saat aplikasi dibuka berikutnya).
 // Nama cache berawalan "sembada-" dan hanya cache berawalan itu yang dibersihkan,
 // supaya tidak mengganggu aplikasi Catatan Sembada Kepuh di alamat yang sama.
-const CACHE = 'sembada-v20';
-const ASET = ['./', './index.html', './app.js', './style.css', './config.js', './manifest.webmanifest',
-  './ikon-192.png', './ikon-512.png', './logo.png'];
+const CACHE = 'sembada-v21';
+const ASET = ['./', './index.html', './app.js', './style.css', './config.js', './manifest.webmanifest', './ikon-192.png', './logo.png'];
+
+function kabari() {
+  return self.clients.matchAll({type: 'window'}).then((cs) => cs.forEach((c) => c.postMessage({jenis: 'versiBaru'})));
+}
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASET)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASET.map((u) => new Request(u, {cache: 'no-cache'})))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k.indexOf('sembada-') === 0 && k !== CACHE).map((k) => caches.delete(k))))
-    .then(() => self.clients.claim()));
+    .then((keys) => {
+      const lama = keys.filter((k) => k.indexOf('sembada-') === 0 && k !== CACHE);
+      return Promise.all(lama.map((k) => caches.delete(k))).then(() => lama.length);
+    })
+    .then((adaLama) => self.clients.claim().then(() => { if (adaLama) return kabari(); })));
 });
+
+// Tanda isi berkas untuk tahu apakah berubah (ETag dari GitHub Pages, atau isi teksnya).
+async function tanda(res) {
+  if (!res) return '';
+  const etag = res.headers.get('etag');
+  if (etag) return etag.replace(/^W\//, '');
+  try { return await res.clone().text(); } catch (err) { return ''; }
+}
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
@@ -24,20 +39,33 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;   // panggilan API ke Google tidak disimpan
   if (!url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
 
-  e.respondWith((async () => {
-    const cache = await caches.open(CACHE);
+  const kunci = req.mode === 'navigate' ? './index.html' : req;
+  const ambilBaru = caches.open(CACHE).then(async (cache) => {
+    const lama = await cache.match(kunci, {ignoreSearch: true});
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 20000);
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 6000);
       const res = await fetch(req, {signal: ctrl.signal, cache: 'no-cache'});
       clearTimeout(t);
-      if (res && res.ok) cache.put(req, res.clone());
+      if (res && res.ok && res.type === 'basic' && !res.redirected) {
+        const berubah = lama && (await tanda(lama)) !== (await tanda(res));
+        await cache.put(kunci, res.clone());
+        if (berubah && /\.(js|css|html)$|\/$/.test(url.pathname)) kabari();
+      }
       return res;
     } catch (err) {
-      const simpanan = await cache.match(req, {ignoreSearch: true});
-      if (simpanan) return simpanan;
-      if (req.mode === 'navigate') return (await cache.match('./index.html')) || Response.error();
-      return Response.error();
+      clearTimeout(t);
+      return null;
     }
-  })());
+  });
+
+  e.respondWith(caches.open(CACHE).then(async (cache) => {
+    const simpanan = await cache.match(kunci, {ignoreSearch: true});
+    if (simpanan) {
+      e.waitUntil(ambilBaru);
+      return simpanan;
+    }
+    const res = await ambilBaru;
+    return res || Response.error();
+  }));
 });

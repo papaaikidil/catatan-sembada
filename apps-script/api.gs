@@ -87,7 +87,16 @@ function keluaranJson_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 
+// Aksi yang hanya membaca. Aksi lain (simpan, ubah, hapus, kelola, timbang, batas, ...) membuang cache ringkasan.
+var AKSI_BACA = {masuk: 1, keluar: 1, config: 1, logo: 1, terbaru: 1, ringkasan: 1, stok: 1, batas: 1, penggunaDaftar: 1};
+
 function layani_(ss, req) {
+  var hasil = layaniInti_(ss, req);
+  if (!AKSI_BACA[teks_(req.aksi)]) hapusCacheRingkasan_();
+  return hasil;
+}
+
+function layaniInti_(ss, req) {
   var aksi = teks_(req.aksi);
   // Aplikasi versi lama (masuk dengan PIN) yang masih terbuka di HP.
   if (req.pin !== undefined && !req.token) {
@@ -106,7 +115,7 @@ function layani_(ss, req) {
   switch (aksi) {
     case 'simpan': return simpan_(ss, akses, req);
     case 'terbaru': return terbaru_(ss, akses, req);
-    case 'ringkasan': return ringkasan_(ss, akses);
+    case 'ringkasan': return ringkasanCepat_(ss, akses, req);
     case 'ubah': return ubah_(ss, akses, req);
     case 'hapus': return hapus_(ss, akses, req);
     case 'masterSimpan': return masterSimpan_(ss, akses, req);
@@ -1660,6 +1669,57 @@ function seninDari_(k) {
 function angkaRekap_(v) {
   if (typeof v === 'number') return isFinite(v) ? v : null;
   return teks_(v) === '' ? null : angka_(v);
+}
+
+// ---- Cache ringkasan
+// Menghitung ringkasan membaca banyak tab dan bisa makan beberapa detik. Hasilnya disimpan sebentar di CacheService
+// (sama untuk semua pengguna yang boleh mengatur) dan langsung dibuang setiap ada perubahan data lewat aplikasi.
+// Ubahan langsung di Google Sheet terlihat paling lambat CACHE_RINGKASAN_DETIK kemudian, atau langsung lewat tombol
+// muat ulang di layar Ringkasan (segar: true). Ganti REV_RINGKASAN kalau bentuk data ringkasan berubah.
+var CACHE_RINGKASAN_DETIK = 600;
+var REV_RINGKASAN = 'rk20261031';
+
+function ringkasanCepat_(ss, akses, req) {
+  if (!akses.admin) return ringkasan_(ss, akses);
+  if (!req.segar) {
+    var simpanan = bacaCacheBesar_(REV_RINGKASAN);
+    if (simpanan && simpanan.ok) { simpanan.dariCache = true; return simpanan; }
+  }
+  var r = ringkasan_(ss, akses);
+  if (r && r.ok) {
+    r.dihitung = Utilities.formatDate(new Date(), API_ZONA, 'HH:mm');
+    simpanCacheBesar_(REV_RINGKASAN, r, CACHE_RINGKASAN_DETIK);
+  }
+  return r;
+}
+
+function hapusCacheRingkasan_() {
+  try { CacheService.getScriptCache().remove(REV_RINGKASAN + '_n'); } catch (e) { /* cache tidak wajib */ }
+}
+
+// Nilai cache maksimal 100KB, jadi teks dipotong-potong. Kunci _n (jumlah potongan) ditulis bersama potongannya.
+function simpanCacheBesar_(nama, obj, detik) {
+  try {
+    var teks = JSON.stringify(obj), ukuran = 30000, n = Math.ceil(teks.length / ukuran);
+    if (n > 60) return;
+    var isi = {};
+    for (var i = 0; i < n; i++) isi[nama + '_' + i] = teks.substr(i * ukuran, ukuran);
+    isi[nama + '_n'] = String(n);
+    CacheService.getScriptCache().putAll(isi, detik);
+  } catch (e) { /* cache tidak wajib */ }
+}
+
+function bacaCacheBesar_(nama) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var n = Number(cache.get(nama + '_n') || 0);
+    if (!n) return null;
+    var kunci = [];
+    for (var i = 0; i < n; i++) kunci.push(nama + '_' + i);
+    var isi = cache.getAll(kunci), teks = '';
+    for (var j = 0; j < n; j++) { if (isi[kunci[j]] === undefined || isi[kunci[j]] === null) return null; teks += isi[kunci[j]]; }
+    return JSON.parse(teks);
+  } catch (e) { return null; }
 }
 
 function ringkasan_(ss, akses) {

@@ -339,8 +339,10 @@ function pngPolos(w, h) {
   await page.click('.tirai', { position: { x: 10, y: 10 } });
   await page.waitForFunction(() => !document.querySelector('.tirai'));
   await page.selectOption('#pilih-minggu', await page.evaluate(() => JSON.parse(localStorage.getItem('sembada7.ringkasan')).minggu[0].mulai));
-  // Kotak di Beranda juga bisa diketuk.
+  // Kotak di Beranda juga bisa diketuk. (Aplikasi dibuka ulang: ringkasan dimuat lagi dari API karena salinan di HP tadi dipangkas.)
   await page.goto(ASAL + '#/');
+  await page.reload();
+  await page.waitForFunction(() => { const r = JSON.parse(localStorage.getItem('sembada7.ringkasan') || 'null'); return r && r.minggu[0].rinci; });
   await page.waitForSelector('#kotak-ringkas .angka[data-angka="penjualan"]');
   await page.click('#kotak-ringkas .angka[data-angka="penjualan"]');
   await page.waitForSelector('.lembar-rinci');
