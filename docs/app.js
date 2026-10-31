@@ -1427,7 +1427,7 @@
   function lembarTimbang(selesai) {
     var bidang = [
       {j: 'tanggal', h: 'Tanggal'},
-      {j: 'desimal', h: 'Stok ditimbang (kg)', bantuan: 'Timbang semua minyak di gudang, sesudah saring dan penjualan hari itu. Contoh 12,5.'},
+      {j: 'desimal', h: 'Stok ditimbang (kg)', bantuan: 'Timbang semua minyak di gudang. Saring dan penjualan yang dicatat sesudah ini otomatis menambah atau mengurangi stok. Contoh 12,5.'},
       {j: 'teks', h: 'Keterangan', wajib: false, bantuan: 'Contoh: termasuk 2 jeriken di rumah.'}
     ];
     var div = bukaLembar('<h2>Catat hasil timbang</h2><p class="sub">Dipakai sebagai patokan stok. Selisih dengan catatan akan terlihat.</p>' +

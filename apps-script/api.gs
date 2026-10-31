@@ -1951,7 +1951,9 @@ function keteranganMinggu_(ss, minggu) {
 // ---------------------------------------------------------------- STOK MINYAK
 // Stok sekarang = hasil timbang terakhir + minyak disaring sesudahnya - minyak terjual sesudahnya.
 // Hasil timbang diambil dari tab "Stok Minyak" (dicatat dari aplikasi) atau kolom "Stok minyak di gudang (kg)" di Saring Minyak.
-// Hasil timbang dianggap stok di AKHIR tanggal itu (sesudah saring dan penjualan hari itu).
+// Hasil timbang = stok saat timbangan itu dicatat. Saring dan penjualan di tanggal yang sama ikut dihitung kalau
+// dicatat SESUDAH timbangan (menurut Timestamp); yang dicatat sebelumnya dianggap sudah termasuk timbangan.
+// Catatan lama tanpa Timestamp dianggap sudah termasuk (sama seperti aturan lama: timbang = stok akhir hari).
 // Kalau belum pernah ditimbang: semua minyak disaring dikurangi semua minyak terjual.
 
 function bacaKolom_(ss, nama, judul) {
@@ -1971,8 +1973,8 @@ function hitungStok_(ss, sampai) {
   var saring = bacaKolom_(ss, 'Saring Minyak', ['Timestamp', 'Tanggal saring', 'Minyak (kg)', 'Stok minyak di gudang (kg)'])
     .map(function (r) { return {w: waktuMs_(r[0]), tgl: tglKunci_(r[1]), kg: angka_(r[2]), stok: teks_(r[3]) === '' ? null : angka_(r[3])}; })
     .filter(function (x) { return x.tgl && (!sampai || x.tgl <= sampai); });
-  var jual = bacaKolom_(ss, 'Penjualan', ['Tanggal', 'Minyak terjual (kg)', 'Pembeli'])
-    .map(function (r) { return {tgl: tglKunci_(r[0]), kg: angka_(r[1]), pembeli: teks_(r[2])}; })
+  var jual = bacaKolom_(ss, 'Penjualan', ['Tanggal', 'Minyak terjual (kg)', 'Pembeli', 'Timestamp'])
+    .map(function (r) { return {tgl: tglKunci_(r[0]), kg: angka_(r[1]), pembeli: teks_(r[2]), w: waktuMs_(r[3])}; })
     .filter(function (x) { return x.tgl && x.kg > 0 && (!sampai || x.tgl <= sampai); });
   var timbang = bacaKolom_(ss, SH_STOK, ['Timestamp', 'Tanggal', 'Stok ditimbang (kg)', 'Selisih (kg)', 'Keterangan', 'Diisi oleh'])
     .map(function (r) { return {w: waktuMs_(r[0]), tgl: tglKunci_(r[1]), kg: angka_(r[2]), selisih: teks_(r[3]) === '' ? null : angka_(r[3]),
@@ -1982,7 +1984,7 @@ function hitungStok_(ss, sampai) {
     .concat(saring.filter(function (x) { return x.stok !== null && (!sampai || x.tgl < sampai); })
       .map(function (x) { return {w: x.w, tgl: x.tgl, kg: x.stok, sumber: 'Saring'}; }))
     .sort(function (a, b) { return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : b.w - a.w; })[0] || null;
-  var sesudah = function (x) { return !dasar || x.tgl > dasar.tgl; };
+  var sesudah = function (x) { return !dasar || x.tgl > dasar.tgl || (x.tgl === dasar.tgl && dasar.w > 0 && x.w > dasar.w); };
   var masuk = saring.filter(sesudah).reduce(function (t, x) { return t + x.kg; }, 0);
   var keluar = jual.filter(sesudah).reduce(function (t, x) { return t + x.kg; }, 0);
   var akhirMasuk = saring.slice().sort(function (a, b) { return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : b.w - a.w; })[0] || null;

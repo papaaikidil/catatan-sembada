@@ -423,7 +423,20 @@ st = panggil({ aksi: 'stok', token: tokPemilik }).stok;
 assert.strictEqual(st.dasar.sumber, 'Saring'); assert.strictEqual(st.dasar.tgl, kemarin);
 assert.strictEqual(st.kg, Math.round((20 - objek('Penjualan').filter(x => formatTanggal(x['Tanggal'], 'yyyy-MM-dd') > kemarin).reduce((t, x) => t + x['Minyak terjual (kg)'], 0)) * 100) / 100);
 assert.ok(/tidak boleh setelah/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: besok, kg: 1 }).galat));
-cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai');
+// Timbang pagi, jual siang di tanggal yang sama: penjualan yang dicatat sesudah timbangan mengurangi stok,
+// yang dicatat sebelum timbangan dianggap sudah termasuk.
+r = panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, kg: 16.58, keterangan: 'timbang pagi' });
+assert.ok(r.ok && r.stok.kg === 16.58, JSON.stringify(r.stok));
+const shJual = sheets['Penjualan'], kJual = shJual.data[0];
+const barisJual = (menit, kg) => { const b = kJual.map(() => ''); b[kJual.indexOf('Timestamp')] = new Date(Date.now() + menit * 60e3);
+  b[kJual.indexOf('Tanggal')] = tgl(hariIni); b[kJual.indexOf('Pembeli')] = 'Uji stok'; b[kJual.indexOf('Minyak terjual (kg)')] = kg; return b; };
+const nJualAwal = shJual.data.length;
+shJual.data.push(barisJual(-120, 3), barisJual(240, 10));
+st = panggil({ aksi: 'stok', token: tokPemilik }).stok;
+assert.strictEqual(st.kg, 6.58, 'jual 10 kg sesudah timbang dikurangi, jual 3 kg sebelum timbang tidak: ' + JSON.stringify(st));
+assert.strictEqual(st.nKeluar, 1);
+shJual.data.splice(nJualAwal, 2);
+cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai, jual sesudah timbang di hari yang sama ikut dikurangi');
 
 // ------------------------------------------------------------------ 9c. Batas peringatan
 assert.strictEqual(panggil({ aksi: 'batas', token: tokRofik }).ok, false, 'pencatat tidak boleh');
