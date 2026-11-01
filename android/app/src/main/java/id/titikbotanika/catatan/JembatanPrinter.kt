@@ -42,6 +42,10 @@ class JembatanPrinter(private val aktivitas: MainActivity, private val web: WebV
         Build.VERSION.SDK_INT < 31 ||
             aktivitas.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
+    /** 2 = APK bisa membuka WhatsApp biasa / WA Bisnis yang dipilih (tautan intent://). */
+    @JavascriptInterface
+    fun versi(): Int = 2
+
     @JavascriptInterface
     fun status(): String {
         val a = adapter()

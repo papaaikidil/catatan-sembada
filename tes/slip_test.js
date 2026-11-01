@@ -52,6 +52,7 @@ const baris = async page => (await page.textContent('.slip-pratinjau')).split('\
       status: () => JSON.stringify({ ada: true, izin: true, nyala: true }),
       daftar: () => JSON.stringify([{ nama: 'RPP02N', alamat: '00:11:22:33:44:55', printer: true }, { nama: 'Headset', alamat: 'AA:BB:CC:DD:EE:FF', printer: false }]),
       mintaIzin() {},
+      versi: () => 2,
       cetak(alamat, data, id) { window.__dicetak = { alamat, data, id }; setTimeout(() => window.__hasilCetak(id, true, ''), 50); }
     };
   });
@@ -89,10 +90,15 @@ const baris = async page => (await page.textContent('.slip-pratinjau')).split('\
   b = await baris(page);
   assert.ok(b.some(x => /^DIBAYAR/.test(x) && x.endsWith(rpTeks(o.total + 30000))), 'dibayar = total + tambahan - potongan: ' + b.filter(x => /DIBAYAR|Tambahan|Potongan/.test(x)).join(' | '));
   assert.ok(b.every(x => x.length <= 32));
-  const wa = await page.getAttribute('[data-aksi="wa"]', 'href');
-  assert.ok(/^https:\/\/wa\.me\/\d*\?text=/.test(wa) && decodeURIComponent(wa).includes(o.nama), 'tautan WhatsApp berisi slip');
+  const wa = await page.$$eval('.slip-wa [data-aksi="wa"]', as => as.map(a => ({ label: a.textContent.trim(), href: a.getAttribute('href') })));
+  assert.deepStrictEqual(wa.map(x => x.label), ['WhatsApp', 'WA Bisnis'], 'pilihan WhatsApp biasa dan WA Bisnis');
+  assert.ok(/^intent:\/\/send\?(phone=\d+&)?text=.*#Intent;scheme=whatsapp;package=com\.whatsapp;end$/.test(wa[0].href), wa[0].href);
+  assert.ok(/package=com\.whatsapp\.w4b;end$/.test(wa[1].href), wa[1].href);
+  assert.ok(decodeURIComponent(wa[0].href).includes(o.nama) && decodeURIComponent(wa[0].href).includes('DIBAYAR'), 'isi slip ikut terkirim');
   await page.screenshot({ path: path.join(OUT, 'slip-satu.png') });
-  cek('Slip satu orang: rincian per hari, tambahan & potongan, tautan WhatsApp');
+  await page.evaluate(() => document.querySelector('.slip-wa').scrollIntoView({ block: 'end' }));
+  await page.screenshot({ path: path.join(OUT, 'slip-wa.png') });
+  cek('Slip satu orang: rincian per hari, tambahan & potongan, pilihan WhatsApp biasa / WA Bisnis');
 
   // Kertas 80 mm
   await page.evaluate(() => [...document.querySelectorAll('input[name="slip-kertas"]')].find(x => x.value === '80').closest('label').click());
@@ -132,8 +138,28 @@ const baris = async page => (await page.textContent('.slip-pratinjau')).split('\
   await p2.click('.kartu-minggu .tombol-slip');
   await p2.waitForSelector('[data-aksi="rawbt"]');
   assert.ok(/RawBT/.test(await p2.textContent('.slip-printer')));
+  await p2.evaluate(() => [...document.querySelectorAll('input[name="slip-siapa"]')][1].closest('label').click());
+  await p2.waitForSelector('.slip-wa [data-aksi="wa"]');
+  const wa2 = await p2.$$eval('.slip-wa [data-aksi="wa"]', as => as.map(a => a.getAttribute('href')));
+  assert.ok(wa2.length === 1 && /^https:\/\/wa\.me\//.test(wa2[0]), 'di luar Android: satu tautan wa.me biasa');
   await p2.screenshot({ path: path.join(OUT, 'slip-browser.png') });
-  cek('Di browser biasa: cetak lewat RawBT');
+  cek('Di browser biasa: cetak lewat RawBT, kirim lewat wa.me');
+
+  // ---- APK lama (1.0.4, belum bisa memilih): satu tombol WhatsApp + saran pasang APK terbaru
+  const ctx3 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', locale: 'id-ID', timezoneId: 'Asia/Jakarta',
+    userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36 CatatanSembadaApp' });
+  await ctx3.addInitScript(() => { window.SembadaPrinter = { status: () => '{"ada":true,"izin":true,"nyala":true}', daftar: () => '[]', mintaIzin() {}, cetak() {} }; });
+  const p3 = await ctx3.newPage();
+  p3.on('pageerror', e => galat.push(e.message));
+  await pasang(p3);
+  await masuk(p3);
+  await p3.click('#kotak-ringkas .tombol-slip');
+  await p3.evaluate(() => [...document.querySelectorAll('input[name="slip-siapa"]')][1].closest('label').click());
+  await p3.waitForSelector('.slip-wa [data-aksi="wa"]');
+  assert.strictEqual((await p3.$$('.slip-wa [data-aksi="wa"]')).length, 1);
+  assert.ok(/APK Sembada terbaru/.test(await p3.textContent('.slip-wa')));
+  cek('APK lama: satu tombol WhatsApp dan saran pasang APK terbaru');
+  await ctx3.close();
   await ctx2.close();
 
   await browser.close();

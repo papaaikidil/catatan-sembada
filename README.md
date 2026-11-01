@@ -28,7 +28,7 @@ Catatan lama tidak diubah.
 - **Slip upah mingguan** (Ringkasan › Upah per orang › "Slip upah & cetak"): per orang atau semua sekaligus, rincian per hari,
   tambahan (bonus) dan potongan (kasbon) yang hanya tertulis di slip, kertas 58 mm atau 80 mm. Bisa dicetak langsung ke
   printer thermal Bluetooth dari APK (ESC/POS lewat Bluetooth klasik; printer dipasangkan dulu di Pengaturan Bluetooth HP),
-  lewat aplikasi RawBT di browser, atau dikirim lewat WhatsApp ke nomor HP karyawan.
+  lewat aplikasi RawBT di browser, atau dikirim ke nomor HP karyawan lewat WhatsApp biasa atau WA Bisnis (dipilih).
 - **Minyak dari sisa saringan** (endapan, kain saring, wadah): dicatat di Saring Minyak dengan jumlah sulingan 0.
   Kondisi bahan & alat boleh kosong, keterangan wajib. Ikut menambah stok dan minyak dihasilkan, tidak menambah sulingan.
 - **Stok minyak**: hasil timbang jadi patokan; saring dan penjualan yang dicatat sesudah timbangan (termasuk di hari yang sama)

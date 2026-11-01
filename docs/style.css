@@ -623,3 +623,7 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 .slip-printer .catatan, .lembar-slip .catatan { font-size: .8125rem; color: var(--teks-2); margin: .25rem 0; }
 .slip-tombol .tombol svg { width: 1.125rem; height: 1.125rem; }
 .lembar-slip .rinci-kepala { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }
+.slip-wa { margin-top: .875rem; padding-top: .75rem; border-top: 1px solid var(--garis); }
+.slip-wa:empty { display: none; }
+.slip-wa .label-kecil { display: block; font-size: .8125rem; color: var(--teks-2); font-weight: 600; margin-bottom: .375rem; }
+.slip-wa .tombol svg { width: 1.125rem; height: 1.125rem; }

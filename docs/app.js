@@ -1375,6 +1375,18 @@
   // langsung dari APK Sembada (jembatan window.SembadaPrinter), lewat aplikasi RawBT, atau dikirim lewat WhatsApp.
   // Tambahan (bonus) dan potongan (kasbon) hanya tertulis di slip, tidak disimpan ke Google Sheet.
   var PRINTER = window.SembadaPrinter || null;
+  // Versi jembatan APK: 0 = bukan APK baru, 1 = APK 1.0.4 (cetak saja), 2 = bisa membuka WhatsApp / WA Bisnis yang dipilih.
+  var VERSI_APK = PRINTER ? (typeof PRINTER.versi === 'function' ? Number(PRINTER.versi()) || 1 : 1) : 0;
+  var DI_ANDROID = /Android/i.test(navigator.userAgent);
+  window.__pesanApk = function (t) { toast(t, 5000); };
+  // Tautan WhatsApp. paket: 'com.whatsapp' (WhatsApp biasa) atau 'com.whatsapp.w4b' (WA Bisnis); kosong = biarkan HP memilih.
+  function tautanWa(no, teks, paket) {
+    var q = 'send?' + (no ? 'phone=' + no + '&' : '') + 'text=' + encodeURIComponent(teks);
+    if (!paket) return 'https://wa.me/' + (no || '') + '?text=' + encodeURIComponent(teks);
+    return 'intent://' + q + '#Intent;scheme=whatsapp;package=' + paket + ';end';
+  }
+  // Pilihan WhatsApp biasa / WA Bisnis hanya bisa di Android (Chrome atau APK terbaru).
+  function bisaPilihWa() { return DI_ANDROID && (!DI_APK || VERSI_APK >= 2); }
   var APK_TERBARU = 'https://github.com/papaaikidil/catatan-sembada/releases/latest';
   function lebarSlip() { return ambil('slipKertas', '58') === '80' ? 48 : 32; }
   function asciiSaja(s) {
@@ -1506,7 +1518,7 @@
       '<pre class="slip-pratinjau" aria-label="Pratinjau slip"></pre>' +
       '<div class="slip-atur"><span class="label-kecil">Kertas</span><div class="chips">' + ['58', '80'].map(function (k) {
         return '<label class="chip"><input type="radio" name="slip-kertas" value="' + k + '"' + (ambil('slipKertas', '58') === k ? ' checked' : '') + '><span>' + k + ' mm</span></label>';
-      }).join('') + '</div></div><div class="slip-printer"></div><div class="baris-tombol slip-tombol"></div></div>');
+      }).join('') + '</div></div><div class="slip-printer"></div><div class="baris-tombol slip-tombol"></div><div class="slip-wa"></div></div>');
     var q1 = function (s) { return q(div, s); };
 
     var orangDipilih = function () { return pilih ? m.orang.filter(function (o) { return o.nama === pilih; }) : m.orang; };
@@ -1534,7 +1546,18 @@
     var gambarPrinter = function () {
       var el = q1('.slip-printer'), tombol = '';
       var o1 = pilih ? orangDipilih()[0] : null, wa = o1 ? noWa(o1.nama) : '';
-      if (o1) tombol += '<a class="tombol kedua" data-aksi="wa" target="_blank" rel="noopener" href="#">' + ikon('pesan') + (wa ? 'Kirim ke WA' : 'Kirim lewat WA') + '</a>';
+      var waHtml = '';
+      if (o1) {
+        var teksWa = '*Slip upah ' + asciiSaja(labelMinggu(m)) + '*\n```\n' + teksSlip(semuaBaris()[0], lebarSlip()) + '\n```';
+        var keWa = function (paket, label) {
+          return '<a class="tombol kedua" data-aksi="wa" data-paket="' + (paket || '') + '" target="_blank" rel="noopener" href="' + esc(tautanWa(wa, teksWa, paket)) + '">' + ikon('pesan') + label + '</a>';
+        };
+        waHtml = '<span class="label-kecil">Kirim slip ke ' + esc(o1.nama) + (wa ? '' : ' (No HP belum diisi di Kelola › Karyawan, pilih kontaknya di WhatsApp)') + '</span>' +
+          (bisaPilihWa() ? '<div class="baris-tombol">' + keWa('com.whatsapp', 'WhatsApp') + keWa('com.whatsapp.w4b', 'WA Bisnis') + '</div>'
+            : '<div class="baris-tombol">' + keWa('', 'Kirim lewat WhatsApp') + '</div>' +
+              (DI_APK ? '<p class="catatan">Untuk memilih WhatsApp biasa atau WA Bisnis, pasang <a href="' + APK_TERBARU + '" target="_blank" rel="noopener">APK Sembada terbaru</a>.</p>' : ''));
+      }
+      q1('.slip-wa').innerHTML = waHtml;
       if (PRINTER) {
         var st = printerStatus();
         var pesan = '';
@@ -1555,11 +1578,6 @@
         tombol += '<button class="tombol utama" data-aksi="rawbt">' + ikon('printer') + 'Cetak lewat RawBT</button>';
       }
       q1('.slip-tombol').innerHTML = tombol;
-      var a = q1('[data-aksi="wa"]');
-      if (a) {
-        var teks = '*Slip upah ' + asciiSaja(labelMinggu(m)) + '*\n```\n' + teksSlip(semuaBaris()[0], lebarSlip()) + '\n```';
-        a.href = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(teks);
-      }
     };
     var gambar = function () { gambarOrang(); gambarPratinjau(); gambarPrinter(); };
     gambar();
@@ -1581,7 +1599,7 @@
       if (!a) return;
       var aksi = a.dataset.aksi;
       if (aksi === 'tutup') { div.remove(); return; }
-      if (aksi === 'wa') return;   // tautan biasa ke WhatsApp
+      if (aksi === 'wa') return;   // tautan ke WhatsApp / WA Bisnis
       if (aksi === 'segar') { gambarPrinter(); return; }
       if (aksi === 'izin') {
         window.__izinBluetooth = function () { if (document.body.contains(div)) gambarPrinter(); };

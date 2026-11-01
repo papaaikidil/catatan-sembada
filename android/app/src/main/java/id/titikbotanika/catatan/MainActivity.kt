@@ -2,6 +2,7 @@ package id.titikbotanika.catatan
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -18,6 +19,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
+import org.json.JSONObject
 
 /**
  * Pembungkus aplikasi web Catatan Sembada.
@@ -85,6 +87,8 @@ class MainActivity : Activity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
                 if (url.host == hostAplikasi) return false
+                // Tautan intent:// dari aplikasi (misal kirim slip ke WhatsApp biasa atau WA Bisnis yang dipilih).
+                if (url.scheme == "intent") return bukaIntent(view, url.toString())
                 return try {
                     startActivity(Intent(Intent.ACTION_VIEW, url))
                     true
@@ -122,6 +126,29 @@ class MainActivity : Activity() {
           <a href="$alamat">Coba lagi</a>
         </div></body></html>
     """.trimIndent()
+
+    private fun bukaIntent(view: WebView, alamatIntent: String): Boolean {
+        var paket: String? = null
+        try {
+            val i = Intent.parseUri(alamatIntent, Intent.URI_INTENT_SCHEME)
+            paket = i.`package`
+            // Hanya membuka aplikasi lain lewat jalur yang aman untuk tautan (tanpa komponen tertentu).
+            i.addCategory(Intent.CATEGORY_BROWSABLE)
+            i.component = null
+            i.selector = null
+            startActivity(i)
+        } catch (e: ActivityNotFoundException) {
+            val nama = when (paket) {
+                "com.whatsapp.w4b" -> "WA Bisnis"
+                "com.whatsapp" -> "WhatsApp"
+                else -> "Aplikasinya"
+            }
+            view.evaluateJavascript("window.__pesanApk && window.__pesanApk(" + JSONObject.quote("$nama belum terpasang di HP ini.") + ")", null)
+        } catch (e: Exception) {
+            // tautan tidak sah: abaikan
+        }
+        return true
+    }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
