@@ -3,6 +3,8 @@ package id.titikbotanika.catatan
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -24,7 +26,12 @@ import android.widget.FrameLayout
  */
 class MainActivity : Activity() {
 
+    companion object {
+        const val KODE_IZIN_BLUETOOTH = 71
+    }
+
     private lateinit var web: WebView
+    private lateinit var printer: JembatanPrinter
 
     private val alamat = "https://papaaikidil.github.io/catatan-sembada/"
     private val hostAplikasi = "papaaikidil.github.io"
@@ -66,7 +73,15 @@ class MainActivity : Activity() {
         }
 
         web.webChromeClient = WebChromeClient()   // agar dialog konfirmasi bisa muncul
+        // Cetak slip ke printer thermal Bluetooth (window.SembadaPrinter di aplikasi web).
+        printer = JembatanPrinter(this, web, hostAplikasi)
+        web.addJavascriptInterface(printer, "SembadaPrinter")
         web.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                printer.hostSekarang = try { android.net.Uri.parse(url ?: "").host ?: "" } catch (e: Exception) { "" }
+                super.onPageStarted(view, url, favicon)
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url
                 if (url.host == hostAplikasi) return false
@@ -107,6 +122,13 @@ class MainActivity : Activity() {
           <a href="$alamat">Coba lagi</a>
         </div></body></html>
     """.trimIndent()
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == KODE_IZIN_BLUETOOTH) {
+            printer.kabariIzin(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+        }
+    }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK && web.canGoBack()) {

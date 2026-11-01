@@ -599,3 +599,27 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 #versi-baru .tombol { min-height: 2.5rem; padding: .375rem .875rem; font-size: .875rem; }
 #versi-baru .tombol-tutup { width: 2.25rem; height: 2.25rem; font-size: 1.25rem; }
 @media (min-width: 760px) { #app.ada-nav ~ #versi-baru { left: calc(var(--rail) + 1rem); bottom: calc(1.5rem + env(safe-area-inset-bottom)); } }
+
+/* Slip upah */
+.tombol-slip { margin-top: .75rem; }
+.tombol-slip svg, .tautan-slip svg { width: 1.125rem; height: 1.125rem; }
+.tautan-slip { display: inline-flex; align-items: center; gap: .375rem; padding: .5rem 0 .25rem; font-size: .875rem; }
+.lembar-slip .slip-orang { margin: .25rem 0 .5rem; }
+.lembar-slip .slip-bonus { margin-bottom: .5rem; }
+.lembar-slip .slip-bonus summary { padding: .25rem 0; }
+.slip-isian { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: .5rem; margin-top: .375rem; }
+.slip-isian .masukan { min-height: 2.75rem; padding: .5rem .75rem; font-size: .9375rem; }
+.slip-pratinjau {
+  --kolom: 32;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Roboto Mono", "Droid Sans Mono", monospace; font-size: .75rem; line-height: 1.35;
+  background: #FFFFFF; color: #111; border: 1px dashed var(--garis); border-radius: 6px; padding: .75rem .625rem;
+  width: calc(var(--kolom) * 1ch + 1.25rem + 2px); max-width: 100%; margin: .5rem auto .75rem; overflow-x: auto; white-space: pre;
+  max-height: 46vh; overflow-y: auto; box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+.slip-atur { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.slip-atur .chip span { min-height: 2.375rem; padding: .375rem .75rem; }
+.slip-printer { margin-bottom: .75rem; }
+.slip-printer .label-kecil { display: block; font-size: .8125rem; color: var(--teks-2); font-weight: 600; margin-bottom: .25rem; }
+.slip-printer .catatan, .lembar-slip .catatan { font-size: .8125rem; color: var(--teks-2); margin: .25rem 0; }
+.slip-tombol .tombol svg { width: 1.125rem; height: 1.125rem; }
+.lembar-slip .rinci-kepala { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }

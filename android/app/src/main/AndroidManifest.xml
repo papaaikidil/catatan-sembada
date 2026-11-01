@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Hanya butuh internet untuk mengirim catatan ke Google Sheet. -->
+    <!-- Internet untuk mengirim catatan ke Google Sheet. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Bluetooth untuk mencetak slip upah ke printer thermal yang sudah dipasangkan (pair). -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
     <application
         android:allowBackup="true"

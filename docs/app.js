@@ -189,7 +189,9 @@
     daftar: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
     kotak: '<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
     kalender: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
-    mata: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>'
+    mata: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+    printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>',
+    pesan: '<path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-6.2A8 8 0 1 1 21 12Z"/>'
   };
   function ikon(n, tebal) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (tebal || 2) +
@@ -1062,7 +1064,7 @@
     if (!m.hari) return '';
     return m.hari.filter(function (h) { return h.tgl <= c.hariIni && (!hanyaCatat || h.catat); }).map(isi).join('') || kosongRinci(c.p === 'bulan' ? 'Belum ada catatan.' : 'Minggu ini belum dimulai.');
   }
-  function htmlOrang(o, lipat) {
+  function htmlOrang(o, lipat, slipMinggu) {
     var ring = [o.peran, o.hariMasuk + ' hari kerja'];
     if (o.sulingan) ring.push(o.sulingan + ' sulingan');
     var isi = o.rinci ? (o.rinci.map(function (x) { return bRinci(hariPendek(x.tgl), rp(x.upah), teksPekerjaan(x)); }).join('') || kosongRinci('Tidak ada catatan.')) : '';
@@ -1073,6 +1075,7 @@
       if (o.upahLain) r.push('kerja lain ' + rp(o.upahLain));
       isi = '<div>' + esc(r.join(' · ')) + '</div>';
     }
+    if (slipMinggu) isi += '<button class="tautan tautan-slip" type="button" data-slip="' + esc(slipMinggu) + '" data-slip-nama="' + esc(o.nama) + '">' + ikon('printer') + 'Slip upah ' + esc(o.nama) + ' ›</button>';
     if (!lipat) return bRinci(o.nama, rp(o.total), gabung(ring));
     return lipatRinci(o.nama, rp(o.total), isi, gabung(ring));
   }
@@ -1360,10 +1363,248 @@
     var orang = m.orang || [];
     if (!orang.length) return '<div class="daftar-baris daftar-upah"><div class="daftar-judul">Upah per orang</div><p class="catatan">Belum ada absensi di minggu ini.</p></div>';
     var total = 0;
-    var baris = orang.map(function (o) { total += o.total || 0; return htmlOrang(o, true); }).join('');
+    var baris = orang.map(function (o) { total += o.total || 0; return htmlOrang(o, true, m.mulai); }).join('');
     return '<div class="daftar-baris daftar-upah"><div class="daftar-judul">Upah per orang (untuk gajian)' + (berjalan ? ' · sampai hari ini' : '') + '</div>' + baris +
       '<div class="baris-angka total"><span>Total</span><b>' + esc(rp(total)) + '</b></div>' +
-      '<p class="catatan">Ketuk nama untuk upah per hari. Bonus yang dicatat di Kas belum termasuk.</p></div>';
+      '<p class="catatan">Ketuk nama untuk upah per hari. Bonus yang dicatat di Kas belum termasuk.</p>' +
+      '<button class="tombol kedua penuh tombol-slip" type="button" data-slip="' + esc(m.mulai) + '">' + ikon('printer') + 'Slip upah & cetak</button></div>';
+  }
+
+  // ------------------------------------------------------------ slip upah
+  // Slip upah mingguan per orang dari data Absensi di Ringkasan. Bisa dicetak ke printer thermal Bluetooth (perintah ESC/POS):
+  // langsung dari APK Sembada (jembatan window.SembadaPrinter), lewat aplikasi RawBT, atau dikirim lewat WhatsApp.
+  // Tambahan (bonus) dan potongan (kasbon) hanya tertulis di slip, tidak disimpan ke Google Sheet.
+  var PRINTER = window.SembadaPrinter || null;
+  var APK_TERBARU = 'https://github.com/papaaikidil/catatan-sembada/releases/latest';
+  function lebarSlip() { return ambil('slipKertas', '58') === '80' ? 48 : 32; }
+  function asciiSaja(s) {
+    s = String(s === null || s === undefined ? '' : s).replace(/[\u2013\u2014]/g, '-').replace(/[\u00b7\u2022]/g, '-').replace(/\u00d7/g, 'x')
+      .replace(/[\u203a\u00bb]/g, '>').replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"');
+    if (s.normalize) s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return s.replace(/[^\x20-\x7E]/g, '?');
+  }
+  function ulang(c, n) { return n > 0 ? new Array(n + 1).join(c) : ''; }
+  function kiriKanan(a, b, W) {
+    a = asciiSaja(a); b = asciiSaja(b);
+    var ruang = W - b.length - 1;
+    if (ruang < 1) return b.slice(0, W);
+    if (a.length > ruang) a = a.slice(0, ruang);
+    return a + ulang(' ', W - a.length - b.length) + b;
+  }
+  function bungkusTeks(s, W, awal) {
+    awal = awal || '';
+    var kata = asciiSaja(s).split(/\s+/), out = [], baris = awal;
+    kata.forEach(function (k) {
+      if (!k) return;
+      while (k.length > W - awal.length) { if (baris.trim()) { out.push(baris); baris = awal; } out.push(awal + k.slice(0, W - awal.length)); k = k.slice(W - awal.length); }
+      if ((baris + (baris.trim() ? ' ' : '') + k).length > W) { out.push(baris); baris = awal + k; }
+      else baris += (baris.trim() ? ' ' : '') + k;
+    });
+    if (baris.trim()) out.push(baris);
+    return out;
+  }
+  function labelIsi(label, isi, W) { return bungkusTeks(isi, W, ulang(' ', 9)).map(function (b, i) { return i ? b : (label + ulang(' ', 7 - label.length) + ': ' + b.slice(9)); }); }
+  function rpSlip(n) { return (n < 0 ? '-Rp' : 'Rp') + ang(Math.abs(Math.round(n || 0)), 0); }
+
+  // Baris-baris satu slip: {t: teks, tengah, tebal, besar}. tambahan = {bonus, ketBonus, potong, ketPotong}.
+  function barisSlip(m, o, berjalan, tambahan, W) {
+    tambahan = tambahan || {};
+    var L = [], dash = ulang('-', W);
+    var dorong = function (t, gaya) { var x = {t: t}; if (gaya) Object.keys(gaya).forEach(function (k) { x[k] = gaya[k]; }); L.push(x); };
+    bungkusTeks(namaApp().toUpperCase(), W).forEach(function (b) { dorong(b, {tengah: true, tebal: true}); });
+    dorong('SLIP UPAH MINGGUAN', {tengah: true});
+    dorong(dash);
+    labelIsi('Nama', o.nama, W).forEach(function (b) { dorong(b, {tebal: true}); });
+    if (o.peran) labelIsi('Tim', o.peran, W).forEach(function (b) { dorong(b); });
+    labelIsi('Minggu', labelMinggu(m), W).forEach(function (b) { dorong(b); });
+    if (berjalan) dorong('(minggu berjalan, sampai ' + tglIndo(hariIni()).slice(0, 5) + ')');
+    dorong(dash);
+    if (o.rinci && o.rinci.length) {
+      o.rinci.forEach(function (x) {
+        var hari = hariPendek(x.tgl), pek = asciiSaja(teksPekerjaan(x)), nilai = x.upah ? ang(x.upah, 0) : '-';
+        var satu = hari + ' ' + pek;
+        if (satu.length <= W - nilai.length - 1) { dorong(kiriKanan(satu, nilai, W)); return; }
+        dorong(kiriKanan(hari, nilai, W));
+        bungkusTeks(pek, W, '  ').forEach(function (b) { dorong(b); });
+      });
+    } else {
+      dorong('Rincian per hari tidak tersedia');
+      dorong('untuk minggu ini.');
+      if (o.upahAbsensi) dorong(kiriKanan('Absensi', ang(o.upahAbsensi, 0), W));
+      if (o.upahSuling) dorong(kiriKanan('Suling', ang(o.upahSuling, 0), W));
+      if (o.upahLain) dorong(kiriKanan('Kerja lain', ang(o.upahLain, 0), W));
+    }
+    dorong(dash);
+    dorong(kiriKanan('Hari kerja', o.hariMasuk + ' hari', W));
+    if (o.sulingan) dorong(kiriKanan('Sulingan', ang(o.sulingan, 0) + ' kali', W));
+    dorong(kiriKanan('Total upah', rpSlip(o.total), W));
+    var bayar = o.total || 0;
+    if (tambahan.bonus > 0) { dorong(kiriKanan('Tambahan' + (tambahan.ketBonus ? ': ' + tambahan.ketBonus : ''), '+' + rpSlip(tambahan.bonus), W)); bayar += tambahan.bonus; }
+    if (tambahan.potong > 0) { dorong(kiriKanan('Potongan' + (tambahan.ketPotong ? ': ' + tambahan.ketPotong : ''), '-' + rpSlip(tambahan.potong), W)); bayar -= tambahan.potong; }
+    dorong(ulang('=', W));
+    dorong(kiriKanan('DIBAYAR', rpSlip(bayar), W), {tebal: true});
+    dorong(dash);
+    var d = new Date();
+    dorong('Dicetak ' + tglIndo(hariIni()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
+    dorong('');
+    var kol = Math.floor(W / 2), ttd = '(' + ulang('.', kol - 4) + ')';
+    dorong(' Penerima' + ulang(' ', kol - 9) + ' Pemberi');
+    dorong(''); dorong('');
+    dorong(ttd + ulang(' ', kol - ttd.length) + ttd);
+    return L;
+  }
+  // Teks pratinjau (sama persis dengan hasil cetak, rata tengah diganti spasi).
+  function teksSlip(L, W) {
+    return L.map(function (l) {
+      var t = asciiSaja(l.t);
+      if (l.tengah && t.length < W) t = ulang(' ', Math.floor((W - t.length) / 2)) + t;
+      return t;
+    }).join('\n');
+  }
+  // Perintah ESC/POS untuk printer thermal. Beberapa slip dipisah garis potong.
+  function bytesSlip(semua, W) {
+    var b = [0x1B, 0x40, 0x1B, 0x74, 0x00];
+    var tulis = function (s) { s = asciiSaja(s); for (var i = 0; i < s.length; i++) b.push(s.charCodeAt(i)); b.push(0x0A); };
+    semua.forEach(function (L, i) {
+      if (i) { b.push(0x1B, 0x61, 0, 0x1B, 0x45, 0, 0x1D, 0x21, 0); tulis(''); tulis(ulang('- ', W / 2) + ''); b.push(0x1B, 0x64, 3); }
+      L.forEach(function (l) {
+        b.push(0x1B, 0x61, l.tengah ? 1 : 0, 0x1B, 0x45, l.tebal ? 1 : 0, 0x1D, 0x21, l.besar ? 0x11 : 0);
+        tulis(l.t);
+      });
+    });
+    b.push(0x1B, 0x45, 0, 0x1D, 0x21, 0, 0x1B, 0x61, 0, 0x1B, 0x64, 4);
+    return b;
+  }
+  function base64Bytes(b) {
+    var s = '';
+    for (var i = 0; i < b.length; i += 4096) s += String.fromCharCode.apply(null, b.slice(i, i + 4096));
+    return btoa(s);
+  }
+  function noWa(nama) {
+    var k = daftarInduk('Karyawan', true).filter(function (x) { return x.nilai['Nama'] === nama; })[0];
+    var no = k ? String(k.nilai['No HP'] || '').replace(/[^0-9]/g, '') : '';
+    if (/^0/.test(no)) no = '62' + no.slice(1);
+    else if (/^8/.test(no)) no = '62' + no;
+    return no.length >= 10 ? no : '';
+  }
+  function printerStatus() { try { return JSON.parse(PRINTER.status()); } catch (e) { return {ada: false}; } }
+  function printerDaftar() { try { return JSON.parse(PRINTER.daftar()) || []; } catch (e) { return []; } }
+
+  function bukaSlip(mulai, namaAwal) {
+    var r = ambil('ringkasan', null);
+    var daftar = r && r.minggu ? r.minggu : [];
+    var idx = -1;
+    daftar.forEach(function (x, i) { if (x.mulai === mulai) idx = i; });
+    var m = daftar[idx];
+    if (!m || !(m.orang || []).length) { toast('Belum ada upah di minggu ini.'); return; }
+    var berjalan = idx === 0 && m.sampai >= hariIni();
+    var pilih = namaAwal || '';            // '' = semua orang
+    var tambah = {};
+    var div = bukaLembar('<div class="lembar-slip"><div class="rinci-kepala"><div><h2>Slip upah</h2><p class="sub">' + esc(labelMinggu(m)) +
+      (berjalan ? ' · minggu berjalan, upah sampai hari ini' : '') + '</p></div><button class="tombol-tutup" data-aksi="tutup" aria-label="Tutup">×</button></div>' +
+      '<div class="chips slip-orang"></div><div class="slip-tambahan"></div>' +
+      '<pre class="slip-pratinjau" aria-label="Pratinjau slip"></pre>' +
+      '<div class="slip-atur"><span class="label-kecil">Kertas</span><div class="chips">' + ['58', '80'].map(function (k) {
+        return '<label class="chip"><input type="radio" name="slip-kertas" value="' + k + '"' + (ambil('slipKertas', '58') === k ? ' checked' : '') + '><span>' + k + ' mm</span></label>';
+      }).join('') + '</div></div><div class="slip-printer"></div><div class="baris-tombol slip-tombol"></div></div>');
+    var q1 = function (s) { return q(div, s); };
+
+    var orangDipilih = function () { return pilih ? m.orang.filter(function (o) { return o.nama === pilih; }) : m.orang; };
+    var semuaBaris = function () {
+      var W = lebarSlip();
+      return orangDipilih().map(function (o) { return barisSlip(m, o, berjalan, pilih ? tambah : null, W); });
+    };
+    var gambarOrang = function () {
+      q1('.slip-orang').innerHTML = '<label class="chip"><input type="radio" name="slip-siapa" value=""' + (pilih ? '' : ' checked') + '><span>Semua (' + m.orang.length + ')</span></label>' +
+        m.orang.map(function (o) {
+          return '<label class="chip"><input type="radio" name="slip-siapa" value="' + esc(o.nama) + '"' + (pilih === o.nama ? ' checked' : '') + '><span>' + esc(o.nama) + '</span></label>';
+        }).join('');
+      q1('.slip-tambahan').innerHTML = pilih ? '<details class="lipat slip-bonus"' + (tambah.bonus || tambah.potong ? ' open' : '') + '><summary class="tautan">Tambahan (bonus) atau potongan (kasbon) ›</summary>' +
+        '<p class="catatan">Hanya tertulis di slip, tidak disimpan. Catat bonus dan kasbon di Kas supaya ikut dihitung.</p>' +
+        '<div class="slip-isian"><input class="masukan" inputmode="numeric" data-tambah="bonus" placeholder="Tambahan Rp" value="' + esc(tambah.bonus || '') + '">' +
+        '<input class="masukan" data-tambah="ketBonus" placeholder="Untuk apa, contoh: bonus" value="' + esc(tambah.ketBonus || '') + '">' +
+        '<input class="masukan" inputmode="numeric" data-tambah="potong" placeholder="Potongan Rp" value="' + esc(tambah.potong || '') + '">' +
+        '<input class="masukan" data-tambah="ketPotong" placeholder="Untuk apa, contoh: kasbon" value="' + esc(tambah.ketPotong || '') + '"></div></details>' : '';
+    };
+    var gambarPratinjau = function () {
+      var W = lebarSlip();
+      q1('.slip-pratinjau').textContent = semuaBaris().map(function (L) { return teksSlip(L, W); }).join('\n\n' + ulang('- ', W / 2) + '\n\n');
+      q1('.slip-pratinjau').style.setProperty('--kolom', W);
+    };
+    var gambarPrinter = function () {
+      var el = q1('.slip-printer'), tombol = '';
+      var o1 = pilih ? orangDipilih()[0] : null, wa = o1 ? noWa(o1.nama) : '';
+      if (o1) tombol += '<a class="tombol kedua" data-aksi="wa" target="_blank" rel="noopener" href="#">' + ikon('pesan') + (wa ? 'Kirim ke WA' : 'Kirim lewat WA') + '</a>';
+      if (PRINTER) {
+        var st = printerStatus();
+        var pesan = '';
+        if (!st.ada) pesan = 'HP ini tidak punya Bluetooth.';
+        else if (!st.izin) pesan = '<button class="tombol kedua penuh" data-aksi="izin">Izinkan aplikasi memakai Bluetooth</button>';
+        else if (!st.nyala) pesan = 'Bluetooth HP masih mati. Nyalakan dulu, lalu ketuk <button class="tautan" data-aksi="segar">Muat ulang printer</button>';
+        var daftarP = st.ada && st.izin && st.nyala ? printerDaftar() : [];
+        var terakhir = ambil('slipPrinter', '');
+        if (!pesan && !daftarP.length) pesan = 'Belum ada printer yang dipasangkan. Buka Pengaturan › Bluetooth di HP, pasangkan (pair) printer thermal (PIN biasanya 0000 atau 1234), lalu ketuk <button class="tautan" data-aksi="segar">Muat ulang printer</button>';
+        el.innerHTML = '<span class="label-kecil">Printer Bluetooth</span>' + (pesan ? '<p class="catatan">' + pesan + '</p>' :
+          '<select class="masukan" id="slip-pilih-printer">' + daftarP.map(function (p) {
+            return '<option value="' + esc(p.alamat) + '"' + (p.alamat === terakhir ? ' selected' : '') + '>' + esc(p.nama || p.alamat) + (p.printer ? '' : ' (bukan printer?)') + '</option>';
+          }).join('') + '</select>');
+        if (!pesan) tombol += '<button class="tombol utama" data-aksi="cetak">' + ikon('printer') + 'Cetak' + (pilih ? '' : ' semua') + '</button>';
+      } else {
+        el.innerHTML = '<p class="catatan">' + (DI_APK ? 'Untuk cetak langsung ke printer Bluetooth, pasang <a href="' + APK_TERBARU + '" target="_blank" rel="noopener">APK Sembada terbaru</a>. ' : 'Cetak langsung hanya dari APK Sembada. ') +
+          'Bisa juga lewat aplikasi <b>RawBT</b> (gratis di Play Store) yang sudah tersambung ke printer.</p>';
+        tombol += '<button class="tombol utama" data-aksi="rawbt">' + ikon('printer') + 'Cetak lewat RawBT</button>';
+      }
+      q1('.slip-tombol').innerHTML = tombol;
+      var a = q1('[data-aksi="wa"]');
+      if (a) {
+        var teks = '*Slip upah ' + asciiSaja(labelMinggu(m)) + '*\n```\n' + teksSlip(semuaBaris()[0], lebarSlip()) + '\n```';
+        a.href = 'https://wa.me/' + wa + '?text=' + encodeURIComponent(teks);
+      }
+    };
+    var gambar = function () { gambarOrang(); gambarPratinjau(); gambarPrinter(); };
+    gambar();
+
+    div.addEventListener('change', function (ev) {
+      var t = ev.target;
+      if (t.name === 'slip-siapa') { pilih = t.value; tambah = {}; gambar(); }
+      else if (t.name === 'slip-kertas') { simpan('slipKertas', t.value); gambarPratinjau(); gambarPrinter(); }
+      else if (t.id === 'slip-pilih-printer') simpan('slipPrinter', t.value);
+    });
+    div.addEventListener('input', function (ev) {
+      var k = ev.target.dataset && ev.target.dataset.tambah;
+      if (!k) return;
+      tambah[k] = /^ket/.test(k) ? ev.target.value.trim() : (angkaBulat(ev.target.value) || 0);
+      gambarPratinjau(); gambarPrinter();
+    });
+    div.addEventListener('click', function (ev) {
+      var a = ev.target.closest('[data-aksi]');
+      if (!a) return;
+      var aksi = a.dataset.aksi;
+      if (aksi === 'tutup') { div.remove(); return; }
+      if (aksi === 'wa') return;   // tautan biasa ke WhatsApp
+      if (aksi === 'segar') { gambarPrinter(); return; }
+      if (aksi === 'izin') {
+        window.__izinBluetooth = function () { if (document.body.contains(div)) gambarPrinter(); };
+        try { PRINTER.mintaIzin(); } catch (e) { toast('Tidak bisa meminta izin Bluetooth.'); }
+        return;
+      }
+      var data = base64Bytes(bytesSlip(semuaBaris(), lebarSlip()));
+      if (aksi === 'rawbt') { location.href = 'rawbt:base64,' + data; return; }
+      if (aksi === 'cetak') {
+        var pr = q1('#slip-pilih-printer');
+        if (!pr || !pr.value) { toast('Pilih printernya dulu.'); return; }
+        simpan('slipPrinter', pr.value);
+        var id = 'c' + Date.now();
+        a.disabled = true; a.textContent = 'Mencetak…';
+        window.__hasilCetak = function (idHasil, ok, pesan) {
+          if (idHasil !== id) return;
+          a.disabled = false; a.innerHTML = ikon('printer') + 'Cetak' + (pilih ? '' : ' semua');
+          toast(ok ? 'Slip sudah dikirim ke printer.' : (pesan || 'Gagal mencetak.'), ok ? 3000 : 7000);
+        };
+        try { PRINTER.cetak(pr.value, data, id); } catch (e) { window.__hasilCetak(id, false, 'Gagal mencetak: ' + e.message); }
+      }
+    });
+    return div;
   }
 
   function htmlKeterangan(m) {
@@ -3056,6 +3297,8 @@
   document.addEventListener('click', function (ev) {
     var angka = ev.target.closest('[data-angka]');
     if (angka) { bukaRincianAngka(angka.dataset.angka, angka.dataset.id, angka.dataset.jenis); return; }
+    var slip = ev.target.closest('[data-slip]');
+    if (slip) { ev.preventDefault(); bukaSlip(slip.dataset.slip, slip.dataset.slipNama || ''); return; }
     var el = ev.target.closest('[data-ke]');
     if (el) { ev.preventDefault(); location.hash = el.dataset.ke; }
   });
@@ -3098,5 +3341,5 @@
   }
 
   // Untuk pengujian otomatis.
-  window.__sembada = {upahSuling: upahSuling, susunProduksi: susunProduksi, susunAbsensi: susunAbsensi, angkaDesimal: angkaDesimal, campur: campur, teksDi: teksDi};
+  window.__sembada = {barisSlip: barisSlip, teksSlip: teksSlip, bytesSlip: bytesSlip, asciiSaja: asciiSaja, upahSuling: upahSuling, susunProduksi: susunProduksi, susunAbsensi: susunAbsensi, angkaDesimal: angkaDesimal, campur: campur, teksDi: teksDi};
 })();

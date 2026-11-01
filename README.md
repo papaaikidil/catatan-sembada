@@ -25,6 +25,10 @@ Catatan lama tidak diubah.
   dengan Dashboard (tab Pengaturan kolom B dan Dashboard kolom D). Laba usaha di peringatan bisa dihitung 1–4 minggu terakhir.
 - **Semua upah dari Absensi**: tim suling memilih 1x, 2x, atau 3x suling (jumlah sulingan dan upahnya ikut tercatat),
   atau "Kerja lain…" untuk pekerjaan dengan upah khusus. Formulir Produksi Suling tidak ditampilkan lagi supaya tidak tercatat dua kali.
+- **Slip upah mingguan** (Ringkasan › Upah per orang › "Slip upah & cetak"): per orang atau semua sekaligus, rincian per hari,
+  tambahan (bonus) dan potongan (kasbon) yang hanya tertulis di slip, kertas 58 mm atau 80 mm. Bisa dicetak langsung ke
+  printer thermal Bluetooth dari APK (ESC/POS lewat Bluetooth klasik; printer dipasangkan dulu di Pengaturan Bluetooth HP),
+  lewat aplikasi RawBT di browser, atau dikirim lewat WhatsApp ke nomor HP karyawan.
 - **Minyak dari sisa saringan** (endapan, kain saring, wadah): dicatat di Saring Minyak dengan jumlah sulingan 0.
   Kondisi bahan & alat boleh kosong, keterangan wajib. Ikut menambah stok dan minyak dihasilkan, tidak menambah sulingan.
 - **Stok minyak**: hasil timbang jadi patokan; saring dan penjualan yang dicatat sesudah timbangan (termasuk di hari yang sama)
@@ -46,7 +50,7 @@ Catatan lama tidak diubah.
 | `apps-script/api.gs` | API versi 7. Ditempel di file "api" pada project Apps Script "Sembada Sheet". |
 | `apps-script/Kode.gs`, `urut_otomatis.gs`, `ubah_kondisi_bahan.gs` | Cadangan file Apps Script lain di project yang sama (form, pengurutan otomatis). |
 | `android/` | Pembungkus APK Android. Isinya hanya membuka aplikasi web, jadi perbaikan aplikasi tidak perlu pasang ulang APK. |
-| `tes/` | Uji otomatis: `node tes/api7_test.js` (logika API) dan `node tes/ui7_test.js` (alur aplikasi di browser), `node tes/lebar_test.js` (tata letak tablet, landscape, dan HP), dan `node tes/sw_test.js` (buka cepat & versi baru). |
+| `tes/` | Uji otomatis: `node tes/api7_test.js` (logika API) dan `node tes/ui7_test.js` (alur aplikasi di browser), `node tes/lebar_test.js` (tata letak tablet, landscape, dan HP), `node tes/sw_test.js` (buka cepat & versi baru), dan `node tes/slip_test.js` (slip upah & cetak). |
 
 ## Memperbarui
 
