@@ -627,3 +627,24 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 .slip-wa:empty { display: none; }
 .slip-wa .label-kecil { display: block; font-size: .8125rem; color: var(--teks-2); font-weight: 600; margin-bottom: .375rem; }
 .slip-wa .tombol svg { width: 1.125rem; height: 1.125rem; }
+
+/* Catatan bon */
+.bon-ringkas { grid-template-columns: 1fr 1fr; margin-bottom: .75rem; }
+.angka.bon-arah { border: 2px solid transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.angka.bon-arah.aktif { border-color: var(--aksen); background: var(--aksen-muda); }
+.angka.bon-arah small { display: block; font-size: .6875rem; color: var(--teks-2); margin-top: .125rem; }
+.bon-saring { margin: .875rem 0 .75rem; }
+.bon-saring .chip span { min-height: 2.375rem; padding: .375rem .75rem; font-size: .875rem; }
+.bon-orang h3 small b { color: var(--teks); }
+.baris-bon .chip-status { margin-left: .25rem; }
+.baris-bon .panah { color: var(--teks-2); margin-left: .125rem; }
+.baris-bon .teks span { display: block; font-size: .8125rem; }
+.baris-bon .teks .merah { color: var(--merah); font-weight: 600; }
+.baris-bon .tombol-lunas { min-height: 2.5rem; padding: .375rem .75rem; font-size: .875rem; flex: none; }
+.lembar .daftar-judul { margin-top: .5rem; }
+.lembar .baris-entri .tombol-ikon { background: var(--latar); color: var(--merah); width: 2.25rem; height: 2.25rem; }
+.lembar .baris-tombol .tombol svg { width: 1.125rem; height: 1.125rem; }
+@media (min-width: 760px) {
+  #bon-tambah { width: auto; min-width: 16rem; padding-left: 1.5rem; padding-right: 1.5rem; }
+  .bon-ringkas { max-width: 48rem; }
+}

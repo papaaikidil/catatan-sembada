@@ -38,6 +38,8 @@ var SH_PIN_LAMA = 'Pengguna';
 var SH_AKUN = 'Akun Aplikasi';
 var SH_APLIKASI = 'Pengaturan Aplikasi';
 var SH_STOK = 'Stok Minyak';
+var SH_BON = 'Bon';
+var SH_BAYAR_BON = 'Bayar Bon';
 
 var URUTAN_TAB = ['Ambil Bahan', 'Produksi Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
 var KEPALA_ABSENSI = ['Hari', 'Timestamp', 'Tanggal', 'Nama', 'Tim', 'Pekerjaan', 'Alat', 'Jumlah sulingan', 'Upah (Rp)',
@@ -48,6 +50,13 @@ var KEPALA_AKUN = ['Nama pengguna', 'Nama', 'Peran', 'Boleh mengisi', 'Boleh men
   'Sandi (terenkripsi)', 'Garam', 'Versi sesi', 'Terakhir masuk'];
 var KEPALA_APLIKASI = ['Kunci', 'Nilai', 'Keterangan'];
 var KEPALA_STOK = ['Timestamp', 'Tanggal', 'Stok ditimbang (kg)', 'Stok menurut catatan (kg)', 'Selisih (kg)', 'Keterangan', 'Diisi oleh'];
+// Catatan bon. Arah: "Orang ngebon" = orang utang ke kita (kasbon karyawan, dll.), "Kita ngebon" = kita utang ke orang/toko.
+// Dibayar, Sisa, Status, dan Tanggal lunas dihitung ulang dari tab Bayar Bon setiap ada perubahan.
+var KEPALA_BON = ['ID', 'Timestamp', 'Tanggal', 'Arah', 'Nama', 'Untuk', 'Jumlah (Rp)', 'Jatuh tempo', 'Keterangan', 'Diisi oleh',
+  'Dibayar (Rp)', 'Sisa (Rp)', 'Status', 'Tanggal lunas'];
+var KEPALA_BAYAR_BON = ['ID', 'Timestamp', 'Tanggal', 'ID bon', 'Nama', 'Jumlah (Rp)', 'Cara', 'Keterangan', 'Diisi oleh'];
+var ARAH_BON = ['Orang ngebon', 'Kita ngebon'];
+var CARA_BAYAR_BON = ['Tunai', 'Transfer', 'Potong upah', 'Barang'];
 var PERAN_PENGGUNA = ['Pemilik', 'Pencatat', 'Mandor', 'Lainnya'];
 var JENIS_KERJA = ['Libur', 'Pengumpulan', 'Penyulingan', 'Kerja harian', 'Kerja lain'];
 var DAFTAR_PILIHAN = ['Daerah', 'Kondisi bahan', 'Kondisi alat', 'Pembeli', 'Status bayar', 'Kerja lain untuk'];
@@ -88,7 +97,7 @@ function keluaranJson_(o) {
 }
 
 // Aksi yang hanya membaca. Aksi lain (simpan, ubah, hapus, kelola, timbang, batas, ...) membuang cache ringkasan.
-var AKSI_BACA = {masuk: 1, keluar: 1, config: 1, logo: 1, terbaru: 1, ringkasan: 1, stok: 1, batas: 1, penggunaDaftar: 1};
+var AKSI_BACA = {masuk: 1, keluar: 1, config: 1, logo: 1, terbaru: 1, ringkasan: 1, stok: 1, batas: 1, penggunaDaftar: 1, bon: 1};
 
 function layani_(ss, req) {
   var hasil = layaniInti_(ss, req);
@@ -127,6 +136,10 @@ function layaniInti_(ss, req) {
     case 'stok': return stokUntukAplikasi_(ss, akses);
     case 'stokCatat': return stokCatat_(ss, akses, req);
     case 'stokUbah': return stokUbah_(ss, akses, req);
+    case 'bon': return bonDaftar_(ss, akses);
+    case 'bonSimpan': return bonSimpan_(ss, akses, req);
+    case 'bonBayar': return bonBayar_(ss, akses, req);
+    case 'bonHapus': return bonHapus_(ss, akses, req);
     case 'batas': return batas_(ss, akses);
     case 'batasSimpan': return denganKunci_(function () { return batasSimpan_(ss, akses, req); });
   }
@@ -2151,6 +2164,205 @@ function stokUbah_(ss, akses, req) {
     sh.getRange(r, k('Tanggal') + 1).setNumberFormat('dd/MM/yyyy');
     catatLog_(ss, 'Ubah timbang', SH_STOK, r, teksLama, JSON.stringify({tanggal: tgl, kg: bulat_(kg, 2), ket: teks_(req.keterangan)}), akses.nama);
     return {ok: true, selisih: bulat_(kg - catatan, 2), catatan: catatan, stok: hitungStok_(ss)};
+  });
+}
+
+// ---------------------------------------------------------------- CATATAN BON
+// Tab "Bon" (satu baris per bon) dan "Bayar Bon" (satu baris per pembayaran/cicilan) dibuat otomatis saat bon pertama dicatat.
+// Status dihitung dari pembayaran: Belum lunas, Dicicil, atau Lunas. Penjualan dengan Status bayar selain Lunas ikut
+// ditampilkan sebagai "orang ngebon" supaya semua yang belum dibayar ada di satu tempat.
+// Bon tidak otomatis masuk Kas maupun Rekap (kasbon bukan biaya).
+
+function bacaTabel_(sh) {
+  if (!sh || sh.getLastRow() < 2) return [];
+  var kepala = kepalaSheet_(sh);
+  return sh.getRange(2, 1, sh.getLastRow() - 1, kepala.length).getValues().map(function (r, i) {
+    var v = {};
+    kepala.forEach(function (h, j) { if (h) v[h] = r[j]; });
+    return {baris: i + 2, v: v};
+  }).filter(function (x) { return teks_(x.v['ID']); });
+}
+
+function bacaBon_(ss) {
+  var bon = bacaTabel_(ss.getSheetByName(SH_BON)).map(function (x) {
+    var v = x.v;
+    return {baris: x.baris, id: teks_(v['ID']), w: waktuMs_(v['Timestamp']), tgl: tglKunci_(v['Tanggal']), arah: teks_(v['Arah']),
+      nama: teks_(v['Nama']), untuk: teks_(v['Untuk']), jumlah: angka_(v['Jumlah (Rp)']), tempo: tglKunci_(v['Jatuh tempo']),
+      ket: teks_(v['Keterangan']), oleh: teks_(v['Diisi oleh']), bayar: []};
+  });
+  var per = {};
+  bon.forEach(function (b) { per[b.id] = b; });
+  bacaTabel_(ss.getSheetByName(SH_BAYAR_BON)).forEach(function (x) {
+    var v = x.v, b = per[teks_(v['ID bon'])];
+    if (!b) return;
+    b.bayar.push({baris: x.baris, id: teks_(v['ID']), w: waktuMs_(v['Timestamp']), tgl: tglKunci_(v['Tanggal']), jumlah: angka_(v['Jumlah (Rp)']),
+      cara: teks_(v['Cara']), ket: teks_(v['Keterangan']), oleh: teks_(v['Diisi oleh'])});
+  });
+  bon.forEach(hitungBon_);
+  return bon;
+}
+
+function hitungBon_(b) {
+  b.bayar.sort(function (p, q) { return p.tgl < q.tgl ? -1 : p.tgl > q.tgl ? 1 : p.w - q.w; });
+  b.dibayar = b.bayar.reduce(function (t, p) { return t + p.jumlah; }, 0);
+  b.sisa = Math.max(0, b.jumlah - b.dibayar);
+  b.status = b.sisa <= 0 ? 'Lunas' : (b.dibayar > 0 ? 'Dicicil' : 'Belum lunas');
+  b.tglLunas = b.status === 'Lunas' && b.bayar.length ? b.bayar[b.bayar.length - 1].tgl : '';
+  return b;
+}
+
+// Menulis kolom hasil hitungan (Dibayar, Sisa, Status, Tanggal lunas) ke baris bon.
+function tulisHitunganBon_(sh, b) {
+  var kepala = kepalaSheet_(sh);
+  var isi = {'Dibayar (Rp)': b.dibayar, 'Sisa (Rp)': b.sisa, 'Status': b.status, 'Tanggal lunas': b.tglLunas ? tglDariIso_(b.tglLunas) : ''};
+  Object.keys(isi).forEach(function (h) {
+    var j = kepala.indexOf(h);
+    if (j >= 0) sh.getRange(b.baris, j + 1).setValue(isi[h]);
+  });
+}
+
+function formatBarisBon_(sh, r, kepala) {
+  kepala.forEach(function (h, j) {
+    var f = h === 'Timestamp' ? 'dd/MM/yyyy HH:mm' : (/^Tanggal|Jatuh tempo/.test(h) ? 'dd/MM/yyyy' : (/\(Rp\)$/.test(h) ? '"Rp"#,##0' : ''));
+    if (f) sh.getRange(r, j + 1).setNumberFormat(f);
+  });
+  sh.getRange(r, 1, 1, kepala.length).setFontWeight('normal');
+}
+
+function siapkanBon_(ss, nama, kepala) {
+  var ada = ss.getSheetByName(nama);
+  var sh = siapkanSheet_(ss, nama, kepala);
+  if (!ada) sh.getRange(1, 1, 1, kepala.length).setFontWeight('bold');
+  return sh;
+}
+
+function bonUntukAplikasi_(b) {
+  return {id: b.id, tgl: b.tgl, arah: b.arah, nama: b.nama, untuk: b.untuk, jumlah: b.jumlah, tempo: b.tempo, ket: b.ket, oleh: b.oleh,
+    dibayar: b.dibayar, sisa: b.sisa, status: b.status, tglLunas: b.tglLunas,
+    bayar: b.bayar.map(function (p) { return {id: p.id, tgl: p.tgl, jumlah: p.jumlah, cara: p.cara, ket: p.ket, oleh: p.oleh}; })};
+}
+
+function bonDaftar_(ss, akses) {
+  if (!akses.admin) return {ok: false, galat: 'Catatan bon hanya untuk pemilik atau pengguna yang boleh mengatur.'};
+  var bon = bacaBon_(ss).map(bonUntukAplikasi_);
+  // Penjualan yang belum lunas (dari tab Penjualan). id sama dengan Riwayat, jadi bisa ditandai lunas lewat aksi 'ubah'.
+  var jual = [];
+  var sh = ss.getSheetByName('Penjualan');
+  if (sh && sh.getLastRow() >= 2) {
+    var kepala = kepalaSheet_(sh), nIsi = kolomForm_(sh).kepala.length;
+    var k = function (h) { return kepala.indexOf(h); };
+    sh.getRange(2, 1, sh.getLastRow() - 1, kepala.length).getValues().forEach(function (r, i) {
+      var st = k('Status bayar') >= 0 ? teks_(r[k('Status bayar')]) : '';
+      if (!st || st === 'Lunas' || !tglKunci_(r[k('Tanggal')])) return;
+      jual.push({id: 'r' + (i + 2) + '|' + tandaBaris_(r.slice(1, 1 + nIsi)), tgl: tglKunci_(r[k('Tanggal')]), nama: teks_(r[k('Pembeli')]),
+        untuk: [teks_(r[k('Jumlah')]).replace('.', ','), teks_(r[k('Satuan')]), teks_(r[k('Produk')])].filter(function (x) { return x; }).join(' '),
+        jumlah: angka_(r[k('Total (Rp)')]), status: st, ket: k('Keterangan') >= 0 ? teks_(r[k('Keterangan')]) : ''});
+    });
+  }
+  return {ok: true, bon: bon, jual: jual, arah: ARAH_BON, cara: CARA_BAYAR_BON};
+}
+
+function bonSimpan_(ss, akses, req) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa mencatat bon.'};
+  var tgl = teks_(req.tanggal), tempo = teks_(req.tempo), arah = teks_(req.arah), nama = teks_(req.nama), untuk = teks_(req.untuk);
+  var jumlah = typeof req.jumlah === 'number' ? req.jumlah : angka_(req.jumlah);
+  if (ARAH_BON.indexOf(arah) < 0) return {ok: false, galat: 'Pilih: orang ngebon ke kita, atau kita ngebon.'};
+  if (!nama) return {ok: false, galat: 'Nama wajib diisi.'};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal wajib diisi.'};
+  if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
+  if (tempo && !/^\d{4}-\d{2}-\d{2}$/.test(tempo)) return {ok: false, galat: 'Jatuh tempo tidak valid.'};
+  if (!(jumlah > 0) || jumlah > 1e10) return {ok: false, galat: 'Jumlah bon wajib diisi.'};
+  return denganKunci_(function () {
+    var sh = siapkanBon_(ss, SH_BON, KEPALA_BON);
+    var kepala = kepalaSheet_(sh);
+    var semua = bacaBon_(ss);
+    var lama = req.id ? semua.filter(function (b) { return b.id === teks_(req.id); })[0] : null;
+    if (req.id && !lama) return {ok: false, kode: 'BERUBAH', galat: 'Bon ini sudah terhapus. Muat ulang, lalu coba lagi.'};
+    // Kirim ulang dari HP (sinyal putus) tidak membuat bon dobel.
+    if (!lama && req.idBaru && semua.some(function (b) { return b.id === teks_(req.idBaru); })) return bonDaftar_(ss, akses);
+    var isi = {'Tanggal': tglDariIso_(tgl), 'Arah': arah, 'Nama': nama, 'Untuk': untuk, 'Jumlah (Rp)': Math.round(jumlah),
+      'Jatuh tempo': tempo ? tglDariIso_(tempo) : '', 'Keterangan': teks_(req.keterangan)};
+    var r;
+    if (lama) {
+      r = lama.baris;
+      var baris = sh.getRange(r, 1, 1, kepala.length).getValues()[0];
+      var teksLama = JSON.stringify(bonUntukAplikasi_(lama));
+      Object.keys(isi).forEach(function (h) { var j = kepala.indexOf(h); if (j >= 0) baris[j] = isi[h]; });
+      var jOleh = kepala.indexOf('Diisi oleh');
+      if (jOleh >= 0) {
+        var oleh = String(baris[jOleh] || '').replace(/ \(diubah .*\)$/, '');
+        baris[jOleh] = oleh + (oleh === akses.nama ? '' : ' (diubah ' + akses.nama + ')');
+      }
+      sh.getRange(r, 1, 1, kepala.length).setValues([baris]);
+      lama.jumlah = Math.round(jumlah);
+      hitungBon_(lama);
+      tulisHitunganBon_(sh, lama);
+      catatLog_(ss, 'Ubah bon', SH_BON, r, teksLama, JSON.stringify(isi), akses.nama);
+    } else {
+      isi['ID'] = teks_(req.idBaru) || idBaru_();
+      isi['Timestamp'] = new Date();
+      isi['Diisi oleh'] = akses.nama;
+      isi['Dibayar (Rp)'] = 0; isi['Sisa (Rp)'] = Math.round(jumlah); isi['Status'] = 'Belum lunas'; isi['Tanggal lunas'] = '';
+      sh.insertRowBefore(2);
+      sh.getRange(2, 1, 1, kepala.length).setValues([kepala.map(function (h) { return isi[h] === undefined ? '' : isi[h]; })]);
+      formatBarisBon_(sh, 2, kepala);
+      catatLog_(ss, 'Tambah bon', SH_BON, 2, '', JSON.stringify({arah: arah, nama: nama, untuk: untuk, jumlah: Math.round(jumlah), tanggal: tgl}), akses.nama);
+    }
+    return bonDaftar_(ss, akses);
+  });
+}
+
+function bonBayar_(ss, akses, req) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa mencatat pembayaran bon.'};
+  var tgl = teks_(req.tanggal), cara = teks_(req.cara) || 'Tunai';
+  var jumlah = typeof req.jumlah === 'number' ? req.jumlah : angka_(req.jumlah);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tgl)) return {ok: false, galat: 'Tanggal bayar wajib diisi.'};
+  if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
+  if (!(jumlah > 0)) return {ok: false, galat: 'Jumlah bayar wajib diisi.'};
+  return denganKunci_(function () {
+    var semua = bacaBon_(ss);
+    var b = semua.filter(function (x) { return x.id === teks_(req.idBon); })[0];
+    if (!b) return {ok: false, kode: 'BERUBAH', galat: 'Bon ini sudah terhapus. Muat ulang, lalu coba lagi.'};
+    if (req.idBaru && b.bayar.some(function (p) { return p.id === teks_(req.idBaru); })) return bonDaftar_(ss, akses);
+    if (Math.round(jumlah) > b.sisa) return {ok: false, galat: 'Lebih dari sisa bon (' + rpTeks_(b.sisa) + ').'};
+    var sh = siapkanBon_(ss, SH_BAYAR_BON, KEPALA_BAYAR_BON);
+    var kepala = kepalaSheet_(sh);
+    var isi = {'ID': teks_(req.idBaru) || idBaru_(), 'Timestamp': new Date(), 'Tanggal': tglDariIso_(tgl), 'ID bon': b.id, 'Nama': b.nama,
+      'Jumlah (Rp)': Math.round(jumlah), 'Cara': cara, 'Keterangan': teks_(req.keterangan), 'Diisi oleh': akses.nama};
+    sh.insertRowBefore(2);
+    sh.getRange(2, 1, 1, kepala.length).setValues([kepala.map(function (h) { return isi[h] === undefined ? '' : isi[h]; })]);
+    formatBarisBon_(sh, 2, kepala);
+    b.bayar.push({id: isi['ID'], w: Date.now(), tgl: tgl, jumlah: Math.round(jumlah), cara: cara});
+    hitungBon_(b);
+    tulisHitunganBon_(ss.getSheetByName(SH_BON), b);
+    catatLog_(ss, 'Bayar bon', SH_BAYAR_BON, 2, '', JSON.stringify({nama: b.nama, untuk: b.untuk, jumlah: Math.round(jumlah), cara: cara, tanggal: tgl, sisa: b.sisa}), akses.nama);
+    return bonDaftar_(ss, akses);
+  });
+}
+
+// Menghapus bon (beserta semua pembayarannya) atau satu pembayaran. Isinya tetap tercatat di Log Aplikasi.
+function bonHapus_(ss, akses, req) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa menghapus bon.'};
+  return denganKunci_(function () {
+    var semua = bacaBon_(ss);
+    var shB = ss.getSheetByName(SH_BON), shP = ss.getSheetByName(SH_BAYAR_BON);
+    if (req.jenis === 'bayar') {
+      var b = null, p = null;
+      semua.forEach(function (x) { x.bayar.forEach(function (y) { if (y.id === teks_(req.id)) { b = x; p = y; } }); });
+      if (!p) return {ok: false, kode: 'BERUBAH', galat: 'Pembayaran ini sudah terhapus. Muat ulang, lalu coba lagi.'};
+      shP.deleteRow(p.baris);
+      b.bayar = b.bayar.filter(function (y) { return y !== p; });
+      hitungBon_(b);
+      tulisHitunganBon_(shB, b);
+      catatLog_(ss, 'Hapus bayar bon', SH_BAYAR_BON, p.baris, JSON.stringify({nama: b.nama, untuk: b.untuk, jumlah: p.jumlah, cara: p.cara, tanggal: p.tgl}), '', akses.nama);
+      return bonDaftar_(ss, akses);
+    }
+    var bon = semua.filter(function (x) { return x.id === teks_(req.id); })[0];
+    if (!bon) return {ok: false, kode: 'BERUBAH', galat: 'Bon ini sudah terhapus. Muat ulang, lalu coba lagi.'};
+    bon.bayar.map(function (y) { return y.baris; }).sort(function (a, c) { return c - a; }).forEach(function (r) { shP.deleteRow(r); });
+    shB.deleteRow(bon.baris);
+    catatLog_(ss, 'Hapus bon', SH_BON, bon.baris, JSON.stringify(bonUntukAplikasi_(bon)), '', akses.nama);
+    return bonDaftar_(ss, akses);
   });
 }
 

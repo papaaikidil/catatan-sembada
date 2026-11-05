@@ -190,6 +190,7 @@
     kotak: '<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
     kalender: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
     mata: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+    bon: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2Z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>',
     pesan: '<path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-6.2A8 8 0 1 1 21 12Z"/>'
   };
@@ -812,7 +813,7 @@
 
   function keluar(pesan, kabariServer) {
     if (kabariServer && sesi) panggil('keluar', {}).catch(function () { /* abaikan */ });
-    sesi = null; buang('sesi'); buang('ringkasan'); buangAwalan('terbaru.');
+    sesi = null; buang('sesi'); buang('ringkasan'); buang('bon'); buangAwalan('terbaru.');
     drafTampilan = null;
     terapkanTampilan();
     layarMasuk(pesan);
@@ -892,12 +893,17 @@
       return '<a class="tombol-catatan" href="#/isi/' + f.kunci + '"><span class="lingkar">' + ikon(f.ikon) + '</span>' +
         '<span class="teks-tombol"><b>' + esc(m.label) + '</b><small>' + esc(f.ket) + '</small></span></a>';
     }).join('');
+    if (admin()) {
+      var nBon = jumlahBonTerbuka();
+      tombol += '<a class="tombol-catatan tombol-bon" href="#/bon"><span class="lingkar">' + ikon('bon') + '</span>' +
+        '<span class="teks-tombol"><b>Catatan bon</b><small>' + (nBon ? nBon + ' belum lunas' : 'Kasbon & utang, sudah dibayar atau belum') + '</small></span></a>';
+    }
     var adaRingkas = admin() && t.ringkas !== false;
     // Di layar lebar: ringkasan minggu di kiri, stok & tombol catatan di kanan (lihat .tata-beranda di style.css).
     var isi = '<div class="tata-beranda' + (adaRingkas ? ' ada-ringkas' : '') + '"><div id="kotak-status">' + htmlStatus() + '</div>';
     if (adaRingkas) isi += '<div id="kotak-ringkas">' + htmlRingkasMini(ambil('ringkasan', null)) + '</div>';
     isi += '<section class="bagian-catat"><div class="judul-bagian">Isi catatan</div>' +
-      (menu.length ? '<div class="grid-catatan k' + kolom + '">' + tombol + '</div>' : '<div class="kosong">Akun ini belum diberi akses ke catatan mana pun.</div>') +
+      (tombol ? '<div class="grid-catatan k' + kolom + '">' + tombol + '</div>' : '<div class="kosong">Akun ini belum diberi akses ke catatan mana pun.</div>') +
       '</section></div>';
     kerangka(namaApp(), 'Masuk sebagai ' + (akses().nama || ''), isi, {aktif: 'beranda'});
     if (!admin() || t.ringkas === false) return;
@@ -1532,7 +1538,8 @@
           return '<label class="chip"><input type="radio" name="slip-siapa" value="' + esc(o.nama) + '"' + (pilih === o.nama ? ' checked' : '') + '><span>' + esc(o.nama) + '</span></label>';
         }).join('');
       q1('.slip-tambahan').innerHTML = pilih ? '<details class="lipat slip-bonus"' + (tambah.bonus || tambah.potong ? ' open' : '') + '><summary class="tautan">Tambahan (bonus) atau potongan (kasbon) ›</summary>' +
-        '<p class="catatan">Hanya tertulis di slip, tidak disimpan. Catat bonus dan kasbon di Kas supaya ikut dihitung.</p>' +
+        '<p class="catatan">Hanya tertulis di slip, tidak disimpan. Potongan kasbon catat sebagai pembayaran di Catatan bon (cara: Potong upah).</p>' +
+        (sisaKasbon(pilih) ? '<p class="catatan"><b>' + esc(pilih) + ' masih punya bon ' + esc(rp(sisaKasbon(pilih))) + '</b> yang belum lunas. <a href="#/bon">Buka Catatan bon ›</a></p>' : '') +
         '<div class="slip-isian"><input class="masukan" inputmode="numeric" data-tambah="bonus" placeholder="Tambahan Rp" value="' + esc(tambah.bonus || '') + '">' +
         '<input class="masukan" data-tambah="ketBonus" placeholder="Untuk apa, contoh: bonus" value="' + esc(tambah.ketBonus || '') + '">' +
         '<input class="masukan" inputmode="numeric" data-tambah="potong" placeholder="Potongan Rp" value="' + esc(tambah.potong || '') + '">' +
@@ -1890,7 +1897,7 @@
     var isi = '';
     if (b.j === 'tanggal') {
       var awal = d !== undefined ? d : (wajib ? hariIni() : '');
-      isi = '<input class="masukan" type="date" name="' + id + '" value="' + esc(awal) + '" max="' + batasTanggal() + '">';
+      isi = '<input class="masukan" type="date" name="' + id + '" value="' + esc(awal) + '"' + (b.tanpaBatas ? '' : ' max="' + batasTanggal() + '"') + '>';
     } else if (b.j === 'pilih' || b.j === 'centang') {
       isi = htmlChips(b, id, d);
     } else if (b.j === 'daftar') {
@@ -1906,7 +1913,8 @@
     } else if (b.j === 'desimal') {
       isi = '<input class="masukan" type="text" inputmode="decimal" name="' + id + '" value="' + esc(d === undefined ? '' : d) + '">';
     } else if (b.j === 'teks') {
-      isi = '<input class="masukan" type="text" name="' + id + '" value="' + esc(d || '') + '" autocomplete="off">';
+      isi = '<input class="masukan" type="text" name="' + id + '" value="' + esc(d || '') + '" autocomplete="off"' + (b.saran ? ' list="' + id + '_saran"' : '') + '>' +
+        (b.saran ? '<datalist id="' + id + '_saran">' + b.saran.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' : '');
     } else if (b.j === 'sandi') {
       isi = '<input class="masukan" type="' + (b.tipe || 'text') + '" name="' + id + '" value="' + esc(d || '') + '" autocomplete="new-password" autocapitalize="none" spellcheck="false">';
     } else if (b.j === 'paragraf') {
@@ -2126,7 +2134,7 @@
         if (isNaN(y)) { salah.push([b.h, 'Tulis angka, contoh 3,28.']); return; }
         nilai[b.h] = y;
       } else if (b.j === 'tanggal') {
-        if (v > batasTanggal()) { salah.push([b.h, 'Tanggal paling jauh ' + MAKS_HARI_DEPAN + ' hari dari hari ini.']); return; }
+        if (!b.tanpaBatas && v > batasTanggal()) { salah.push([b.h, 'Tanggal paling jauh ' + MAKS_HARI_DEPAN + ' hari dari hari ini.']); return; }
         nilai[b.h] = v;
       } else if (b.j === 'sandi') {
         nilai[b.h] = v;
@@ -2621,6 +2629,275 @@
         antrian = antrian.filter(function (a) { return a.id !== h.dataset.hapusAntrian; });
         simpanAntrian(); layarAntrian();
       }
+    });
+  }
+
+  // ------------------------------------------------------------ layar: catatan bon
+  // Dua arah: "Orang ngebon" (orang utang ke kita: kasbon karyawan, pinjaman) dan "Kita ngebon" (kita utang ke toko/orang).
+  // Pembayaran bisa dicicil; status Belum lunas / Dicicil / Lunas dihitung di API dari tab Bayar Bon.
+  // Penjualan dengan status bayar belum lunas ikut tampil di "Orang ngebon" dan bisa langsung ditandai lunas.
+  var LABEL_ARAH = {'Orang ngebon': 'Orang ngebon ke kita', 'Kita ngebon': 'Kita ngebon ke orang'};
+  var KET_ARAH = {'Orang ngebon': 'Kasbon karyawan, pinjaman, atau yang belum bayar ke kita', 'Kita ngebon': 'Utang kita ke toko, pemasok, atau orang lain'};
+  function jumlahBonTerbuka() {
+    var d = ambil('bon', null);
+    if (!d || !d.bon) return 0;
+    return d.bon.filter(function (b) { return b.sisa > 0; }).length + (d.jual || []).length;
+  }
+  function sisaKasbon(nama) {
+    var d = ambil('bon', null);
+    if (!d || !d.bon || !nama) return 0;
+    return d.bon.filter(function (b) { return b.arah === 'Orang ngebon' && b.nama === nama && b.sisa > 0; }).reduce(function (t, b) { return t + b.sisa; }, 0);
+  }
+  function chipStatusBon(st) {
+    var k = st === 'Lunas' ? 'aman' : (st === 'Dicicil' ? 'baca' : 'perlu');
+    return '<span class="chip-status ' + k + '">' + esc(st) + '</span>';
+  }
+
+  function layarBon() {
+    if (!admin()) { location.hash = '#/'; return; }
+    var data = ambil('bon', null);
+    var arah = ambil('bonArah', 'Orang ngebon'), saring = ambil('bonSaring', 'belum');
+    if (!LABEL_ARAH[arah]) arah = 'Orang ngebon';
+    kerangka('Catatan bon', 'Kasbon, utang, dan yang belum dibayar', '<div id="isi-bon">' + (data ? '' : '<div class="memuat">Memuat…</div>') + '</div>',
+      {kembali: '#/', aktif: 'beranda', muat: true});
+    var el = document.getElementById('isi-bon');
+
+    var gambar = function () {
+      if (!data) return;
+      var bon = data.bon || [], jual = data.jual || [];
+      var ringkas = function (a) {
+        var terbuka = bon.filter(function (b) { return b.arah === a && b.sisa > 0; });
+        var total = terbuka.reduce(function (t, b) { return t + b.sisa; }, 0);
+        var orang = {};
+        terbuka.forEach(function (b) { orang[b.nama] = 1; });
+        var tJual = a === 'Orang ngebon' ? jual.reduce(function (t, j) { return t + j.jumlah; }, 0) : 0;
+        var bagian = [];
+        if (terbuka.length) bagian.push(terbuka.length + ' bon · ' + Object.keys(orang).length + ' orang');
+        if (jual.length && a === 'Orang ngebon') bagian.push(jual.length + ' penjualan belum dibayar');
+        var ket = bagian.length ? bagian.join(' · ') : 'Tidak ada yang belum lunas';
+        return '<button type="button" class="angka bon-arah' + (arah === a ? ' aktif' : '') + '" data-arah="' + esc(a) + '"><span>' + esc(LABEL_ARAH[a]) + '</span>' +
+          '<b class="' + (total + tJual > 0 ? (a === 'Kita ngebon' ? 'minus' : '') : '') + '">' + esc(rp(total + tJual)) + '</b><small>' + esc(ket) + '</small></button>';
+      };
+      var dipilih = bon.filter(function (b) { return b.arah === arah && (saring === 'semua' || (saring === 'lunas' ? b.sisa <= 0 : b.sisa > 0)); });
+      var nBelum = bon.filter(function (b) { return b.arah === arah && b.sisa > 0; }).length, nLunas = bon.filter(function (b) { return b.arah === arah && b.sisa <= 0; }).length;
+      // Kelompok per nama: yang belum lunas diurut dari sisa terbesar, yang lunas dari yang terbaru.
+      var grup = {}, urut = [];
+      dipilih.forEach(function (b) { if (!grup[b.nama]) { grup[b.nama] = []; urut.push(b.nama); } grup[b.nama].push(b); });
+      var sisaNama = function (n) { return grup[n].reduce(function (t, b) { return t + b.sisa; }, 0); };
+      var terakhir = function (n) { return grup[n].reduce(function (t, b) { return b.tgl > t ? b.tgl : t; }, ''); };
+      urut.sort(function (p, q) { return saring === 'lunas' ? (terakhir(q) < terakhir(p) ? -1 : 1) : (sisaNama(q) - sisaNama(p) || (p < q ? -1 : 1)); });
+      var hari = hariIni();
+      var kartuNama = urut.map(function (n) {
+        var daftar = grup[n].sort(function (p, q) { return p.tgl < q.tgl ? -1 : p.tgl > q.tgl ? 1 : 0; });
+        var sisa = sisaNama(n), total = daftar.reduce(function (t, b) { return t + b.jumlah; }, 0);
+        return '<div class="kartu entri bon-orang"><h3><span>' + esc(n) + '</span><small>' + (sisa > 0 ? 'sisa <b>' + esc(rp(sisa)) + '</b>' : 'lunas ' + esc(rp(total))) + '</small></h3>' +
+          daftar.map(function (b) {
+            var lewat = b.sisa > 0 && b.tempo && b.tempo < hari;
+            var rinci = [hariPendek(b.tgl), rp(b.jumlah)];
+            if (b.status === 'Dicicil') rinci.push('dibayar ' + rp(b.dibayar) + ', sisa ' + rp(b.sisa));
+            if (b.status === 'Lunas' && b.tglLunas) rinci.push('lunas ' + tglIndo(b.tglLunas).slice(0, 5));
+            if (b.sisa > 0 && b.tempo) rinci.push((lewat ? 'lewat jatuh tempo ' : 'jatuh tempo ') + tglIndo(b.tempo).slice(0, 5));
+            return '<div class="baris-entri baris-bon" data-bon="' + esc(b.id) + '" role="button" tabindex="0"><div class="teks"><b>' + esc(b.untuk || 'Bon') + '</b>' +
+              '<span class="' + (lewat ? 'merah' : 'redup') + '">' + esc(rinci.join(' · ')) + '</span></div>' + chipStatusBon(b.status) + '<span class="panah">›</span></div>';
+          }).join('') + '</div>';
+      }).join('');
+      var kosong = '<div class="kosong">' + (saring === 'lunas' ? 'Belum ada bon yang lunas.' : (saring === 'belum' ? 'Tidak ada bon yang belum lunas.' : 'Belum ada bon.')) + '</div>';
+      var htmlJual = arah === 'Orang ngebon' && saring !== 'lunas' && jual.length ? '<div class="judul-bagian">Penjualan belum dibayar</div><div class="kartu entri">' +
+        jual.map(function (j) {
+          return '<div class="baris-entri baris-bon"><div class="teks"><b>' + esc(j.nama) + ' · ' + esc(rp(j.jumlah)) + '</b><span class="redup">' +
+            esc([hariPendek(j.tgl), j.untuk, j.status].filter(function (x) { return x; }).join(' · ')) + '</span></div>' +
+            '<button class="tombol kedua tombol-lunas" type="button" data-jual-lunas="' + esc(j.id) + '">Tandai lunas</button></div>';
+        }).join('') + '</div>' : '';
+      el.innerHTML = '<div class="angka-grid bon-ringkas">' + ringkas('Orang ngebon') + ringkas('Kita ngebon') + '</div>' +
+        '<button class="tombol utama penuh" type="button" id="bon-tambah">' + ikon('tambah') + 'Catat bon baru</button>' +
+        '<div class="chips bon-saring">' + [['belum', 'Belum lunas (' + nBelum + ')'], ['lunas', 'Sudah lunas (' + nLunas + ')'], ['semua', 'Semua']].map(function (x) {
+          return '<label class="chip"><input type="radio" name="bon-saring" value="' + x[0] + '"' + (saring === x[0] ? ' checked' : '') + '><span>' + esc(x[1]) + '</span></label>';
+        }).join('') + '</div>' +
+        '<div class="kisi-entri">' + (kartuNama || (htmlJual ? '' : kosong)) + '</div>' + htmlJual;
+    };
+    var terima = function (r, pesan) {
+      if (!r || !r.ok) { toast((r && r.galat) || 'Gagal.', 6000); return false; }
+      data = {bon: r.bon, jual: r.jual}; simpan('bon', data);
+      ringkasanBasi();
+      if (pesan) toast(pesan, 3000);
+      if (location.hash === '#/bon') gambar();
+      return true;
+    };
+    var muat = function () {
+      panggil('bon').then(function (r) { terima(r); }, function (e) {
+        if (!data) el.innerHTML = '<div class="galat-kartu">' + esc(e.jaringan ? 'Perlu sinyal untuk membuka catatan bon.' : e.message) + '</div>';
+        else toast(e.jaringan ? 'Tanpa sinyal: menampilkan catatan bon terakhir.' : e.message);
+      });
+    };
+    var gagal = function (e) { toast(e.jaringan ? 'Perlu sinyal untuk menyimpan.' : e.message, 5000); };
+
+    // ---- isian bon baru / ubah bon
+    var formBon = function (lama) {
+      var arahAwal = lama ? lama.arah : arah;
+      var namaSaran = [];
+      nilaiInduk('Karyawan', 'Nama', true).concat(pilihanDaftar('Pembeli')).concat((data && data.bon || []).map(function (b) { return b.nama; }))
+        .forEach(function (n) { if (n && namaSaran.indexOf(n) < 0) namaSaran.push(n); });
+      var bidang = [
+        {j: 'teks', h: 'Nama', bantuan: 'Nama orang atau toko.', saran: namaSaran},
+        {j: 'teks', h: 'Untuk', label: 'Untuk apa', wajib: false, bantuan: 'Contoh: kasbon, pinjam beli obat, semen 10 sak.'},
+        {j: 'rupiah', h: 'Jumlah (Rp)'},
+        {j: 'tanggal', h: 'Tanggal'},
+        {j: 'tanggal', h: 'Jatuh tempo', wajib: false, tanpaBatas: true, bantuan: 'Kapan harus dibayar. Boleh kosong.'},
+        {j: 'paragraf', h: 'Keterangan', wajib: false}
+      ];
+      var draf = lama ? {'Nama': lama.nama, 'Untuk': lama.untuk, 'Jumlah (Rp)': String(lama.jumlah), 'Tanggal': lama.tgl, 'Jatuh tempo': lama.tempo, 'Keterangan': lama.ket} : {};
+      var div = bukaLembar('<h2>' + (lama ? 'Ubah bon' : 'Catat bon baru') + '</h2>' +
+        '<div class="bidang"><span class="label">Siapa yang ngebon?</span><div class="chips bon-pilih-arah">' + ['Orang ngebon', 'Kita ngebon'].map(function (a) {
+          return '<label class="chip"><input type="radio" name="n_arah" value="' + esc(a) + '"' + (arahAwal === a ? ' checked' : '') + '><span>' + esc(LABEL_ARAH[a]) + '</span></label>';
+        }).join('') + '</div><div class="bantuan bon-ket-arah">' + esc(KET_ARAH[arahAwal]) + '</div></div>' +
+        '<form novalidate>' + bidang.map(function (b, i) { return htmlBidang(b, i, draf, 'n'); }).join('') + '</form>' +
+        '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">' + (lama ? 'Simpan perubahan' : 'Simpan bon') + '</button></div>');
+      var form = q(div, 'form');
+      pasangFormDinamis(form, function () {
+        bidang.forEach(function (b, i) {
+          if (b.j !== 'rupiah') return;
+          var h = bacaIsian(bidang, true, 'n', form), pet = document.getElementById('n' + i + '_pet');
+          if (pet) pet.textContent = h.nilai[b.h] > 0 ? rp(h.nilai[b.h]) : '';
+        });
+      });
+      div.addEventListener('change', function (ev) {
+        if (ev.target.name === 'n_arah') q(div, '.bon-ket-arah').textContent = KET_ARAH[ev.target.value];
+      });
+      var idBaruBon = idBaru();
+      div.addEventListener('click', function (ev) {
+        var a = ev.target.closest('[data-aksi]');
+        if (!a) return;
+        if (a.dataset.aksi === 'batal') { div.remove(); return; }
+        var h = bacaIsian(bidang, false, 'n', form);
+        tandaiSalah(h.salah, form);
+        if (h.salah.length) return;
+        var n = h.nilai;
+        var data2 = {arah: nilaiRadio(div, 'n_arah') || arahAwal, nama: n['Nama'], untuk: n['Untuk'] || '', jumlah: n['Jumlah (Rp)'], tanggal: n['Tanggal'],
+          tempo: n['Jatuh tempo'] || '', keterangan: n['Keterangan'] || ''};
+        if (lama) data2.id = lama.id; else data2.idBaru = idBaruBon;
+        a.disabled = true; a.textContent = 'Menyimpan…';
+        panggil('bonSimpan', data2).then(function (r) {
+          a.disabled = false; a.textContent = lama ? 'Simpan perubahan' : 'Simpan bon';
+          if (terima(r, lama ? 'Bon sudah diubah.' : 'Bon tersimpan.')) {
+            div.remove();
+            if (data2.arah !== arah) { arah = data2.arah; simpan('bonArah', arah); gambar(); }
+            var t = document.querySelector('.tirai'); if (t && lama) t.remove();
+          }
+        }, function (e) { a.disabled = false; a.textContent = lama ? 'Simpan perubahan' : 'Simpan bon'; gagal(e); });
+      });
+    };
+
+    // ---- catat pembayaran (cicil atau lunas)
+    var formBayar = function (b, detail) {
+      var bidang = [
+        {j: 'rupiah', h: 'Jumlah (Rp)', bantuan: 'Sudah terisi sisa bon. Biarkan untuk melunasi, atau ubah kalau baru dicicil.'},
+        {j: 'tanggal', h: 'Tanggal'},
+        {j: 'pilih', h: 'Cara', opsi: (data && data.cara) || ['Tunai', 'Transfer', 'Potong upah', 'Barang']},
+        {j: 'teks', h: 'Keterangan', wajib: false}
+      ];
+      var div = bukaLembar('<h2>Catat pembayaran</h2><p class="sub">' + esc(b.nama) + ' · ' + esc(b.untuk || 'Bon') + ' · sisa ' + esc(rp(b.sisa)) + '</p>' +
+        '<form novalidate>' + bidang.map(function (x, i) { return htmlBidang(x, i, {'Jumlah (Rp)': String(b.sisa), 'Cara': 'Tunai'}, 'y'); }).join('') + '</form>' +
+        '<div class="pratinjau" id="bayar-pratinjau"></div>' +
+        '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">Simpan pembayaran</button></div>');
+      var form = q(div, 'form');
+      var segar = function () {
+        var h = bacaIsian(bidang, true, 'y', form), j = h.nilai['Jumlah (Rp)'] || 0;
+        var pet = document.getElementById('y0_pet'); if (pet) pet.textContent = j > 0 ? rp(j) : '';
+        q(div, '#bayar-pratinjau').textContent = !(j > 0) ? '' : j > b.sisa ? 'Lebih dari sisa bon (' + rp(b.sisa) + ').' :
+          j === b.sisa ? 'Bon ini jadi LUNAS.' : 'Dicicil. Sisa sesudah ini ' + rp(b.sisa - j) + '.';
+      };
+      pasangFormDinamis(form, segar);
+      segar();
+      var idBayar = idBaru();
+      div.addEventListener('click', function (ev) {
+        var a = ev.target.closest('[data-aksi]');
+        if (!a) return;
+        if (a.dataset.aksi === 'batal') { div.remove(); return; }
+        var h = bacaIsian(bidang, false, 'y', form);
+        if (!h.salah.length && h.nilai['Jumlah (Rp)'] > b.sisa) h.salah.push(['Jumlah (Rp)', 'Lebih dari sisa bon (' + rp(b.sisa) + ').']);
+        tandaiSalah(h.salah, form);
+        if (h.salah.length) return;
+        a.disabled = true; a.textContent = 'Menyimpan…';
+        panggil('bonBayar', {idBon: b.id, idBaru: idBayar, jumlah: h.nilai['Jumlah (Rp)'], tanggal: h.nilai['Tanggal'], cara: h.nilai['Cara'], keterangan: h.nilai['Keterangan'] || ''}).then(function (r) {
+          a.disabled = false; a.textContent = 'Simpan pembayaran';
+          var lunas = h.nilai['Jumlah (Rp)'] >= b.sisa;
+          if (terima(r, lunas ? 'Bon ' + b.nama + ' sudah lunas.' : 'Pembayaran tersimpan.')) { div.remove(); if (detail) detail.remove(); }
+        }, function (e) { a.disabled = false; a.textContent = 'Simpan pembayaran'; gagal(e); });
+      });
+    };
+
+    // ---- rincian satu bon
+    var bukaDetail = function (id) {
+      var b = (data.bon || []).filter(function (x) { return x.id === id; })[0];
+      if (!b) return;
+      var info = [['Tanggal', tglIndo(b.tgl)], ['Untuk', b.untuk], ['Jumlah', rp(b.jumlah)], ['Sudah dibayar', rp(b.dibayar)], ['Sisa', rp(b.sisa)],
+        ['Jatuh tempo', b.tempo ? tglIndo(b.tempo) : ''], ['Keterangan', b.ket], ['Dicatat', b.oleh]].filter(function (x) { return x[1]; });
+      var div = bukaLembar('<div class="rinci-kepala"><div><h2>' + esc(b.nama) + '</h2><p class="sub">' + esc(LABEL_ARAH[b.arah] || b.arah) + ' · ' + chipStatusBon(b.status) + '</p></div>' +
+        '<button class="tombol-tutup" data-aksi="tutup" aria-label="Tutup">×</button></div>' +
+        '<ul class="ringkas">' + info.map(function (x) { return '<li><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></li>'; }).join('') + '</ul>' +
+        (b.bayar.length ? '<div class="daftar-judul">Pembayaran</div>' + b.bayar.map(function (p) {
+          return '<div class="baris-entri"><div class="teks"><b>' + esc(rp(p.jumlah)) + '</b><span class="redup">' + esc([hariPendek(p.tgl), p.cara, p.ket, p.oleh].filter(function (x) { return x; }).join(' · ')) + '</span></div>' +
+            '<button class="tombol-ikon hapus" data-hapus-bayar="' + esc(p.id) + '" aria-label="Hapus pembayaran">' + ikon('sampah') + '</button></div>';
+        }).join('') : '') +
+        (b.sisa > 0 ? '<div class="baris-tombol" style="margin-top:14px"><button class="tombol utama" data-aksi="bayar">' + ikon('centang') + 'Catat pembayaran / lunas</button></div>' : '') +
+        '<div class="baris-tombol" style="margin-top:10px"><button class="tombol kedua" data-aksi="ubah">' + ikon('pensil') + 'Ubah</button><button class="tombol bahaya" data-aksi="hapus">' + ikon('sampah') + 'Hapus</button></div>');
+      div.addEventListener('click', function (ev) {
+        var hb = ev.target.closest('[data-hapus-bayar]');
+        if (hb) {
+          var p = b.bayar.filter(function (x) { return x.id === hb.dataset.hapusBayar; })[0];
+          tanyaHapus('Pembayaran bon', b.nama + ' · ' + rp(p.jumlah) + ' · ' + tglIndo(p.tgl), function () {
+            panggil('bonHapus', {jenis: 'bayar', id: p.id}).then(function (r) { if (terima(r, 'Pembayaran dihapus.')) div.remove(); }, gagal);
+          });
+          return;
+        }
+        var a = ev.target.closest('[data-aksi]');
+        if (!a) return;
+        if (a.dataset.aksi === 'tutup') div.remove();
+        else if (a.dataset.aksi === 'bayar') formBayar(b, div);
+        else if (a.dataset.aksi === 'ubah') formBon(b);
+        else if (a.dataset.aksi === 'hapus') {
+          tanyaHapus('Bon', b.nama + ' · ' + (b.untuk || '') + ' · ' + rp(b.jumlah) + (b.bayar.length ? ' (beserta ' + b.bayar.length + ' pembayarannya)' : ''), function () {
+            panggil('bonHapus', {jenis: 'bon', id: b.id}).then(function (r) { if (terima(r, 'Bon dihapus.')) div.remove(); }, gagal);
+          });
+        }
+      });
+    };
+
+    el.addEventListener('click', function (ev) {
+      var t;
+      if ((t = ev.target.closest('[data-arah]'))) { arah = t.dataset.arah; simpan('bonArah', arah); gambar(); return; }
+      if (ev.target.closest('#bon-tambah')) { formBon(null); return; }
+      if ((t = ev.target.closest('[data-jual-lunas]'))) {
+        var j = (data.jual || []).filter(function (x) { return x.id === t.dataset.jualLunas; })[0];
+        if (!j) return;
+        konfirmasiSederhana('Tandai lunas?', j.nama + ' · ' + rp(j.jumlah) + ' · penjualan ' + tglIndo(j.tgl) + '. Status bayar di tab Penjualan diubah menjadi Lunas.', 'Ya, sudah lunas', function () {
+          t.disabled = true;
+          panggil('ubah', {tab: 'Penjualan', id: j.id, nilai: {'Status bayar': 'Lunas'}}).then(function (r) {
+            if (!r || !r.ok) { t.disabled = false; toast((r && r.galat) || 'Gagal.', 6000); return; }
+            buangAwalan('terbaru.');
+            toast('Penjualan ' + j.nama + ' ditandai lunas.');
+            muat();
+          }, function (e) { t.disabled = false; gagal(e); });
+        });
+        return;
+      }
+      if ((t = ev.target.closest('[data-bon]'))) bukaDetail(t.dataset.bon);
+    });
+    el.addEventListener('keydown', function (ev) { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[data-bon]')) { ev.preventDefault(); bukaDetail(ev.target.dataset.bon); } });
+    el.addEventListener('change', function (ev) { if (ev.target.name === 'bon-saring') { saring = ev.target.value; simpan('bonSaring', saring); gambar(); } });
+    document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
+    gambar();
+    muat();
+  }
+
+  function konfirmasiSederhana(judul, teks, label, lanjut) {
+    var div = bukaLembar('<h2>' + esc(judul) + '</h2><p style="margin:0 0 16px;font-size:.9375rem">' + esc(teks) + '</p>' +
+      '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="ya">' + esc(label) + '</button></div>');
+    div.addEventListener('click', function (ev) {
+      var a = ev.target.closest('[data-aksi]');
+      if (!a) return;
+      div.remove();
+      if (a.dataset.aksi === 'ya') lanjut();
     });
   }
 
@@ -3308,6 +3585,7 @@
       case 'pengguna': layarPengguna(); break;
       case 'tampilan': layarTampilan(); break;
       case 'batas': layarBatas(); break;
+      case 'bon': layarBon(); break;
       default: layarBeranda();
     }
   }

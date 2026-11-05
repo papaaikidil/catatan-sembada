@@ -25,6 +25,11 @@ Catatan lama tidak diubah.
   dengan Dashboard (tab Pengaturan kolom B dan Dashboard kolom D). Laba usaha di peringatan bisa dihitung 1–4 minggu terakhir.
 - **Semua upah dari Absensi**: tim suling memilih 1x, 2x, atau 3x suling (jumlah sulingan dan upahnya ikut tercatat),
   atau "Kerja lain…" untuk pekerjaan dengan upah khusus. Formulir Produksi Suling tidak ditampilkan lagi supaya tidak tercatat dua kali.
+- **Catatan bon** (Beranda › Catatan bon, untuk pemilik dan yang boleh mengatur): bon dua arah, yaitu "orang ngebon ke kita"
+  (kasbon karyawan, pinjaman) dan "kita ngebon ke orang" (utang ke toko/pemasok). Bisa dicicil sampai lunas (tunai, transfer,
+  potong upah, barang), disaring belum/sudah lunas, dikelompokkan per nama, tanda lewat jatuh tempo. Disimpan di tab
+  "Bon" dan "Bayar Bon" (dibuat otomatis). Penjualan dengan status bayar belum lunas ikut tampil dan bisa ditandai lunas.
+  Bon tidak otomatis masuk Kas maupun Rekap.
 - **Slip upah mingguan** (Ringkasan › Upah per orang › "Slip upah & cetak"): per orang atau semua sekaligus, rincian per hari,
   tambahan (bonus) dan potongan (kasbon) yang hanya tertulis di slip, kertas 58 mm atau 80 mm. Bisa dicetak langsung ke
   printer thermal Bluetooth dari APK (ESC/POS lewat Bluetooth klasik; printer dipasangkan dulu di Pengaturan Bluetooth HP),
@@ -50,7 +55,7 @@ Catatan lama tidak diubah.
 | `apps-script/api.gs` | API versi 7. Ditempel di file "api" pada project Apps Script "Sembada Sheet". |
 | `apps-script/Kode.gs`, `urut_otomatis.gs`, `ubah_kondisi_bahan.gs` | Cadangan file Apps Script lain di project yang sama (form, pengurutan otomatis). |
 | `android/` | Pembungkus APK Android. Isinya hanya membuka aplikasi web, jadi perbaikan aplikasi tidak perlu pasang ulang APK. |
-| `tes/` | Uji otomatis: `node tes/api7_test.js` (logika API) dan `node tes/ui7_test.js` (alur aplikasi di browser), `node tes/lebar_test.js` (tata letak tablet, landscape, dan HP), `node tes/sw_test.js` (buka cepat & versi baru), dan `node tes/slip_test.js` (slip upah & cetak). |
+| `tes/` | Uji otomatis: `node tes/api7_test.js` (logika API) dan `node tes/ui7_test.js` (alur aplikasi di browser), `node tes/lebar_test.js` (tata letak tablet, landscape, dan HP), `node tes/sw_test.js` (buka cepat & versi baru), `node tes/slip_test.js` (slip upah & cetak), dan `node tes/bon_test.js` (catatan bon). |
 
 ## Memperbarui
 
