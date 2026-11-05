@@ -651,3 +651,11 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 .bon-info-kas { margin: .25rem 0 1rem; font-weight: 500; }
 .bon-info-kas:empty { display: none; }
 .aksi-entri .tombol svg { width: 1.125rem; height: 1.125rem; }
+.bon-nama { cursor: pointer; }
+.bon-nama:active { opacity: .7; }
+.bon-orang .aksi-entri { margin-top: .625rem; }
+.bayar-mode { margin: .25rem 0 .875rem; }
+.bon-orang-angka { margin: .25rem 0 .75rem; }
+.bayar-orang { margin-bottom: .75rem; }
+.lembar .rinci-kepala { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }
+.lembar .rinci-kepala h2 { margin-top: .25rem; }

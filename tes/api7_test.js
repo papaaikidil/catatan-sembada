@@ -565,6 +565,22 @@ cek('Ringkasan disimpan sebentar di cache, dibuang setiap ada perubahan data, to
   assert.ok(rb.ok && /belum ada di Kelola/.test(rb.peringatan) && kasBon('bon-tanpa-kat').length === 0, JSON.stringify(rb.peringatan));
   dKat[16] = 'Bon pekerja (dipinjamkan)';
   panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-tanpa-kat' });
+  // Bayar per orang: cicil dibagi ke bon terlama dulu, lunas melunasi semua bon orang itu.
+  panggil({ aksi: 'bonSimpan', token: tokPemilik, idBaru: 'bon-rofik-2', arah: 'Orang ngebon', nama: 'Rofik', untuk: 'bensin', jumlah: 100000, tanggal: hariIni });
+  assert.ok(/Lebih dari sisa bon Rofik \(Rp350\.000\)/.test(panggil({ aksi: 'bonBayarOrang', token: tokPemilik, arah: 'Orang ngebon', nama: 'Rofik', jumlah: 400000, tanggal: hariIni }).galat));
+  rb = panggil({ aksi: 'bonBayarOrang', token: tokPemilik, idBaru: 'cicil-1', arah: 'Orang ngebon', nama: 'Rofik', jumlah: 300000, tanggal: hariIni, cara: 'Potong upah' });
+  const r1 = rb.bon.find(x => x.id === 'bon-rofik'), r2 = rb.bon.find(x => x.id === 'bon-rofik-2');
+  assert.ok(r1.status === 'Lunas' && r2.status === 'Dicicil' && r2.sisa === 50000, 'bon terlama dilunasi dulu: ' + JSON.stringify([r1.sisa, r2.sisa]));
+  assert.ok(kasBayar('cicil-1-1').length === 1 && kasBayar('cicil-1-2').length === 1 && kasBayar('cicil-1-1')[0]['Jumlah (Rp)'] === 250000);
+  rb = panggil({ aksi: 'bonBayarOrang', token: tokPemilik, idBaru: 'cicil-1', arah: 'Orang ngebon', nama: 'Rofik', jumlah: 300000, tanggal: hariIni, cara: 'Potong upah' });
+  assert.strictEqual(rb.bon.find(x => x.id === 'bon-rofik-2').sisa, 50000, 'kirim ulang tidak dobel');
+  rb = panggil({ aksi: 'bonBayarOrang', token: tokPemilik, idBaru: 'lunas-1', arah: 'Orang ngebon', nama: 'Rofik', jumlah: 50000, tanggal: hariIni });
+  assert.ok(rb.bon.filter(x => x.nama === 'Rofik').every(x => x.status === 'Lunas'));
+  assert.strictEqual(panggil({ aksi: 'bonBayarOrang', token: tokPemilik, arah: 'Orang ngebon', nama: 'Rofik', jumlah: 1000, tanggal: hariIni }).kode, 'BERUBAH');
+  panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-rofik-2' });
+  ['cicil-1-1', 'lunas-1-1'].forEach(id => panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bayar', id }));
+  rb = panggil({ aksi: 'bon', token: tokPemilik });
+  assert.strictEqual(rb.bon.find(x => x.id === 'bon-rofik').sisa, 250000);
   // Hapus bon -> pembayarannya ikut terhapus.
   rb = panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-rofik' });
   assert.ok(rb.ok && rb.bon.length === 1 && objek('Bayar Bon').length === 0);

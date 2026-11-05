@@ -88,22 +88,21 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   assert.ok(kasDariBon().some(x => x['Kategori'] === 'Bon pekerja (dipinjamkan)' && x['Jumlah (Rp)'] === 300000), 'kasbon tercatat di Kas: ' + JSON.stringify(kasDariBon()));
   cek('Catat bon baru (orang ngebon ke kita), langsung tercatat di Kas');
 
-  // Cicil 100.000 dengan potong upah
-  await page.click('.bon-orang [data-bon]');
-  await page.waitForSelector('.tirai [data-aksi="bayar"]');
-  await page.click('.tirai [data-aksi="bayar"]');
+  // Cicil 100.000 dengan potong upah, langsung dari kartu orang
+  await page.click('.bon-orang [data-bayar-orang="cicil"]');
   await page.waitForSelector('.tirai [name=y0]');
-  assert.strictEqual(await page.inputValue('.tirai [name=y0]'), '300000', 'jumlah bayar terisi sisa');
+  assert.strictEqual(await page.evaluate(() => document.querySelector('.tirai input[name="bayar-mode"]:checked').value), 'cicil');
   await isi(page, '.tirai [name=y0]', '100000');
   await page.evaluate(() => { const i = [...document.querySelectorAll('.tirai input[name="y2"]')].find(x => x.value === 'Potong upah'); i.closest('label').click(); });
   assert.ok(/Sisa sesudah ini Rp200\.000/.test(await page.textContent('#bayar-pratinjau')));
+  await page.screenshot({ path: path.join(OUT, 'bon-cicil.png') });
   await page.click('.tirai [data-aksi="simpan"]');
-  await tungguToast(page, /Pembayaran tersimpan/);
+  await tungguToast(page, /Cicilan Rp100\.000 tersimpan\. Sisa Rp200\.000/);
   await page.waitForFunction(() => !document.querySelector('.tirai') && /Dicicil/.test(document.querySelector('.bon-orang').textContent));
   assert.ok(/sisa Rp200\.000/.test(await page.textContent('.bon-orang')));
   assert.strictEqual(objek('Bayar Bon')[0]['Cara'], 'Potong upah');
   assert.ok(kasDariBon().some(x => x['Kategori'] === 'Pelunasan bon pekerja' && x['Jumlah (Rp)'] === 100000), 'cicilan masuk Kas');
-  cek('Bayar sebagian (potong upah): status Dicicil, sisa Rp200.000');
+  cek('Cicil dari kartu orang (potong upah): status Dicicil, sisa Rp200.000');
 
   // Petunjuk sisa bon di slip upah
   await page.goto(ASAL + '#/');
@@ -116,23 +115,45 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   await page.click('.lembar-slip [data-aksi="tutup"]');
   cek('Slip upah Rofik menunjukkan sisa bon Rp200.000');
 
-  // Lunasi
+  // Buka catatan bon Rofik: tambah bon kedua, cicil terbagi ke bon terlama dulu, lalu bayar lunas semua
   await page.goto(ASAL + '#/bon');
-  await page.waitForSelector('.bon-orang [data-bon]');
-  await page.click('.bon-orang [data-bon]');
-  await page.click('.tirai [data-aksi="bayar"]');
+  await page.waitForSelector('.bon-orang .bon-nama');
+  await page.click('.bon-orang .bon-nama');
+  await page.waitForSelector('.tirai [data-aksi="tambah"]');
+  assert.ok(/Riwayat bayar \(1\)/.test(await page.textContent('.tirai .lembar')) && /Rp200\.000/.test(await page.textContent('.tirai .bon-orang-angka')));
+  await page.screenshot({ path: path.join(OUT, 'bon-orang.png') });
+  await page.click('.tirai [data-aksi="tambah"]');
+  await page.waitForSelector('.tirai #k0 input:checked');
+  assert.strictEqual(await page.evaluate(() => document.querySelector('.tirai #k0 input:checked').value), 'Rofik', 'nama terisi Rofik');
+  await isi(page, '.tirai [name=n0]', 'bensin');
+  await isi(page, '.tirai [name=n1]', '50000');
+  await page.click('.tirai [data-aksi="simpan"]');
+  await tungguToast(page, /Bon tersimpan/);
+  await page.waitForFunction(() => /sisa Rp250\.000/.test(document.querySelector('.bon-orang').textContent));
+  await page.click('.bon-orang [data-bayar-orang="cicil"]');
   await page.waitForSelector('.tirai [name=y0]');
-  assert.strictEqual(await page.inputValue('.tirai [name=y0]'), '200000');
-  assert.ok(/jadi LUNAS/.test(await page.textContent('#bayar-pratinjau')));
+  await isi(page, '.tirai [name=y0]', '220000');
+  const bagi = await page.textContent('#bayar-pratinjau');
+  assert.ok(/kasbon beli obat: Rp200\.000 \(lunas\)/.test(bagi) && /bensin: Rp20\.000 \(sisa Rp30\.000\)/.test(bagi), 'dibagi ke bon terlama dulu: ' + bagi);
+  await page.click('.tirai [data-aksi="simpan"]');
+  await tungguToast(page, /Sisa Rp30\.000/);
+  await page.waitForFunction(() => !document.querySelector('.tirai') && /sisa Rp30\.000/.test(document.querySelector('.bon-orang').textContent));
+  await page.click('.bon-orang .bon-nama');
+  await page.waitForSelector('.tirai [data-aksi="lunas"]');
+  await page.click('.tirai [data-aksi="lunas"]');
+  await page.waitForSelector('.tirai #bayar-pratinjau');
+  await page.waitForFunction(() => /jadi LUNAS/.test(document.querySelector('#bayar-pratinjau').textContent));
+  assert.ok(await page.isHidden('.tirai #y0'), 'bayar lunas: tidak perlu isi jumlah');
+  assert.ok(/lunas Rp30\.000/.test(await page.textContent('.tirai [data-aksi="simpan"]')));
   await page.click('.tirai [data-aksi="simpan"]');
   await tungguToast(page, /sudah lunas/);
   await page.waitForFunction(() => !document.querySelector('.tirai') && !document.querySelector('.bon-orang'));
   await pilihChip(page, 'bon-saring', 'lunas');
   await page.waitForSelector('.bon-orang');
-  assert.ok(/Lunas/.test(await page.textContent('.bon-orang')) && /lunas Rp300\.000/.test(await page.textContent('.bon-orang')));
-  assert.strictEqual(objek('Bon')[0]['Status'], 'Lunas');
+  assert.ok(/Lunas/.test(await page.textContent('.bon-orang')) && /lunas Rp350\.000/.test(await page.textContent('.bon-orang')));
+  assert.ok(objek('Bon').filter(x => x['Nama'] === 'Rofik').every(x => x['Status'] === 'Lunas'));
   await pilihChip(page, 'bon-saring', 'belum');
-  cek('Lunasi sisa: pindah ke "Sudah lunas", status di Sheet Lunas');
+  cek('Catatan bon per orang: bon baru dengan nama terisi, cicilan dibagi ke bon terlama dulu, bayar lunas sekali ketuk');
 
   // Kita ngebon ke toko, sudah lewat jatuh tempo
   await page.click('[data-arah="Kita ngebon"]');
