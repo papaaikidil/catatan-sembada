@@ -896,7 +896,7 @@
     if (admin()) {
       var nBon = jumlahBonTerbuka();
       tombol += '<a class="tombol-catatan tombol-bon" href="#/bon"><span class="lingkar">' + ikon('bon') + '</span>' +
-        '<span class="teks-tombol"><b>Catatan bon</b><small>' + (nBon ? nBon + ' belum lunas' : 'Kasbon & utang, sudah dibayar atau belum') + '</small></span></a>';
+        '<span class="teks-tombol"><b>Catatan bon</b><small>' + (nBon ? nBon + ' belum lunas' : 'Kasbon karyawan, sudah dibayar atau belum') + '</small></span></a>';
     }
     var adaRingkas = admin() && t.ringkas !== false;
     // Di layar lebar: ringkasan minggu di kiri, stok & tombol catatan di kanan (lihat .tata-beranda di style.css).
@@ -2734,25 +2734,36 @@
     // ---- isian bon baru / ubah bon
     var formBon = function (lama) {
       var arahAwal = lama ? lama.arah : arah;
+      // Orang ngebon ke kita: pilih nama karyawan aktif (ikut Kelola › Karyawan). Kita ngebon: ketik nama toko/orang.
       var namaSaran = [];
-      nilaiInduk('Karyawan', 'Nama', true).concat(pilihanDaftar('Pembeli')).concat((data && data.bon || []).map(function (b) { return b.nama; }))
+      pilihanDaftar('Pembeli').concat((data && data.bon || []).filter(function (b) { return b.arah === 'Kita ngebon'; }).map(function (b) { return b.nama; }))
         .forEach(function (n) { if (n && namaSaran.indexOf(n) < 0) namaSaran.push(n); });
+      var bNamaKaryawan = {j: 'pilih', h: 'Nama karyawan', sumber: 'karyawan', lainnya: true,
+        bantuan: 'Daftar ini ikut Kelola › Karyawan. Untuk orang lain, pilih Lainnya…'};
+      var bNamaLain = {j: 'teks', h: 'Nama', label: 'Nama toko atau orang', saran: namaSaran};
       var bidang = [
-        {j: 'teks', h: 'Nama', bantuan: 'Nama orang atau toko.', saran: namaSaran},
         {j: 'teks', h: 'Untuk', label: 'Untuk apa', wajib: false, bantuan: 'Contoh: kasbon, pinjam beli obat, semen 10 sak.'},
         {j: 'rupiah', h: 'Jumlah (Rp)'},
         {j: 'tanggal', h: 'Tanggal'},
         {j: 'tanggal', h: 'Jatuh tempo', wajib: false, tanpaBatas: true, bantuan: 'Kapan harus dibayar. Boleh kosong.'},
         {j: 'paragraf', h: 'Keterangan', wajib: false}
       ];
-      var draf = lama ? {'Nama': lama.nama, 'Untuk': lama.untuk, 'Jumlah (Rp)': String(lama.jumlah), 'Tanggal': lama.tgl, 'Jatuh tempo': lama.tempo, 'Keterangan': lama.ket} : {};
+      var draf = lama ? {'Nama karyawan': lama.nama, 'Nama': lama.nama, 'Untuk': lama.untuk, 'Jumlah (Rp)': String(lama.jumlah), 'Tanggal': lama.tgl, 'Jatuh tempo': lama.tempo, 'Keterangan': lama.ket} : {};
       var div = bukaLembar('<h2>' + (lama ? 'Ubah bon' : 'Catat bon baru') + '</h2>' +
         '<div class="bidang"><span class="label">Siapa yang ngebon?</span><div class="chips bon-pilih-arah">' + ['Orang ngebon', 'Kita ngebon'].map(function (a) {
           return '<label class="chip"><input type="radio" name="n_arah" value="' + esc(a) + '"' + (arahAwal === a ? ' checked' : '') + '><span>' + esc(LABEL_ARAH[a]) + '</span></label>';
         }).join('') + '</div><div class="bantuan bon-ket-arah">' + esc(KET_ARAH[arahAwal]) + '</div></div>' +
-        '<form novalidate>' + bidang.map(function (b, i) { return htmlBidang(b, i, draf, 'n'); }).join('') + '</form>' +
+        '<form novalidate>' + htmlBidang(bNamaKaryawan, 0, draf, 'k') + htmlBidang(bNamaLain, 0, draf, 't') +
+        bidang.map(function (b, i) { return htmlBidang(b, i, draf, 'n'); }).join('') + '</form>' +
         '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">' + (lama ? 'Simpan perubahan' : 'Simpan bon') + '</button></div>');
       var form = q(div, 'form');
+      var arahForm = function () { return nilaiRadio(div, 'n_arah') || arahAwal; };
+      var tampilNama = function () {
+        var k = arahForm() === 'Orang ngebon';
+        q(div, '#k0').hidden = !k;
+        q(div, '#t0').hidden = k;
+      };
+      tampilNama();
       pasangFormDinamis(form, function () {
         bidang.forEach(function (b, i) {
           if (b.j !== 'rupiah') return;
@@ -2761,18 +2772,21 @@
         });
       });
       div.addEventListener('change', function (ev) {
-        if (ev.target.name === 'n_arah') q(div, '.bon-ket-arah').textContent = KET_ARAH[ev.target.value];
+        if (ev.target.name === 'n_arah') { q(div, '.bon-ket-arah').textContent = KET_ARAH[ev.target.value]; tampilNama(); }
       });
       var idBaruBon = idBaru();
       div.addEventListener('click', function (ev) {
         var a = ev.target.closest('[data-aksi]');
         if (!a) return;
         if (a.dataset.aksi === 'batal') { div.remove(); return; }
+        var karyawan = arahForm() === 'Orang ngebon';
+        var hNama = karyawan ? bacaIsian([bNamaKaryawan], false, 'k', form) : bacaIsian([bNamaLain], false, 't', form);
         var h = bacaIsian(bidang, false, 'n', form);
-        tandaiSalah(h.salah, form);
-        if (h.salah.length) return;
+        var salah = hNama.salah.concat(h.salah);
+        tandaiSalah(salah, form);
+        if (salah.length) return;
         var n = h.nilai;
-        var data2 = {arah: nilaiRadio(div, 'n_arah') || arahAwal, nama: n['Nama'], untuk: n['Untuk'] || '', jumlah: n['Jumlah (Rp)'], tanggal: n['Tanggal'],
+        var data2 = {arah: arahForm(), nama: karyawan ? hNama.nilai['Nama karyawan'] : hNama.nilai['Nama'], untuk: n['Untuk'] || '', jumlah: n['Jumlah (Rp)'], tanggal: n['Tanggal'],
           tempo: n['Jatuh tempo'] || '', keterangan: n['Keterangan'] || ''};
         if (lama) data2.id = lama.id; else data2.idBaru = idBaruBon;
         a.disabled = true; a.textContent = 'Menyimpan…';

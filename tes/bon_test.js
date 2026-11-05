@@ -68,9 +68,16 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   // Catat kasbon Rofik
   await page.click('#bon-tambah');
   await page.waitForSelector('.tirai [name=n0]');
-  await isi(page, '.tirai [name=n0]', 'Rofik');
-  await isi(page, '.tirai [name=n1]', 'kasbon beli obat');
-  await isi(page, '.tirai [name=n2]', '300000');
+  // Nama karyawan dipilih dari daftar Karyawan aktif (tanpa mengetik).
+  const pilihanNama = await page.$$eval('.tirai #k0 .chip span', s => s.map(x => x.textContent));
+  const aktif = objek('Karyawan').filter(x => x['Nama'] && !x['Tanggal keluar'] && String(x['Aktif'] || 'Ya') !== 'Tidak').map(x => x['Nama']);
+  assert.ok(aktif.every(n => pilihanNama.includes(n)) && pilihanNama.includes('Lainnya…'), 'pilihan nama = karyawan aktif: ' + pilihanNama);
+  assert.ok(await page.isHidden('.tirai #t0'), 'isian nama toko disembunyikan');
+  await page.click('.tirai [data-aksi="simpan"]');
+  await page.waitForSelector('.tirai #k0.salah');
+  await page.evaluate(() => { const i = [...document.querySelectorAll('.tirai input[name="k0"]')].find(x => x.value === 'Rofik'); i.closest('label').click(); });
+  await isi(page, '.tirai [name=n0]', 'kasbon beli obat');
+  await isi(page, '.tirai [name=n1]', '300000');
   await page.screenshot({ path: path.join(OUT, 'bon-tambah.png') });
   await page.click('.tirai [data-aksi="simpan"]');
   await tungguToast(page, /Bon tersimpan/);
@@ -129,10 +136,11 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   await page.click('#bon-tambah');
   await page.waitForSelector('.tirai [name=n0]');
   assert.strictEqual(await page.evaluate(() => document.querySelector('.tirai input[name="n_arah"]:checked').value), 'Kita ngebon');
-  await isi(page, '.tirai [name=n0]', 'Toko Bangunan Jaya');
-  await isi(page, '.tirai [name=n1]', 'semen 10 sak');
-  await isi(page, '.tirai [name=n2]', '650000');
-  await page.fill('.tirai [name=n4]', isoHari(-1));
+  assert.ok(await page.isHidden('.tirai #k0') && await page.isVisible('.tirai [name=t0]'), 'kita ngebon: nama toko diketik');
+  await isi(page, '.tirai [name=t0]', 'Toko Bangunan Jaya');
+  await isi(page, '.tirai [name=n0]', 'semen 10 sak');
+  await isi(page, '.tirai [name=n1]', '650000');
+  await page.fill('.tirai [name=n3]', isoHari(-1));
   await page.click('.tirai [data-aksi="simpan"]');
   await tungguToast(page, /Bon tersimpan/);
   await page.waitForSelector('.bon-orang .merah');
@@ -140,6 +148,21 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   assert.ok(/Rp650\.000/.test(await page.textContent('[data-arah="Kita ngebon"]')));
   await page.screenshot({ path: path.join(OUT, 'bon-kita.png'), fullPage: true });
   cek('Kita ngebon ke toko: ringkasan utang, tanda lewat jatuh tempo');
+
+  // Karyawan baru muncul, karyawan yang keluar hilang dari pilihan (setelah aplikasi memuat ulang data).
+  const tok = await page.evaluate(() => JSON.parse(localStorage.getItem('sembada7.sesi')).token);
+  assert.ok(server.panggil({ aksi: 'masterSimpan', token: tok, tab: 'Karyawan', id: '', nilai: { 'Nama': 'Joko', 'Tim': 'Pengumpul' } }).ok);
+  assert.ok(server.panggil({ aksi: 'masterAktif', token: tok, tab: 'Karyawan', id: 'Mas Romadi', aktif: false, tanggalKeluar: isoHari(0) }).ok);
+  await page.reload();
+  await page.waitForSelector('#bon-tambah');
+  await page.waitForTimeout(800);
+  await page.click('[data-arah="Orang ngebon"]');
+  await page.click('#bon-tambah');
+  await page.waitForSelector('.tirai #k0 .chip');
+  const nama2 = await page.$$eval('.tirai #k0 .chip span', s => s.map(x => x.textContent));
+  assert.ok(nama2.includes('Joko') && !nama2.includes('Mas Romadi'), 'pilihan nama ikut Kelola › Karyawan: ' + nama2);
+  await page.click('.tirai [data-aksi="batal"]');
+  cek('Karyawan baru muncul dan karyawan keluar hilang dari pilihan nama');
 
   // Penjualan belum dibayar ditandai lunas
   await page.click('[data-arah="Orang ngebon"]');

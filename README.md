@@ -26,7 +26,7 @@ Catatan lama tidak diubah.
 - **Semua upah dari Absensi**: tim suling memilih 1x, 2x, atau 3x suling (jumlah sulingan dan upahnya ikut tercatat),
   atau "Kerja lain…" untuk pekerjaan dengan upah khusus. Formulir Produksi Suling tidak ditampilkan lagi supaya tidak tercatat dua kali.
 - **Catatan bon** (Beranda › Catatan bon, untuk pemilik dan yang boleh mengatur): bon dua arah, yaitu "orang ngebon ke kita"
-  (kasbon karyawan, pinjaman) dan "kita ngebon ke orang" (utang ke toko/pemasok). Bisa dicicil sampai lunas (tunai, transfer,
+  (kasbon karyawan: nama dipilih dari daftar Karyawan aktif, atau Lainnya…) dan "kita ngebon ke orang" (utang ke toko/pemasok). Bisa dicicil sampai lunas (tunai, transfer,
   potong upah, barang), disaring belum/sudah lunas, dikelompokkan per nama, tanda lewat jatuh tempo. Disimpan di tab
   "Bon" dan "Bayar Bon" (dibuat otomatis). Penjualan dengan status bayar belum lunas ikut tampil dan bisa ditandai lunas.
   Bon tidak otomatis masuk Kas maupun Rekap.
