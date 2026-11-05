@@ -76,7 +76,10 @@ function buatData(opsi) {
       'Proyek bangunan', 'Keluar', 'Proyek lain', '', 'Belum dibayar', '', 'Penyulingan'],
     ['Mas Romadi', '', '', '', 'Plosokerep', '', 'Agak kering semua', '', 'Spiral bocor', '', '', '', 'Hidrosol', 'liter', 'Tidak', '',
       'Keluarga & pribadi', 'Keluar', 'Keluarga & pribadi', '', '', '', 'Pengumpulan bahan'],
-    ['', '', '', '', 'Tanen', '', '', '', '', '', '', '', '', '', '', '', 'Pinjaman masuk', 'Masuk', 'Pembiayaan', '', '', '', 'Proyek bangunan & lainnya']
+    ['', '', '', '', 'Tanen', '', '', '', '', '', '', '', '', '', '', '', 'Pinjaman masuk', 'Masuk', 'Pembiayaan', '', '', '', 'Proyek bangunan & lainnya'],
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Bayar hutang', 'Keluar', 'Pembiayaan'],
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Bon pekerja (dipinjamkan)', 'Keluar', 'Pembiayaan'],
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Pelunasan bon pekerja', 'Masuk', 'Pembiayaan']
   ]);
   s['Daftar'].rumus['2,1'] = '=IFERROR(FILTER(Karyawan!$A$2:$A,Karyawan!$B$2:$B="Pengumpul"),"")';
   s['Pengaturan Aplikasi'] = buatSheet('Pengaturan Aplikasi', [['Kunci', 'Nilai', 'Keterangan'],

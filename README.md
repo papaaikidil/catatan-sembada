@@ -29,7 +29,11 @@ Catatan lama tidak diubah.
   (kasbon karyawan: nama dipilih dari daftar Karyawan aktif, atau Lainnya…) dan "kita ngebon ke orang" (utang ke toko/pemasok). Bisa dicicil sampai lunas (tunai, transfer,
   potong upah, barang), disaring belum/sudah lunas, dikelompokkan per nama, tanda lewat jatuh tempo. Disimpan di tab
   "Bon" dan "Bayar Bon" (dibuat otomatis). Penjualan dengan status bayar belum lunas ikut tampil dan bisa ditandai lunas.
-  Bon tidak otomatis masuk Kas maupun Rekap.
+  Bon langsung tercatat di tab Kas dan ikut berubah/terhapus bersama bonnya: kasbon = "Bon pekerja (dipinjamkan)" (keluar),
+  pembayarannya = "Pelunasan bon pekerja" (masuk, termasuk potong upah); pinjam uang = "Pinjaman masuk", dibayar = "Bayar hutang";
+  ambil barang dulu = belum ada uang keluar, saat dibayar tercatat dengan kategori pilihan. Dibayar dengan barang tidak masuk Kas.
+  Bon lama yang sudah pernah dicatat manual di Kas bisa disimpan tanpa Kas. Baris Kas dari bon ditandai "[bon:...]" di Keterangan
+  dan hanya bisa diubah lewat Catatan bon.
 - **Slip upah mingguan** (Ringkasan › Upah per orang › "Slip upah & cetak"): per orang atau semua sekaligus, rincian per hari,
   tambahan (bonus) dan potongan (kasbon) yang hanya tertulis di slip, kertas 58 mm atau 80 mm. Bisa dicetak langsung ke
   printer thermal Bluetooth dari APK (ESC/POS lewat Bluetooth klasik; printer dipasangkan dulu di Pengaturan Bluetooth HP),

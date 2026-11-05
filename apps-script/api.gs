@@ -53,7 +53,15 @@ var KEPALA_STOK = ['Timestamp', 'Tanggal', 'Stok ditimbang (kg)', 'Stok menurut 
 // Catatan bon. Arah: "Orang ngebon" = orang utang ke kita (kasbon karyawan, dll.), "Kita ngebon" = kita utang ke orang/toko.
 // Dibayar, Sisa, Status, dan Tanggal lunas dihitung ulang dari tab Bayar Bon setiap ada perubahan.
 var KEPALA_BON = ['ID', 'Timestamp', 'Tanggal', 'Arah', 'Nama', 'Untuk', 'Jumlah (Rp)', 'Jatuh tempo', 'Keterangan', 'Diisi oleh',
-  'Dibayar (Rp)', 'Sisa (Rp)', 'Status', 'Tanggal lunas'];
+  'Dibayar (Rp)', 'Sisa (Rp)', 'Status', 'Tanggal lunas', 'Bentuk', 'Masuk Kas', 'Kategori kas'];
+var BENTUK_BON = ['Uang', 'Barang'];
+// Kategori Kas untuk bon (nama yang dipakai di Google Sheet). Kalau namanya diganti, dicari kategori Pembiayaan dengan arah dan kata yang mirip.
+var KAS_BON = {
+  beri: ['Bon pekerja (dipinjamkan)', 'Keluar', /bon|pinjam/i],
+  kembali: ['Pelunasan bon pekerja', 'Masuk', /bon|kembali|lunas/i],
+  pinjam: ['Pinjaman masuk', 'Masuk', /pinjam/i],
+  bayarUtang: ['Bayar hutang', 'Keluar', /hutang|utang/i]
+};
 var KEPALA_BAYAR_BON = ['ID', 'Timestamp', 'Tanggal', 'ID bon', 'Nama', 'Jumlah (Rp)', 'Cara', 'Keterangan', 'Diisi oleh'];
 var ARAH_BON = ['Orang ngebon', 'Kita ngebon'];
 var CARA_BAYAR_BON = ['Tunai', 'Transfer', 'Potong upah', 'Barang'];
@@ -1525,6 +1533,7 @@ function ubah_(ss, akses, req) {
     var r = cariBaris_(sh, info, p.nomor, p.tanda);
     if (!r) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah berubah atau terhapus. Muat ulang Riwayat, lalu coba lagi.'};
     var lama = sh.getRange(r, 2, 1, info.kepala.length).getValues()[0];
+    if (tab === 'Kas' && POLA_KAS_BON.test(String(lama[info.kepala.indexOf('Keterangan')] || ''))) return {ok: false, galat: GALAT_KAS_BON};
     var baru;
     if (tab === 'Absensi') {
       var hasil = ubahAbsensi_(ss, akses, sh, r, lama, nilai);
@@ -1626,6 +1635,7 @@ function hapus_(ss, akses, req) {
     }
     if (!r) return {ok: false, kode: 'BERUBAH', galat: 'Catatan ini sudah berubah atau terhapus. Muat ulang Riwayat, lalu coba lagi.'};
     var lama = sh.getRange(r, 2, 1, kepala.length).getValues()[0];
+    if (tab === 'Kas' && POLA_KAS_BON.test(String(lama[kepala.indexOf('Keterangan')] || ''))) return {ok: false, galat: GALAT_KAS_BON};
     sh.deleteRow(r);
     catatLog_(ss, 'Hapus', tab, r, JSON.stringify(nilaiMentah_(kepala, lama)), '', akses.nama);
     return {ok: true};
@@ -1959,7 +1969,7 @@ function catatanPeriode_(ss, sets) {
     var t = tglKunci_(r[0]), kel = teks_(r[4]);
     tiap(t, function (x) {
       if (kel === 'Operasional usaha') x.ops.push({tgl: t, apa: teks_(r[1]), rp: angka_(r[2]), ket: teks_(r[3])});
-      else if (x.kas && KELOMPOK_KAS_BULAN.indexOf(kel) >= 0) x.kas.push({tgl: t, apa: teks_(r[1]), rp: angka_(r[2]), ket: teks_(r[3]), kel: kel, arah: teks_(r[5])});
+      else if (x.kas && KELOMPOK_KAS_BULAN.indexOf(kel) >= 0) x.kas.push({tgl: t, apa: teks_(r[1]), rp: angka_(r[2]), ket: teks_(r[3]).replace(POLA_KAS_BON, '').trim(), kel: kel, arah: teks_(r[5])});
     });
   });
   bacaKolom_(ss, SH_ABSENSI, ['Tanggal', 'Nama', 'Pekerjaan', 'Pekerjaan lain', 'Upah (Rp)', 'Pos upah']).forEach(function (r) {
@@ -2188,7 +2198,8 @@ function bacaBon_(ss) {
     var v = x.v;
     return {baris: x.baris, id: teks_(v['ID']), w: waktuMs_(v['Timestamp']), tgl: tglKunci_(v['Tanggal']), arah: teks_(v['Arah']),
       nama: teks_(v['Nama']), untuk: teks_(v['Untuk']), jumlah: angka_(v['Jumlah (Rp)']), tempo: tglKunci_(v['Jatuh tempo']),
-      ket: teks_(v['Keterangan']), oleh: teks_(v['Diisi oleh']), bayar: []};
+      ket: teks_(v['Keterangan']), oleh: teks_(v['Diisi oleh']), bentuk: teks_(v['Bentuk']) || 'Uang', masukKas: teks_(v['Masuk Kas']) === 'Ya',
+      kategoriKas: teks_(v['Kategori kas']), bayar: []};
   });
   var per = {};
   bon.forEach(function (b) { per[b.id] = b; });
@@ -2233,12 +2244,119 @@ function siapkanBon_(ss, nama, kepala) {
   var ada = ss.getSheetByName(nama);
   var sh = siapkanSheet_(ss, nama, kepala);
   if (!ada) sh.getRange(1, 1, 1, kepala.length).setFontWeight('bold');
+  else {
+    // Tab dari versi sebelumnya: kolom baru ditambahkan di kanan.
+    var sekarang = kepalaSheet_(sh), akhir = sekarang.length;
+    kepala.forEach(function (h) {
+      if (sekarang.indexOf(h) >= 0) return;
+      akhir++;
+      if (akhir > sh.getMaxColumns()) sh.insertColumnsAfter(sh.getMaxColumns(), akhir - sh.getMaxColumns());
+      sh.getRange(1, akhir).setValue(h).setFontWeight('bold');
+      sekarang.push(h);
+    });
+  }
   return sh;
+}
+
+// ---- Sambungan bon ke tab Kas
+// Setiap bon dan pembayarannya punya paling banyak satu baris Kas, dikenali dari tanda di Keterangan:
+// "[bon:<id>]" untuk bon, "[bayar bon:<id>]" untuk pembayaran. Baris Kas itu ikut diubah/dihapus bersama bonnya,
+// dan tidak bisa diubah/dihapus dari Riwayat Kas (supaya tidak berbeda dengan Catatan bon).
+var GALAT_KAS_BON = 'Catatan kas ini dibuat otomatis dari Catatan bon. Ubah atau hapus lewat Catatan bon supaya keduanya tetap sama.';
+var POLA_KAS_BON = /\[(bayar )?bon:[0-9a-zA-Z_-]+\]/;
+function tandaKasBon_(id) { return '[bon:' + id + ']'; }
+function tandaKasBayar_(id) { return '[bayar bon:' + id + ']'; }
+
+function kategoriKasBon_(ss, jenis) {
+  var c = KAS_BON[jenis];
+  var kat = bacaMaster_(ss, 'Kategori Kas').map(function (m) { return m.nilai; });
+  var persis = kat.filter(function (k) { return teks_(k['Kategori']) === c[0]; })[0];
+  if (persis) return c[0];
+  var mirip = kat.filter(function (k) { return teks_(k['Kelompok']) === 'Pembiayaan' && teks_(k['Arah']) === c[1] && c[2].test(teks_(k['Kategori'])); })[0];
+  return mirip ? teks_(mirip['Kategori']) : '';
+}
+
+// Isi baris Kas untuk bon itu sendiri (null = tidak ada baris Kas).
+function kasUntukBon_(ss, b) {
+  if (!b.masukKas) return null;
+  if (b.arah === 'Orang ngebon') {
+    return {jenis: 'beri', kategori: kategoriKasBon_(ss, 'beri'), tanggal: b.tgl, jumlah: b.jumlah,
+      ket: 'Bon ' + b.nama + (b.untuk ? ': ' + b.untuk : '')};
+  }
+  if (b.bentuk === 'Barang') return null;   // ambil barang dulu: uang baru keluar saat dibayar
+  return {jenis: 'pinjam', kategori: kategoriKasBon_(ss, 'pinjam'), tanggal: b.tgl, jumlah: b.jumlah,
+    ket: 'Pinjam dari ' + b.nama + (b.untuk ? ': ' + b.untuk : '')};
+}
+
+// Isi baris Kas untuk satu pembayaran bon. Dibayar dengan barang: tidak ada uang yang bergerak.
+function kasUntukBayar_(ss, b, p) {
+  if (p.cara === 'Barang') return null;
+  var cara = p.cara && p.cara !== 'Tunai' ? ' (' + p.cara.toLowerCase() + ')' : '';
+  if (b.arah === 'Orang ngebon') {
+    return {jenis: 'kembali', kategori: kategoriKasBon_(ss, 'kembali'), tanggal: p.tgl, jumlah: p.jumlah,
+      ket: b.nama + ' bayar bon' + (b.untuk ? ' ' + b.untuk : '') + cara};
+  }
+  if (b.bentuk === 'Barang' && b.kategoriKas) {
+    return {jenis: 'barang', kategori: b.kategoriKas, tanggal: p.tgl, jumlah: p.jumlah, ket: 'Bayar bon ke ' + b.nama + (b.untuk ? ': ' + b.untuk : '') + cara};
+  }
+  return {jenis: 'bayarUtang', kategori: kategoriKasBon_(ss, 'bayarUtang'), tanggal: p.tgl, jumlah: p.jumlah,
+    ket: 'Bayar bon ke ' + b.nama + (b.untuk ? ': ' + b.untuk : '') + cara};
+}
+
+function barisKasBertanda_(sh, info, tanda) {
+  var j = info.kepala.indexOf('Keterangan');
+  if (j < 0 || sh.getLastRow() < 2) return 0;
+  var ket = sh.getRange(2, 2 + j, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ket.length; i++) if (String(ket[i][0]).indexOf(tanda) >= 0) return i + 2;
+  return 0;
+}
+
+// Menulis, mengubah, atau menghapus (isi = null) baris Kas bertanda. Hasil: '' kalau beres, atau teks peringatan.
+function aturKasBon_(ss, tanda, isi, akses) {
+  var sh = ss.getSheetByName('Kas');
+  if (!sh) return isi ? 'Tab Kas tidak ada, jadi bon ini belum tercatat di Kas.' : '';
+  var info = kolomForm_(sh);
+  var r = barisKasBertanda_(sh, info, tanda);
+  var k = function (h) { return info.kepala.indexOf(h); };
+  if (!isi) {
+    if (r) {
+      var lamaH = sh.getRange(r, 2, 1, info.kepala.length).getValues()[0];
+      sh.deleteRow(r);
+      catatLog_(ss, 'Hapus', 'Kas', r, JSON.stringify(nilaiMentah_(info.kepala, lamaH)), 'dari Catatan bon', akses.nama);
+    }
+    return '';
+  }
+  if (!isi.kategori) {
+    if (r) sh.deleteRow(r);
+    return 'Kategori kas "' + KAS_BON[isi.jenis][0] + '" belum ada di Kelola › Kategori kas, jadi belum tercatat di Kas.';
+  }
+  var nilai = {'Tanggal': isi.tanggal, 'Kategori': isi.kategori, 'Jumlah (Rp)': Math.round(isi.jumlah), 'Keterangan': isi.ket + ' ' + tanda};
+  if (r) {
+    var baris = sh.getRange(r, 2, 1, info.kepala.length).getValues()[0], lama = baris.slice();
+    Object.keys(nilai).forEach(function (h) { if (k(h) >= 0) baris[k(h)] = ubahNilai_(h, nilai[h]); });
+    if (JSON.stringify(nilaiMentah_(info.kepala, lama)) === JSON.stringify(nilaiMentah_(info.kepala, baris))) return '';
+    sh.getRange(r, 2, 1, baris.length).setValues([baris]);
+    SpreadsheetApp.flush();
+    rapikan_(sh, info.lastCol);
+    catatLog_(ss, 'Ubah', 'Kas', r, JSON.stringify(nilaiMentah_(info.kepala, lama)), JSON.stringify(nilaiMentah_(info.kepala, baris)) + ' (dari Catatan bon)', akses.nama);
+    return '';
+  }
+  var hasil = simpanUmum_(ss, 'Kas', nilai);
+  if (!hasil.ok) return 'Belum tercatat di Kas: ' + hasil.galat;
+  catatLog_(ss, 'Tambah', 'Kas', 2, '', JSON.stringify(nilai) + ' (dari Catatan bon)', akses.nama);
+  return '';
+}
+
+// Menyamakan semua baris Kas milik satu bon (bonnya dan setiap pembayarannya).
+function samakanKasBon_(ss, b, akses) {
+  var pesan = [aturKasBon_(ss, tandaKasBon_(b.id), kasUntukBon_(ss, b), akses)];
+  b.bayar.forEach(function (p) { pesan.push(aturKasBon_(ss, tandaKasBayar_(p.id), kasUntukBayar_(ss, b, p), akses)); });
+  return pesan.filter(function (x) { return x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(' ');
 }
 
 function bonUntukAplikasi_(b) {
   return {id: b.id, tgl: b.tgl, arah: b.arah, nama: b.nama, untuk: b.untuk, jumlah: b.jumlah, tempo: b.tempo, ket: b.ket, oleh: b.oleh,
-    dibayar: b.dibayar, sisa: b.sisa, status: b.status, tglLunas: b.tglLunas,
+    dibayar: b.dibayar, sisa: b.sisa, status: b.status, tglLunas: b.tglLunas, bentuk: b.bentuk, masukKas: b.masukKas, kategoriKas: b.kategoriKas,
     bayar: b.bayar.map(function (p) { return {id: p.id, tgl: p.tgl, jumlah: p.jumlah, cara: p.cara, ket: p.ket, oleh: p.oleh}; })};
 }
 
@@ -2259,7 +2377,13 @@ function bonDaftar_(ss, akses) {
         jumlah: angka_(r[k('Total (Rp)')]), status: st, ket: k('Keterangan') >= 0 ? teks_(r[k('Keterangan')]) : ''});
     });
   }
-  return {ok: true, bon: bon, jual: jual, arah: ARAH_BON, cara: CARA_BAYAR_BON};
+  var keluar = bacaMaster_(ss, 'Kategori Kas').filter(function (m) { return m.aktif && teks_(m.nilai['Arah']) === 'Keluar'; }).map(function (m) { return teks_(m.nilai['Kategori']); });
+  return {ok: true, bon: bon, jual: jual, arah: ARAH_BON, cara: CARA_BAYAR_BON, bentuk: BENTUK_BON, kategoriKeluar: keluar};
+}
+function hasilBon_(ss, akses, peringatan) {
+  var r = bonDaftar_(ss, akses);
+  if (peringatan) r.peringatan = peringatan;
+  return r;
 }
 
 function bonSimpan_(ss, akses, req) {
@@ -2272,6 +2396,9 @@ function bonSimpan_(ss, akses, req) {
   if (galatTanggal_(tgl)) return {ok: false, galat: galatTanggal_(tgl)};
   if (tempo && !/^\d{4}-\d{2}-\d{2}$/.test(tempo)) return {ok: false, galat: 'Jatuh tempo tidak valid.'};
   if (!(jumlah > 0) || jumlah > 1e10) return {ok: false, galat: 'Jumlah bon wajib diisi.'};
+  var bentuk = arah === 'Kita ngebon' && teks_(req.bentuk) === 'Barang' ? 'Barang' : 'Uang';
+  var kategoriKas = bentuk === 'Barang' ? teks_(req.kategoriKas) : '';
+  var masukKas = req.masukKas === false ? 'Tidak' : 'Ya';
   return denganKunci_(function () {
     var sh = siapkanBon_(ss, SH_BON, KEPALA_BON);
     var kepala = kepalaSheet_(sh);
@@ -2281,8 +2408,8 @@ function bonSimpan_(ss, akses, req) {
     // Kirim ulang dari HP (sinyal putus) tidak membuat bon dobel.
     if (!lama && req.idBaru && semua.some(function (b) { return b.id === teks_(req.idBaru); })) return bonDaftar_(ss, akses);
     var isi = {'Tanggal': tglDariIso_(tgl), 'Arah': arah, 'Nama': nama, 'Untuk': untuk, 'Jumlah (Rp)': Math.round(jumlah),
-      'Jatuh tempo': tempo ? tglDariIso_(tempo) : '', 'Keterangan': teks_(req.keterangan)};
-    var r;
+      'Jatuh tempo': tempo ? tglDariIso_(tempo) : '', 'Keterangan': teks_(req.keterangan), 'Bentuk': bentuk, 'Masuk Kas': masukKas, 'Kategori kas': kategoriKas};
+    var r, peringatan = '';
     if (lama) {
       r = lama.baris;
       var baris = sh.getRange(r, 1, 1, kepala.length).getValues()[0];
@@ -2295,9 +2422,11 @@ function bonSimpan_(ss, akses, req) {
       }
       sh.getRange(r, 1, 1, kepala.length).setValues([baris]);
       lama.jumlah = Math.round(jumlah);
+      lama.tgl = tgl; lama.arah = arah; lama.nama = nama; lama.untuk = untuk; lama.bentuk = bentuk; lama.masukKas = masukKas === 'Ya'; lama.kategoriKas = kategoriKas;
       hitungBon_(lama);
       tulisHitunganBon_(sh, lama);
       catatLog_(ss, 'Ubah bon', SH_BON, r, teksLama, JSON.stringify(isi), akses.nama);
+      peringatan = samakanKasBon_(ss, lama, akses);
     } else {
       isi['ID'] = teks_(req.idBaru) || idBaru_();
       isi['Timestamp'] = new Date();
@@ -2307,8 +2436,10 @@ function bonSimpan_(ss, akses, req) {
       sh.getRange(2, 1, 1, kepala.length).setValues([kepala.map(function (h) { return isi[h] === undefined ? '' : isi[h]; })]);
       formatBarisBon_(sh, 2, kepala);
       catatLog_(ss, 'Tambah bon', SH_BON, 2, '', JSON.stringify({arah: arah, nama: nama, untuk: untuk, jumlah: Math.round(jumlah), tanggal: tgl}), akses.nama);
+      peringatan = samakanKasBon_(ss, {id: isi['ID'], tgl: tgl, arah: arah, nama: nama, untuk: untuk, jumlah: Math.round(jumlah), bentuk: bentuk,
+        masukKas: masukKas === 'Ya', kategoriKas: kategoriKas, bayar: []}, akses);
     }
-    return bonDaftar_(ss, akses);
+    return hasilBon_(ss, akses, peringatan);
   });
 }
 
@@ -2332,11 +2463,12 @@ function bonBayar_(ss, akses, req) {
     sh.insertRowBefore(2);
     sh.getRange(2, 1, 1, kepala.length).setValues([kepala.map(function (h) { return isi[h] === undefined ? '' : isi[h]; })]);
     formatBarisBon_(sh, 2, kepala);
-    b.bayar.push({id: isi['ID'], w: Date.now(), tgl: tgl, jumlah: Math.round(jumlah), cara: cara});
+    var p = {id: isi['ID'], w: Date.now(), tgl: tgl, jumlah: Math.round(jumlah), cara: cara};
+    b.bayar.push(p);
     hitungBon_(b);
     tulisHitunganBon_(ss.getSheetByName(SH_BON), b);
     catatLog_(ss, 'Bayar bon', SH_BAYAR_BON, 2, '', JSON.stringify({nama: b.nama, untuk: b.untuk, jumlah: Math.round(jumlah), cara: cara, tanggal: tgl, sisa: b.sisa}), akses.nama);
-    return bonDaftar_(ss, akses);
+    return hasilBon_(ss, akses, aturKasBon_(ss, tandaKasBayar_(p.id), kasUntukBayar_(ss, b, p), akses));
   });
 }
 
@@ -2351,6 +2483,7 @@ function bonHapus_(ss, akses, req) {
       semua.forEach(function (x) { x.bayar.forEach(function (y) { if (y.id === teks_(req.id)) { b = x; p = y; } }); });
       if (!p) return {ok: false, kode: 'BERUBAH', galat: 'Pembayaran ini sudah terhapus. Muat ulang, lalu coba lagi.'};
       shP.deleteRow(p.baris);
+      aturKasBon_(ss, tandaKasBayar_(p.id), null, akses);
       b.bayar = b.bayar.filter(function (y) { return y !== p; });
       hitungBon_(b);
       tulisHitunganBon_(shB, b);
@@ -2361,6 +2494,8 @@ function bonHapus_(ss, akses, req) {
     if (!bon) return {ok: false, kode: 'BERUBAH', galat: 'Bon ini sudah terhapus. Muat ulang, lalu coba lagi.'};
     bon.bayar.map(function (y) { return y.baris; }).sort(function (a, c) { return c - a; }).forEach(function (r) { shP.deleteRow(r); });
     shB.deleteRow(bon.baris);
+    aturKasBon_(ss, tandaKasBon_(bon.id), null, akses);
+    bon.bayar.forEach(function (y) { aturKasBon_(ss, tandaKasBayar_(y.id), null, akses); });
     catatLog_(ss, 'Hapus bon', SH_BON, bon.baris, JSON.stringify(bonUntukAplikasi_(bon)), '', akses.nama);
     return bonDaftar_(ss, akses);
   });

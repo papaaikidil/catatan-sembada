@@ -84,7 +84,9 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   await page.waitForSelector('.bon-orang [data-bon]');
   assert.ok(/Rofik/.test(await page.textContent('.bon-orang')) && /Rp300\.000/.test(await page.textContent('.bon-orang')));
   assert.strictEqual(objek('Bon')[0]['Nama'], 'Rofik');
-  cek('Catat bon baru (orang ngebon ke kita)');
+  const kasDariBon = () => objek('Kas').filter(x => /\[(bayar )?bon:/.test(String(x['Keterangan'])));
+  assert.ok(kasDariBon().some(x => x['Kategori'] === 'Bon pekerja (dipinjamkan)' && x['Jumlah (Rp)'] === 300000), 'kasbon tercatat di Kas: ' + JSON.stringify(kasDariBon()));
+  cek('Catat bon baru (orang ngebon ke kita), langsung tercatat di Kas');
 
   // Cicil 100.000 dengan potong upah
   await page.click('.bon-orang [data-bon]');
@@ -100,6 +102,7 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   await page.waitForFunction(() => !document.querySelector('.tirai') && /Dicicil/.test(document.querySelector('.bon-orang').textContent));
   assert.ok(/sisa Rp200\.000/.test(await page.textContent('.bon-orang')));
   assert.strictEqual(objek('Bayar Bon')[0]['Cara'], 'Potong upah');
+  assert.ok(kasDariBon().some(x => x['Kategori'] === 'Pelunasan bon pekerja' && x['Jumlah (Rp)'] === 100000), 'cicilan masuk Kas');
   cek('Bayar sebagian (potong upah): status Dicicil, sisa Rp200.000');
 
   // Petunjuk sisa bon di slip upah
@@ -137,6 +140,11 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   await page.waitForSelector('.tirai [name=n0]');
   assert.strictEqual(await page.evaluate(() => document.querySelector('.tirai input[name="n_arah"]:checked').value), 'Kita ngebon');
   assert.ok(await page.isHidden('.tirai #k0') && await page.isVisible('.tirai [name=t0]'), 'kita ngebon: nama toko diketik');
+  await page.evaluate(() => { const i = [...document.querySelectorAll('.tirai input[name="n_bentuk"]')].find(x => x.value === 'Barang'); i.closest('label').click(); });
+  await page.waitForSelector('.tirai .bon-katkas:not([hidden])');
+  assert.ok(await page.isHidden('.tirai .bon-kas'), 'ambil barang: tidak ada pilihan catat Kas sekarang');
+  await page.selectOption('.tirai [name=n_katkas]', 'Proyek bangunan');
+  assert.ok(/Saat dibayar, tercatat di Kas sebagai Proyek bangunan/.test(await page.textContent('.tirai .bon-info-kas')));
   await isi(page, '.tirai [name=t0]', 'Toko Bangunan Jaya');
   await isi(page, '.tirai [name=n0]', 'semen 10 sak');
   await isi(page, '.tirai [name=n1]', '650000');
@@ -146,6 +154,8 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   await page.waitForSelector('.bon-orang .merah');
   assert.ok(/lewat jatuh tempo/.test(await page.textContent('.bon-orang .merah')));
   assert.ok(/Rp650\.000/.test(await page.textContent('[data-arah="Kita ngebon"]')));
+  assert.ok(!kasDariBon().some(x => /Toko Bangunan Jaya/.test(x['Keterangan'])), 'ambil barang dulu: belum ada uang keluar di Kas');
+  assert.strictEqual(objek('Bon').find(x => x['Nama'] === 'Toko Bangunan Jaya')['Kategori kas'], 'Proyek bangunan');
   await page.screenshot({ path: path.join(OUT, 'bon-kita.png'), fullPage: true });
   cek('Kita ngebon ke toko: ringkasan utang, tanda lewat jatuh tempo');
 
@@ -163,6 +173,38 @@ async function tungguToast(page, re) { await page.waitForFunction(r => !document
   assert.ok(nama2.includes('Joko') && !nama2.includes('Mas Romadi'), 'pilihan nama ikut Kelola › Karyawan: ' + nama2);
   await page.click('.tirai [data-aksi="batal"]');
   cek('Karyawan baru muncul dan karyawan keluar hilang dari pilihan nama');
+
+  // Riwayat Kas: baris dari bon tidak bisa diubah di sana, tag tidak tampil
+  await page.goto(ASAL + '#/terbaru/kas');
+  await page.waitForSelector('#daftar-entri [data-ke="#/bon"]');
+  const teksKas = await page.textContent('#daftar-entri');
+  assert.ok(!/\[bon:|\[bayar bon:/.test(teksKas) && /Bon Rofik: kasbon beli obat/.test(teksKas), 'tanda tersembunyi di Riwayat');
+  await page.screenshot({ path: path.join(OUT, 'bon-riwayat-kas.png') });
+  await page.click('#daftar-entri [data-ke="#/bon"]');
+  await page.waitForSelector('#bon-tambah');
+  cek('Riwayat Kas: catatan dari bon diarahkan ke Catatan bon');
+
+  // Bon lama (sudah pernah dicatat manual di Kas): simpan tanpa Kas, lalu "Catat juga di Kas"
+  await page.click('[data-arah="Orang ngebon"]');
+  await page.click('#bon-tambah');
+  await page.waitForSelector('.tirai #k0 .chip');
+  await page.evaluate(() => { const i = [...document.querySelectorAll('.tirai input[name="k0"]')].find(x => x.value === 'Pak Muh'); i.closest('label').click(); });
+  await isi(page, '.tirai [name=n0]', 'bon lama');
+  await isi(page, '.tirai [name=n1]', '150000');
+  await page.evaluate(() => { const i = [...document.querySelectorAll('.tirai input[name="n_kas"]')].find(x => x.value === 'Tidak'); i.closest('label').click(); });
+  assert.ok(/Tidak dicatat di Kas sekarang/.test(await page.textContent('.tirai .bon-info-kas')));
+  const nKas = kasDariBon().length;
+  await page.click('.tirai [data-aksi="simpan"]');
+  await tungguToast(page, /Bon tersimpan/);
+  assert.strictEqual(kasDariBon().length, nKas, 'tidak masuk Kas');
+  await page.evaluate(() => [...document.querySelectorAll('.bon-orang')].find(k => /Pak Muh/.test(k.textContent)).querySelector('[data-bon]').click());
+  await page.waitForSelector('.tirai [data-aksi="kekas"]');
+  assert.ok(/belum tercatat/.test(await page.textContent('.tirai .ringkas')));
+  await page.click('.tirai [data-aksi="kekas"]');
+  await page.click('.tirai [data-aksi="ya"]');
+  await tungguToast(page, /tercatat di Kas/);
+  assert.strictEqual(kasDariBon().length, nKas + 1, 'dicatat ke Kas belakangan');
+  cek('Bon lama: bisa disimpan tanpa Kas, lalu dicatat ke Kas dengan satu ketukan');
 
   // Penjualan belum dibayar ditandai lunas
   await page.click('[data-arah="Orang ngebon"]');

@@ -1,7 +1,7 @@
 // Uji logika api.gs versi 7 dengan Google Sheet tiruan. Jalankan: node tes/api7_test.js
 const assert = require('assert');
 const fs = require('fs');
-const { muat, tgl, isDate, formatTanggal } = require('./tiruan7');
+const { muat, tgl, isDate, formatTanggal, buatSheet } = require('./tiruan7');
 const { buatData, isoHari } = require('./data_sembada');
 const J = o => JSON.parse(JSON.stringify(o));
 let langkah = 0;
@@ -73,7 +73,7 @@ assert.deepStrictEqual(r.master['Pilihan'].filter(m => m.nilai['Daftar'] === 'Da
 assert.deepStrictEqual(r.master['Pilihan'].filter(m => m.nilai['Daftar'] === 'Kerja lain untuk').length, 4);
 assert.deepStrictEqual(r.master['Produk'].map(m => [m.nilai['Produk'], m.nilai['Satuan'], m.nilai['Harga biasa (Rp)']]),
   [['Minyak jeruk purut (campur)', 'kg', 600000], ['Minyak batang jeruk purut', 'kg', ''], ['Hidrosol', 'liter', '']]);
-assert.deepStrictEqual(r.master['Kategori Kas'].map(m => m.nilai['Kategori']), ['Bensin & servis pikap', 'Proyek bangunan', 'Keluarga & pribadi', 'Pinjaman masuk']);
+assert.deepStrictEqual(r.master['Kategori Kas'].map(m => m.nilai['Kategori']), ['Bensin & servis pikap', 'Proyek bangunan', 'Keluarga & pribadi', 'Pinjaman masuk', 'Bayar hutang', 'Bon pekerja (dipinjamkan)', 'Pelunasan bon pekerja']);
 assert.deepStrictEqual(J(r.skema['Karyawan'].kolom[1].opsi), ['Pengumpul', 'Tim suling']);
 assert.ok(r.skema['Pilihan'].hapus && !r.skema['Karyawan'].hapus && r.skema['Karyawan'].keluar);
 assert.strictEqual(r.pengaturan.namaAplikasi, 'Catatan Sembada');
@@ -501,11 +501,20 @@ cek('Ringkasan disimpan sebentar di cache, dibuang setiap ada perubahan data, to
   assert.strictEqual(rb.bon.length, 1, 'kirim ulang tidak dobel');
   rb = panggil({ aksi: 'bonSimpan', token: tokPemilik, idBaru: 'bon-toko', arah: 'Kita ngebon', nama: 'Toko Bangunan Jaya', untuk: 'semen 10 sak', jumlah: 650000, tanggal: hariIni });
   assert.strictEqual(rb.bon.length, 2);
-  assert.deepStrictEqual(sheets['Bon'].data[0], ['ID', 'Timestamp', 'Tanggal', 'Arah', 'Nama', 'Untuk', 'Jumlah (Rp)', 'Jatuh tempo', 'Keterangan', 'Diisi oleh', 'Dibayar (Rp)', 'Sisa (Rp)', 'Status', 'Tanggal lunas']);
+  assert.deepStrictEqual(sheets['Bon'].data[0], ['ID', 'Timestamp', 'Tanggal', 'Arah', 'Nama', 'Untuk', 'Jumlah (Rp)', 'Jatuh tempo', 'Keterangan', 'Diisi oleh', 'Dibayar (Rp)', 'Sisa (Rp)', 'Status', 'Tanggal lunas', 'Bentuk', 'Masuk Kas', 'Kategori kas']);
+  // Bon langsung tercatat di Kas: kasbon = uang keluar "Bon pekerja (dipinjamkan)"; pinjam uang = "Pinjaman masuk".
+  const kasBon = id => objek('Kas').filter(x => String(x['Keterangan']).includes('[bon:' + id + ']'));
+  const kasBayar = id => objek('Kas').filter(x => String(x['Keterangan']).includes('[bayar bon:' + id + ']'));
+  let kb = kasBon('bon-rofik');
+  assert.ok(kb.length === 1 && kb[0]['Kategori'] === 'Bon pekerja (dipinjamkan)' && kb[0]['Jumlah (Rp)'] === 300000 && formatTanggal(kb[0]['Tanggal'], 'yyyy-MM-dd') === kemarin, JSON.stringify(kb));
+  assert.ok(/^Bon Rofik: kasbon \[bon:bon-rofik\]$/.test(kb[0]['Keterangan']), kb[0]['Keterangan']);
+  assert.strictEqual(kasBon('bon-toko').length, 1); assert.strictEqual(kasBon('bon-toko')[0]['Kategori'], 'Pinjaman masuk');
   // Bayar sebagian -> Dicicil; lebih dari sisa ditolak; sisanya -> Lunas.
   rb = panggil({ aksi: 'bonBayar', token: tokPemilik, idBaru: 'bayar-1', idBon: 'bon-rofik', tanggal: hariIni, jumlah: 100000, cara: 'Potong upah' });
   let rofik = rb.bon.find(x => x.id === 'bon-rofik');
   assert.ok(rofik.status === 'Dicicil' && rofik.dibayar === 100000 && rofik.sisa === 200000, JSON.stringify(rofik));
+  kb = kasBayar('bayar-1');
+  assert.ok(kb.length === 1 && kb[0]['Kategori'] === 'Pelunasan bon pekerja' && kb[0]['Jumlah (Rp)'] === 100000 && /potong upah/.test(kb[0]['Keterangan']), JSON.stringify(kb));
   rb = panggil({ aksi: 'bonBayar', token: tokPemilik, idBaru: 'bayar-1', idBon: 'bon-rofik', tanggal: hariIni, jumlah: 100000, cara: 'Potong upah' });
   assert.strictEqual(rb.bon.find(x => x.id === 'bon-rofik').bayar.length, 1, 'pembayaran tidak dobel');
   assert.ok(/Lebih dari sisa bon \(Rp200\.000\)/.test(panggil({ aksi: 'bonBayar', token: tokPemilik, idBon: 'bon-rofik', tanggal: hariIni, jumlah: 250000 }).galat));
@@ -515,18 +524,53 @@ cek('Ringkasan disimpan sebentar di cache, dibuang setiap ada perubahan data, to
   const barisBon = objek('Bon').find(x => x['ID'] === 'bon-rofik');
   assert.ok(barisBon['Status'] === 'Lunas' && barisBon['Dibayar (Rp)'] === 300000 && barisBon['Sisa (Rp)'] === 0 && isDate(barisBon['Tanggal lunas']), JSON.stringify(barisBon));
   assert.strictEqual(objek('Bayar Bon').length, 2);
+  assert.strictEqual(kasBayar('bayar-2').length, 1, 'pelunasan tunai juga masuk Kas');
+  // Kas dari bon tidak bisa diubah/dihapus lewat Riwayat Kas.
+  const rKas = panggil({ aksi: 'terbaru', token: tokPemilik, tab: 'Kas', n: 50 }).data.find(x => String(x.nilai['Keterangan']).includes('[bayar bon:bayar-2]'));
+  assert.ok(/Catatan bon/.test(panggil({ aksi: 'ubah', token: tokPemilik, tab: 'Kas', id: rKas.id, nilai: { 'Jumlah (Rp)': 1 } }).galat));
+  assert.ok(/Catatan bon/.test(panggil({ aksi: 'hapus', token: tokPemilik, tab: 'Kas', id: rKas.id }).galat));
   // Hapus satu pembayaran -> kembali Dicicil.
   rb = panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bayar', id: 'bayar-2' });
   rofik = rb.bon.find(x => x.id === 'bon-rofik');
   assert.ok(rofik.status === 'Dicicil' && rofik.sisa === 200000);
   assert.strictEqual(objek('Bon').find(x => x['ID'] === 'bon-rofik')['Status'], 'Dicicil');
+  assert.strictEqual(kasBayar('bayar-2').length, 0, 'baris Kas pembayaran ikut terhapus');
   // Ubah jumlah bon -> sisa dihitung ulang.
   rb = panggil({ aksi: 'bonSimpan', token: tokPemilik, id: 'bon-rofik', arah: 'Orang ngebon', nama: 'Rofik', untuk: 'kasbon + bensin', jumlah: 350000, tanggal: kemarin });
   rofik = rb.bon.find(x => x.id === 'bon-rofik');
   assert.ok(rofik.sisa === 250000 && rofik.untuk === 'kasbon + bensin' && rofik.bayar.length === 1, JSON.stringify(rofik));
+  kb = kasBon('bon-rofik');
+  assert.ok(kb.length === 1 && kb[0]['Jumlah (Rp)'] === 350000 && /kasbon \+ bensin/.test(kb[0]['Keterangan']), 'baris Kas ikut berubah: ' + JSON.stringify(kb));
+  // Bon lama yang dulu sudah dicatat manual di Kas: simpan tanpa Kas, lalu bisa dimasukkan belakangan.
+  rb = panggil({ aksi: 'bonSimpan', token: tokPemilik, idBaru: 'bon-lama', arah: 'Orang ngebon', nama: 'Pak Muh', untuk: 'bon lama', jumlah: 150000, tanggal: lusa, masukKas: false });
+  assert.ok(rb.ok && kasBon('bon-lama').length === 0 && rb.bon.find(x => x.id === 'bon-lama').masukKas === false);
+  rb = panggil({ aksi: 'bonSimpan', token: tokPemilik, id: 'bon-lama', arah: 'Orang ngebon', nama: 'Pak Muh', untuk: 'bon lama', jumlah: 150000, tanggal: lusa, masukKas: true });
+  assert.strictEqual(kasBon('bon-lama').length, 1, 'dicatat ke Kas belakangan');
+  rb = panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-lama' });
+  assert.strictEqual(kasBon('bon-lama').length, 0);
+  // Kita ngebon barang (semen): Kas baru tercatat saat dibayar, dengan kategori pilihan; bayar dengan barang tidak masuk Kas.
+  rb = panggil({ aksi: 'bonSimpan', token: tokPemilik, idBaru: 'bon-semen', arah: 'Kita ngebon', bentuk: 'Barang', kategoriKas: 'Proyek bangunan', nama: 'Toko Jaya', untuk: 'semen 5 sak', jumlah: 300000, tanggal: hariIni });
+  assert.ok(rb.ok && kasBon('bon-semen').length === 0, 'ambil barang dulu: belum ada uang keluar');
+  rb = panggil({ aksi: 'bonBayar', token: tokPemilik, idBaru: 'bayar-semen', idBon: 'bon-semen', tanggal: hariIni, jumlah: 200000, cara: 'Transfer' });
+  kb = kasBayar('bayar-semen');
+  assert.ok(kb.length === 1 && kb[0]['Kategori'] === 'Proyek bangunan' && kb[0]['Jumlah (Rp)'] === 200000, JSON.stringify(kb));
+  rb = panggil({ aksi: 'bonBayar', token: tokPemilik, idBaru: 'bayar-semen-2', idBon: 'bon-semen', tanggal: hariIni, jumlah: 100000, cara: 'Barang' });
+  assert.ok(rb.bon.find(x => x.id === 'bon-semen').status === 'Lunas' && kasBayar('bayar-semen-2').length === 0);
+  rb = panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-semen' });
+  assert.strictEqual(kasBayar('bayar-semen').length, 0);
+  // Kategori kas belum ada: bon tetap tersimpan, ada peringatan.
+  const dKat = sheets['Daftar'].data.find(x => x[16] === 'Bon pekerja (dipinjamkan)');
+  dKat[16] = '';
+  rb = panggil({ aksi: 'bonSimpan', token: tokPemilik, idBaru: 'bon-tanpa-kat', arah: 'Orang ngebon', nama: 'Rofik', untuk: 'uji', jumlah: 1000, tanggal: hariIni });
+  assert.ok(rb.ok && /belum ada di Kelola/.test(rb.peringatan) && kasBon('bon-tanpa-kat').length === 0, JSON.stringify(rb.peringatan));
+  dKat[16] = 'Bon pekerja (dipinjamkan)';
+  panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-tanpa-kat' });
   // Hapus bon -> pembayarannya ikut terhapus.
   rb = panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-rofik' });
   assert.ok(rb.ok && rb.bon.length === 1 && objek('Bayar Bon').length === 0);
+  assert.ok(kasBon('bon-rofik').length === 0 && kasBayar('bayar-1').length === 0, 'hapus bon: semua baris Kas-nya ikut terhapus');
+  panggil({ aksi: 'bonHapus', token: tokPemilik, jenis: 'bon', id: 'bon-toko' });
+  assert.strictEqual(kasBon('bon-toko').length, 0);
   ['Tambah bon', 'Bayar bon', 'Hapus bayar bon', 'Ubah bon', 'Hapus bon'].forEach(a => assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === a), 'log ' + a));
   // Penjualan belum dibayar ikut tampil dan bisa ditandai lunas lewat 'ubah'.
   const shJ = sheets['Penjualan'], kJ = shJ.data[0];
@@ -540,7 +584,24 @@ cek('Ringkasan disimpan sebentar di cache, dibuang setiap ada perubahan data, to
   assert.ok(!panggil({ aksi: 'bon', token: tokPemilik }).jual.some(x => x.id === j1.id), 'sesudah ditandai lunas tidak tampil lagi');
   shJ.data[jIdx][kJ.indexOf('Status bayar')] = stLama;
 }
-cek('Catatan bon: dua arah, cicilan sampai lunas, ubah & hapus, kirim ulang tidak dobel, penjualan belum dibayar bisa ditandai lunas');
+// Tab Bon dari versi sebelumnya (14 kolom, bon Eko belum tercatat di Kas): kolom baru ditambah, bon bisa dicatat ke Kas.
+{
+  const s2 = buatData();
+  s2['Bon'] = buatSheet('Bon', [['ID', 'Timestamp', 'Tanggal', 'Arah', 'Nama', 'Untuk', 'Jumlah (Rp)', 'Jatuh tempo', 'Keterangan', 'Diisi oleh', 'Dibayar (Rp)', 'Sisa (Rp)', 'Status', 'Tanggal lunas'],
+    ['8b9bb46ab28e38d0', new Date(), tgl(isoHari(-3)), 'Orang ngebon', 'Eko & Pak Gatot', 'Bayar angsuran motor', 1500000, '', '', 'Mas Wildan', 0, 1500000, 'Belum lunas', '']]);
+  const sv2 = muat(s2);
+  const t2 = sv2.panggil({ aksi: 'masuk', pengguna: 'wildan', sandi: '250610' }).token;
+  let r2 = sv2.panggil({ aksi: 'bon', token: t2 });
+  const eko = r2.bon[0];
+  assert.ok(eko && eko.masukKas === false && eko.sisa === 1500000, JSON.stringify(eko));
+  r2 = sv2.panggil({ aksi: 'bonSimpan', token: t2, id: eko.id, arah: eko.arah, nama: eko.nama, untuk: eko.untuk, jumlah: eko.jumlah, tanggal: eko.tgl, masukKas: true });
+  assert.ok(r2.ok && r2.bon[0].masukKas === true, JSON.stringify(r2));
+  assert.deepStrictEqual(s2['Bon'].data[0].slice(14), ['Bentuk', 'Masuk Kas', 'Kategori kas'], 'kolom baru ditambahkan di kanan');
+  assert.strictEqual(s2['Bon'].data[1][15], 'Ya');
+  const kasEko = s2['Kas'].data.filter(x => String(x[5]).includes('[bon:8b9bb46ab28e38d0]'));
+  assert.ok(kasEko.length === 1 && kasEko[0][3] === 'Bon pekerja (dipinjamkan)' && kasEko[0][4] === 1500000, JSON.stringify(kasEko));
+}
+cek('Catatan bon: dua arah, cicilan sampai lunas, ubah & hapus, kirim ulang tidak dobel, penjualan belum dibayar bisa ditandai lunas, semua perubahan ikut tercatat di Kas');
 
 // ------------------------------------------------------------------ 9c. Batas peringatan
 assert.strictEqual(panggil({ aksi: 'batas', token: tokRofik }).ok, false, 'pencatat tidak boleh');

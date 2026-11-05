@@ -648,3 +648,6 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
   #bon-tambah { width: auto; min-width: 16rem; padding-left: 1.5rem; padding-right: 1.5rem; }
   .bon-ringkas { max-width: 48rem; }
 }
+.bon-info-kas { margin: .25rem 0 1rem; font-weight: 500; }
+.bon-info-kas:empty { display: none; }
+.aksi-entri .tombol svg { width: 1.125rem; height: 1.125rem; }
