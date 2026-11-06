@@ -190,6 +190,7 @@
     kotak: '<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
     kalender: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
     mata: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+    bagikan: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
     bon: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2Z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>',
     pesan: '<path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-6.2A8 8 0 1 1 21 12Z"/>'
@@ -1384,6 +1385,7 @@
   // Versi jembatan APK: 0 = bukan APK baru, 1 = APK 1.0.4 (cetak saja), 2 = bisa membuka WhatsApp / WA Bisnis yang dipilih.
   var VERSI_APK = PRINTER ? (typeof PRINTER.versi === 'function' ? Number(PRINTER.versi()) || 1 : 1) : 0;
   var DI_ANDROID = /Android/i.test(navigator.userAgent);
+  var DI_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   window.__pesanApk = function (t) { toast(t, 5000); };
   // Tautan WhatsApp. paket: 'com.whatsapp' (WhatsApp biasa) atau 'com.whatsapp.w4b' (WA Bisnis); kosong = biarkan HP memilih.
   function tautanWa(no, teks, paket) {
@@ -1493,6 +1495,51 @@
     b.push(0x1B, 0x45, 0, 0x1D, 0x21, 0, 0x1B, 0x61, 0, 0x1B, 0x64, 4);
     return b;
   }
+  // Slip sebagai gambar PNG selebar kepala cetak printer thermal: 58 mm = 384 titik, 80 mm = 576 titik.
+  function kanvasSlip(semua, W) {
+    var lebar = W >= 48 ? 576 : 384, tepi = 6;
+    var c = document.createElement('canvas'), x = c.getContext('2d');
+    var huruf = '"Courier New", Courier, Menlo, monospace';
+    x.font = '100px ' + huruf;
+    var per = x.measureText('0').width / 100;
+    var ukuran = Math.floor((lebar - 2 * tepi) / (W * per) * 10) / 10;
+    var tinggiBaris = Math.round(ukuran * 1.3);
+    var baris = [];
+    semua.forEach(function (L, i) {
+      if (i) { baris.push({t: ''}); baris.push({t: ulang('- ', W / 2)}); baris.push({t: ''}); }
+      L.forEach(function (l) { baris.push(l); });
+    });
+    c.width = lebar;
+    c.height = tepi * 2 + baris.length * tinggiBaris + tinggiBaris;
+    x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = '#000000'; x.textBaseline = 'top';
+    baris.forEach(function (l, i) {
+      var t = asciiSaja(l.t);
+      x.font = (l.tebal ? 'bold ' : '') + ukuran + 'px ' + huruf;
+      var kiri = tepi;
+      if (l.tengah) kiri = Math.max(tepi, (lebar - x.measureText(t).width) / 2);
+      x.fillText(t, kiri, tepi + i * tinggiBaris);
+    });
+    return c;
+  }
+  function bagikanGambarSlip(semua, W, nama) {
+    var url = kanvasSlip(semua, W).toDataURL('image/png');
+    var biner = atob(url.split(',')[1]), b = new Uint8Array(biner.length);
+    for (var i = 0; i < biner.length; i++) b[i] = biner.charCodeAt(i);
+    var berkas = null;
+    try { berkas = new File([b], nama + '.png', {type: 'image/png'}); } catch (e) { berkas = null; }
+    // Menu Bagikan harus dibuka langsung dari ketukan, jadi gambar dibuat tanpa menunggu.
+    if (berkas && navigator.canShare && navigator.canShare({files: [berkas]})) {
+      navigator.share({files: [berkas], title: 'Slip upah'}).catch(function (e) {
+        if (e && e.name !== 'AbortError') toast('Tidak bisa membagikan gambar: ' + e.message, 6000);
+      });
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = url; a.download = nama + '.png';
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('Gambar slip diunduh. Buka lewat aplikasi printer thermal untuk mencetak.', 6000);
+  }
   function base64Bytes(b) {
     var s = '';
     for (var i = 0; i < b.length; i += 4096) s += String.fromCharCode.apply(null, b.slice(i, i + 4096));
@@ -1579,10 +1626,18 @@
             return '<option value="' + esc(p.alamat) + '"' + (p.alamat === terakhir ? ' selected' : '') + '>' + esc(p.nama || p.alamat) + (p.printer ? '' : ' (bukan printer?)') + '</option>';
           }).join('') + '</select>');
         if (!pesan) tombol += '<button class="tombol utama" data-aksi="cetak">' + ikon('printer') + 'Cetak' + (pilih ? '' : ' semua') + '</button>';
-      } else {
+      } else if (DI_ANDROID) {
         el.innerHTML = '<p class="catatan">' + (DI_APK ? 'Untuk cetak langsung ke printer Bluetooth, pasang <a href="' + APK_TERBARU + '" target="_blank" rel="noopener">APK Sembada terbaru</a>. ' : 'Cetak langsung hanya dari APK Sembada. ') +
-          'Bisa juga lewat aplikasi <b>RawBT</b> (gratis di Play Store) yang sudah tersambung ke printer.</p>';
-        tombol += '<button class="tombol utama" data-aksi="rawbt">' + ikon('printer') + 'Cetak lewat RawBT</button>';
+          'Bisa juga lewat aplikasi <b>RawBT</b> (gratis di Play Store) yang sudah tersambung ke printer, atau bagikan gambar slip ke aplikasi printer.</p>';
+        tombol += '<button class="tombol kedua" data-aksi="gambar">' + ikon('bagikan') + 'Gambar slip</button>' +
+          '<button class="tombol utama" data-aksi="rawbt">' + ikon('printer') + 'Cetak lewat RawBT</button>';
+      } else {
+        // iPhone/iPad dan komputer tidak bisa mengirim perintah ke printer Bluetooth dari browser.
+        // Slip dijadikan gambar selebar kertas, lalu dibuka lewat menu Bagikan di aplikasi printer thermal-nya.
+        el.innerHTML = '<p class="catatan">' + (DI_IOS
+          ? 'Di iPhone, slip dicetak lewat <b>aplikasi printer thermal</b> (aplikasi bawaan printer yang sudah tersambung Bluetooth). Ketuk <b>Bagikan gambar slip</b>, lalu pilih aplikasi printernya. Kalau tidak muncul di daftar, pilih <b>Simpan Gambar</b> lalu buka dari aplikasi printer.'
+          : 'Dari komputer, unduh gambar slip lalu cetak dari aplikasi printer.') + '</p>';
+        tombol += '<button class="tombol utama" data-aksi="gambar">' + ikon('bagikan') + (DI_IOS ? 'Bagikan gambar slip' : 'Unduh gambar slip') + '</button>';
       }
       q1('.slip-tombol').innerHTML = tombol;
     };
@@ -1615,6 +1670,7 @@
       }
       var data = base64Bytes(bytesSlip(semuaBaris(), lebarSlip()));
       if (aksi === 'rawbt') { location.href = 'rawbt:base64,' + data; return; }
+      if (aksi === 'gambar') { bagikanGambarSlip(semuaBaris(), lebarSlip(), 'slip-upah-' + (pilih ? pilih : 'semua').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-' + m.mulai); return; }
       if (aksi === 'cetak') {
         var pr = q1('#slip-pilih-printer');
         if (!pr || !pr.value) { toast('Pilih printernya dulu.'); return; }
@@ -3790,5 +3846,5 @@
   }
 
   // Untuk pengujian otomatis.
-  window.__sembada = {barisSlip: barisSlip, teksSlip: teksSlip, bytesSlip: bytesSlip, asciiSaja: asciiSaja, upahSuling: upahSuling, susunProduksi: susunProduksi, susunAbsensi: susunAbsensi, angkaDesimal: angkaDesimal, campur: campur, teksDi: teksDi};
+  window.__sembada = {kanvasSlip: kanvasSlip, barisSlip: barisSlip, teksSlip: teksSlip, bytesSlip: bytesSlip, asciiSaja: asciiSaja, upahSuling: upahSuling, susunProduksi: susunProduksi, susunAbsensi: susunAbsensi, angkaDesimal: angkaDesimal, campur: campur, teksDi: teksDi};
 })();

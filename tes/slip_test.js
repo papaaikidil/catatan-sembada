@@ -136,14 +136,58 @@ const baris = async page => (await page.textContent('.slip-pratinjau')).split('\
   await p2.goto(ASAL + '#/ringkasan');
   await p2.waitForSelector('.kartu-minggu .tombol-slip');
   await p2.click('.kartu-minggu .tombol-slip');
-  await p2.waitForSelector('[data-aksi="rawbt"]');
-  assert.ok(/RawBT/.test(await p2.textContent('.slip-printer')));
+  await p2.waitForSelector('[data-aksi="gambar"]');
+  assert.strictEqual(await p2.$('[data-aksi="rawbt"]'), null, 'RawBT hanya untuk Android');
+  const [unduh] = await Promise.all([p2.waitForEvent('download'), p2.click('[data-aksi="gambar"]')]);
+  const png = fs.readFileSync(await unduh.path());
+  assert.ok(png.slice(1, 4).toString() === 'PNG' && png.readUInt32BE(16) === 384, 'gambar slip PNG selebar 384 titik (58 mm)');
+  assert.ok(/^slip-upah-semua-\d{4}-\d{2}-\d{2}\.png$/.test(unduh.suggestedFilename()), unduh.suggestedFilename());
   await p2.evaluate(() => [...document.querySelectorAll('input[name="slip-siapa"]')][1].closest('label').click());
   await p2.waitForSelector('.slip-wa [data-aksi="wa"]');
   const wa2 = await p2.$$eval('.slip-wa [data-aksi="wa"]', as => as.map(a => a.getAttribute('href')));
   assert.ok(wa2.length === 1 && /^https:\/\/wa\.me\//.test(wa2[0]), 'di luar Android: satu tautan wa.me biasa');
   await p2.screenshot({ path: path.join(OUT, 'slip-browser.png') });
-  cek('Di browser biasa: cetak lewat RawBT, kirim lewat wa.me');
+  cek('Di komputer: unduh gambar slip (PNG 384 titik), kirim lewat wa.me');
+
+  // ---- iPhone (Safari): tidak ada RawBT; gambar slip dibagikan ke aplikasi printer lewat menu Bagikan
+  const ctx4 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', locale: 'id-ID', timezoneId: 'Asia/Jakarta',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
+  await ctx4.addInitScript(() => {
+    navigator.canShare = d => !!(d && d.files && d.files.length);
+    navigator.share = async d => { const f = d.files[0]; window.__dibagikan = { nama: f.name, jenis: f.type, isi: Array.from(new Uint8Array(await f.arrayBuffer())) }; };
+  });
+  const p4 = await ctx4.newPage();
+  p4.on('pageerror', e => galat.push(e.message));
+  await pasang(p4);
+  await masuk(p4);
+  await p4.click('#kotak-ringkas .tombol-slip');
+  await p4.evaluate(() => [...document.querySelectorAll('input[name="slip-siapa"]')][1].closest('label').click());
+  await p4.waitForSelector('[data-aksi="gambar"]');
+  assert.strictEqual(await p4.$('[data-aksi="rawbt"]'), null, 'iPhone: tidak ada tombol RawBT');
+  assert.ok(/aplikasi printer thermal/.test(await p4.textContent('.slip-printer')));
+  await p4.evaluate(() => [...document.querySelectorAll('input[name="slip-kertas"]')].find(x => x.value === '80').closest('label').click());
+  await p4.click('[data-aksi="gambar"]');
+  await p4.waitForFunction(() => window.__dibagikan);
+  const dib = await p4.evaluate(() => window.__dibagikan);
+  const png4 = Buffer.from(dib.isi);
+  assert.ok(dib.jenis === 'image/png' && /^slip-upah-.+\.png$/.test(dib.nama) && png4.readUInt32BE(16) === 576, 'iPhone: PNG 576 titik (80 mm) dibagikan: ' + dib.nama);
+  fs.writeFileSync(path.join(OUT, 'slip-gambar.png'), png4);
+  await p4.screenshot({ path: path.join(OUT, 'slip-iphone.png') });
+  cek('iPhone: tanpa RawBT, gambar slip dibagikan ke aplikasi printer (PNG selebar kertas)');
+  await ctx4.close();
+
+  // ---- Chrome di Android tanpa APK: RawBT dan gambar slip
+  const ctx5 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', locale: 'id-ID', timezoneId: 'Asia/Jakarta',
+    userAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36' });
+  const p5 = await ctx5.newPage();
+  p5.on('pageerror', e => galat.push(e.message));
+  await pasang(p5);
+  await masuk(p5);
+  await p5.click('#kotak-ringkas .tombol-slip');
+  await p5.waitForSelector('[data-aksi="rawbt"]');
+  assert.ok(await p5.$('[data-aksi="gambar"]'), 'Android: ada juga gambar slip');
+  cek('Chrome Android: RawBT dan gambar slip');
+  await ctx5.close();
 
   // ---- APK lama (1.0.4, belum bisa memilih): satu tombol WhatsApp + saran pasang APK terbaru
   const ctx3 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', locale: 'id-ID', timezoneId: 'Asia/Jakarta',
