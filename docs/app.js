@@ -65,6 +65,7 @@
   var mengirim = false;
   var promptPasang = null;
   var sedangDiubah = null;                 // catatan yang sedang diubah
+  var posisiRiwayat = null;                // posisi gulir Riwayat saat "Ubah" diketuk: {k, y}, dipulihkan saat kembali
   var jumlahRiwayat = {};
   var drafTampilan = null;                 // pratinjau di layar Tampilan (belum disimpan)
   var namaBaru = null, logoBaru = null;    // nama aplikasi & logo yang sedang diubah (null = tidak diubah, '' = logo bawaan)
@@ -2482,6 +2483,13 @@
       (cache ? htmlEntri(tab, cache) : '<div class="memuat">Memuat…</div>') + '</div>', {aktif: 'terbaru', muat: true});
     var pilihTab = document.querySelector('.pilih-tab .aktif');
     if (pilihTab && pilihTab.scrollIntoView) pilihTab.scrollIntoView({block: 'nearest', inline: 'center'});
+    // Kembali dari "Ubah" (disimpan atau batal): kembali ke posisi catatan tadi, bukan ke paling atas.
+    var yTujuan = null;
+    if (posisiRiwayat && posisiRiwayat.k === k) {
+      window.scrollTo(0, posisiRiwayat.y);
+      if (!cache) yTujuan = posisiRiwayat.y;   // daftar belum ada: gulir setelah termuat
+    }
+    posisiRiwayat = null;
     var muat = function () {
       panggil('terbaru', {tab: tab, n: n}).then(function (r) {
         if (!r.ok) throw new Error(r.galat || 'Gagal memuat.');
@@ -2490,7 +2498,8 @@
         var el = document.getElementById('daftar-entri');
         if (el && location.hash.indexOf('#/terbaru') === 0) {
           // Posisi gulir dipertahankan: daftar diganti di tempat, tidak loncat ke atas.
-          var y = window.scrollY;
+          var y = yTujuan !== null ? yTujuan : window.scrollY;
+          yTujuan = null;
           el.innerHTML = htmlEntri(tab, r);
           window.scrollTo(0, y);
         }
@@ -2529,6 +2538,7 @@
         var du = ambilData(tUbah);
         if (!du) return;
         sedangDiubah = {tab: tab, id: du.id, nilai: du.nilai};
+        posisiRiwayat = {k: k, y: window.scrollY};
         location.hash = '#/ubah/' + k;
         return;
       }
@@ -3799,6 +3809,7 @@
     var h = location.hash || '#/';
     var bagian = h.replace(/^#\/?/, '').split('/');
     if (bagian[0] !== 'tampilan') { drafTampilan = null; namaBaru = null; logoBaru = null; }
+    if (bagian[0] !== 'ubah' && bagian[0] !== 'terbaru') posisiRiwayat = null;
     terapkanTampilan();
     if (!sesi) { layarMasuk(); return; }
     if (akses().wajibGanti && bagian[0] !== 'sandi') { location.hash = '#/sandi'; return; }

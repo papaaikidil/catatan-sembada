@@ -408,10 +408,38 @@ function pngPolos(w, h) {
     const total = objek('Ambil Bahan').length;
     assert.strictEqual(await page.evaluate(() => document.querySelectorAll('#daftar-entri .entri').length), Math.min(total, 35));
     assert.strictEqual(!!(await page.$('[data-lebih]')), total > 35, 'tombol hanya ada kalau masih ada catatan lain');
+    // Ubah catatan di bagian bawah daftar: setelah disimpan, kembali ke posisi catatan itu (bukan ke paling atas).
+    await page.evaluate(() => {
+      const e = [...document.querySelectorAll('#daftar-entri .entri')].filter(x => /uji lebih/.test(x.textContent)).pop();
+      e.scrollIntoView({ block: 'center' });
+    });
+    await tunggu(100);
+    const yUbah = await page.evaluate(() => window.scrollY);
+    assert.ok(yUbah > 1000, 'catatan yang diubah ada jauh di bawah: ' + yUbah);
+    await page.evaluate(() => [...document.querySelectorAll('#daftar-entri .entri')].filter(x => /uji lebih/.test(x.textContent)).pop().querySelector('[data-ubah]').click());
+    await page.waitForSelector('#formulir');
+    await page.click('#tombol-simpan');
+    await page.click('.tirai [data-aksi="kirim"]');
+    await page.waitForFunction(() => location.hash === '#/terbaru/ambil');
+    await tunggu(300);
+    const yKembali = await page.evaluate(() => window.scrollY);
+    assert.ok(Math.abs(yKembali - yUbah) <= 2, 'setelah simpan perubahan kembali ke posisi catatan: ' + yUbah + ' -> ' + yKembali);
+    // Batal (tombol kembali) juga kembali ke posisi tadi.
+    await page.evaluate(() => [...document.querySelectorAll('#daftar-entri .entri')].filter(x => /uji lebih/.test(x.textContent)).pop().querySelector('[data-ubah]').click());
+    await page.waitForSelector('#formulir');
+    await page.goBack();
+    await page.waitForFunction(() => location.hash === '#/terbaru/ambil' && document.querySelectorAll('#daftar-entri .entri').length > 15);
+    await tunggu(300);
+    assert.ok(Math.abs((await page.evaluate(() => window.scrollY)) - yKembali) <= 2, 'kembali tanpa menyimpan juga ke posisi tadi');
+    // Membuka Riwayat dari menu tetap mulai dari atas.
+    await page.goto(ASAL + '#/');
+    await page.goto(ASAL + '#/terbaru/ambil');
+    await page.waitForSelector('#daftar-entri .entri');
+    assert.strictEqual(await page.evaluate(() => window.scrollY), 0, 'Riwayat dari menu mulai dari atas');
     shA.data.splice(shA.data.length - tambahan.length, tambahan.length);
     await page.setViewportSize({ width: 390, height: 844 });
   }
-  cek('ringkasan, riwayat per tanggal, ubah absensi, tampilkan lebih banyak tanpa loncat ke atas');
+  cek('ringkasan, riwayat per tanggal, ubah absensi, tampilkan lebih banyak & simpan perubahan tanpa loncat ke atas');
 
   console.log('Kelola');
   await page.goto(ASAL + '#/kelola');
