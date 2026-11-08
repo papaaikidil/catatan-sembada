@@ -2488,10 +2488,23 @@
         data = r;
         simpan('terbaru.' + k, r);
         var el = document.getElementById('daftar-entri');
-        if (el && location.hash.indexOf('#/terbaru') === 0) el.innerHTML = htmlEntri(tab, r);
+        if (el && location.hash.indexOf('#/terbaru') === 0) {
+          // Posisi gulir dipertahankan: daftar diganti di tempat, tidak loncat ke atas.
+          var y = window.scrollY;
+          el.innerHTML = htmlEntri(tab, r);
+          window.scrollTo(0, y);
+        }
       }).catch(function (e) {
         var el = document.getElementById('daftar-entri');
         if (!el) return;
+        var tLebih = el.querySelector('[data-lebih]');
+        if (tLebih && tLebih.disabled) {
+          n = jumlahRiwayat[k] = Math.max(n - (kelompok ? 80 : 20), kelompok ? 60 : 15);
+          tLebih.disabled = false;
+          tLebih.textContent = 'Tampilkan lebih banyak';
+          toast(e.jaringan ? 'Perlu sinyal untuk memuat catatan lainnya.' : e.message, 5000);
+          return;
+        }
         if (cache) toast(e.message + ' Menampilkan data terakhir yang tersimpan.');
         else el.innerHTML = '<div class="galat-kartu">' + esc(e.message) + '</div>';
       });
@@ -2501,7 +2514,16 @@
     var ambilData = function (el) { return data && data.data ? data.data[Number(el.dataset.idx)] : null; };
     wadah.addEventListener('click', function (ev) {
       if (ev.target.closest('[data-ke]')) return;
-      if (ev.target.closest('[data-lebih]')) { jumlahRiwayat[k] = Math.min(n + (kelompok ? 80 : 20), 300); layarTerbaru(k); return; }
+      var tLebih = ev.target.closest('[data-lebih]');
+      if (tLebih) {
+        // Muat lebih banyak di tempat: layar tidak dibangun ulang, jadi tidak kembali ke atas.
+        if (tLebih.disabled) return;
+        n = jumlahRiwayat[k] = Math.min(n + (kelompok ? 80 : 20), 300);
+        tLebih.disabled = true;
+        tLebih.textContent = 'Memuat…';
+        muat();
+        return;
+      }
       var tUbah = ev.target.closest('[data-ubah]'), tHapus = ev.target.closest('[data-hapus]');
       if (tUbah) {
         var du = ambilData(tUbah);

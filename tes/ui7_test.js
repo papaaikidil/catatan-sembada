@@ -385,7 +385,33 @@ function pngPolos(w, h) {
   await page.goto(ASAL + '#/terbaru/ambil');
   await page.waitForSelector('.entri');
   await foto(page, '08-riwayat-ambil');
-  cek('ringkasan, riwayat per tanggal, ubah absensi');
+  // "Tampilkan lebih banyak": catatan lain dimuat di tempat, layar tidak loncat ke atas.
+  {
+    const shA = sheets['Ambil Bahan'];
+    const contoh = shA.data[1].slice();
+    const kolKet = shA.data[0].indexOf('Keterangan');
+    const tambahan = [];
+    for (let i = 0; i < 30; i++) { const r = contoh.slice(); r[kolKet] = 'uji lebih ' + i; tambahan.push(r); }
+    shA.data.push(...tambahan);
+    await page.setViewportSize({ width: 390, height: 700 });
+    await page.goto(ASAL + '#/');
+    await page.goto(ASAL + '#/terbaru/ambil');
+    await page.waitForFunction(() => document.querySelectorAll('#daftar-entri .entri').length === 15 && document.querySelector('[data-lebih]'));
+    await page.evaluate(() => document.querySelector('[data-lebih]').scrollIntoView({ block: 'center' }));
+    await tunggu(100);
+    const yAwal = await page.evaluate(() => window.scrollY);
+    assert.ok(yAwal > 200, 'sudah tergulir ke bawah: ' + yAwal);
+    await page.click('[data-lebih]');
+    await page.waitForFunction(() => document.querySelectorAll('#daftar-entri .entri').length > 15);
+    const yAkhir = await page.evaluate(() => window.scrollY);
+    assert.ok(Math.abs(yAkhir - yAwal) <= 2, 'posisi gulir tetap setelah memuat lebih banyak: ' + yAwal + ' -> ' + yAkhir);
+    const total = objek('Ambil Bahan').length;
+    assert.strictEqual(await page.evaluate(() => document.querySelectorAll('#daftar-entri .entri').length), Math.min(total, 35));
+    assert.strictEqual(!!(await page.$('[data-lebih]')), total > 35, 'tombol hanya ada kalau masih ada catatan lain');
+    shA.data.splice(shA.data.length - tambahan.length, tambahan.length);
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+  cek('ringkasan, riwayat per tanggal, ubah absensi, tampilkan lebih banyak tanpa loncat ke atas');
 
   console.log('Kelola');
   await page.goto(ASAL + '#/kelola');
