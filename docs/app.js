@@ -210,7 +210,13 @@
     bagikan: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
     bon: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2Z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     printer: '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>',
-    pesan: '<path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-6.2A8 8 0 1 1 21 12Z"/>'
+    pesan: '<path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-6.2A8 8 0 1 1 21 12Z"/>',
+    telepon: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/>',
+    surat: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+    web: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/>',
+    peta: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+    toko: '<path d="M3 9 4.5 4h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/>',
+    cari: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'
   };
   function ikon(n, tebal) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (tebal || 2) +
@@ -965,6 +971,10 @@
         '<span class="teks-tombol"><b>' + esc(m.label) + '</b>' + (apiLama(m.tab) ? '<small class="teks-awas">Perlu perbarui Apps Script dulu.</small>' : '<small>' + esc(f.ket) + '</small>') + '</span></a>';
     }).join('');
     if (admin()) {
+      var dPembeli = ambil('pembeli', null);
+      var nPembeli = dPembeli && dPembeli.daftar ? dPembeli.daftar.length : 0;
+      tombol += '<a class="tombol-catatan tombol-pembeli" href="#/pembeli"><span class="lingkar">' + ikon('toko') + '</span>' +
+        '<span class="teks-tombol"><b>Data pembeli</b><small>' + (nPembeli ? nPembeli + ' pembeli · kontak & total beli' : 'Kontak pembeli dan total pembeliannya') + '</small></span></a>';
       var nBon = jumlahBonTerbuka();
       tombol += '<a class="tombol-catatan tombol-bon" href="#/bon"><span class="lingkar">' + ikon('bon') + '</span>' +
         '<span class="teks-tombol"><b>Catatan bon</b><small>' + (nBon ? nBon + ' belum lunas' : 'Kasbon karyawan, sudah dibayar atau belum') + '</small></span></a>';
@@ -1617,7 +1627,11 @@
   }
   function noWa(nama) {
     var k = daftarInduk('Karyawan', true).filter(function (x) { return x.nilai['Nama'] === nama; })[0];
-    var no = k ? String(k.nilai['No HP'] || '').replace(/[^0-9]/g, '') : '';
+    return nomorWa(k ? k.nilai['No HP'] : '');
+  }
+  // No HP untuk WhatsApp: 0812... / 812... / +62 812... menjadi 62812...
+  function nomorWa(hp) {
+    var no = String(hp || '').replace(/[^0-9]/g, '');
     if (/^0/.test(no)) no = '62' + no.slice(1);
     else if (/^8/.test(no)) no = '62' + no;
     return no.length >= 10 ? no : '';
@@ -2832,6 +2846,219 @@
   var KET_ARAH = {'Orang ngebon': 'Kasbon karyawan, pinjaman, atau yang belum bayar ke kita', 'Kita ngebon': 'Utang kita ke toko, pemasok, atau orang lain'};
   var POLA_TANDA_BON = /\s*\[(bayar )?bon:[^\]]+\]/;
   function tanpaTandaBon(t) { return String(t === null || t === undefined ? '' : t).replace(POLA_TANDA_BON, '').trim(); }
+  // ------------------------------------------------------------ layar: data pembeli
+  // Kontak pembeli (tab "Data Pembeli") + total pembelian dari tab Penjualan. Untuk pemilik dan yang boleh mengatur.
+  function ringkasSatuan(sat) {
+    return Object.keys(sat || {}).filter(function (k) { return sat[k]; }).map(function (k) { return ang(sat[k], 2) + ' ' + k; }).join(' · ');
+  }
+  function alamatWeb(w) { w = String(w || '').trim(); return !w ? '' : (/^https?:\/\//i.test(w) ? w : 'https://' + w); }
+
+  function layarPembeli() {
+    if (!admin()) { location.hash = '#/'; return; }
+    var data = ambil('pembeli', null);
+    var urut = ambil('pembeliUrut', 'total'), cari = '';
+    kerangka('Data pembeli', 'Kontak dan total pembelian', '<div id="isi-pembeli">' + (data ? '' : '<div class="memuat">Memuat…</div>') + '</div>',
+      {kembali: '#/', aktif: 'beranda', muat: true});
+    var el = document.getElementById('isi-pembeli');
+    var cocok = function (p) {
+      if (!cari) return true;
+      var t = [p.nama, p.kontak, p.hp, p.email, p.alamat, p.web, p.catatan].join(' ').toLowerCase();
+      return cari.toLowerCase().split(/\s+/).every(function (k) { return !k || t.indexOf(k) >= 0 || (k.replace(/\D/g, '') && t.replace(/\D/g, '').indexOf(k.replace(/\D/g, '')) >= 0 && /^\d+$/.test(k)); });
+    };
+    var kartu = function (p) {
+      var info = [];
+      if (p.trx) info.push(p.trx + 'x beli', 'terakhir ' + hariPendek(p.terakhir));
+      var sat = ringkasSatuan(p.satuan);
+      if (sat) info.push(sat);
+      var kontak = [p.hp, p.email].filter(function (x) { return x; });
+      return '<div class="kartu entri kartu-pembeli bisa-ketuk" data-pembeli="' + esc(p.key) + '" role="button" tabindex="0">' +
+        '<h3><span>' + esc(p.nama) + (p.jenis === 'Perusahaan' ? ' <small class="chip-status netral">PT/CV</small>' : '') + '</span><small>' + (p.total ? '<b>' + esc(rp(p.total)) + '</b>' : 'belum ada penjualan') + '</small></h3>' +
+        (info.length ? '<p class="redup">' + esc(info.join(' · ')) + '</p>' : '') +
+        (p.belumLunas > 0 ? '<p class="merah">Belum lunas ' + esc(rp(p.belumLunas)) + '</p>' : '') +
+        (kontak.length ? '<p class="kontak-ringkas">' + (p.hp ? ikon('telepon') + '<span>' + esc(p.hp) + '</span>' : '') + (p.email ? ikon('surat') + '<span>' + esc(p.email) + '</span>' : '') + '</p>'
+          : '<p class="redup kontak-kosong">' + (p.adaKontak ? 'Belum ada No HP / email' : 'Kontak belum diisi. Ketuk untuk melengkapi.') + '</p>') + '</div>';
+    };
+    // penuh = false: hanya daftar yang diganti (saat mengetik di kotak cari, supaya papan ketik tidak tertutup).
+    var gambar = function (penuh) {
+      if (!data) return;
+      var daftar = (data.daftar || []).slice();
+      var cmp = {
+        total: function (a, b) { return b.total - a.total || (a.nama.toLowerCase() < b.nama.toLowerCase() ? -1 : 1); },
+        terakhir: function (a, b) { return (b.terakhir || '') < (a.terakhir || '') ? -1 : (b.terakhir || '') > (a.terakhir || '') ? 1 : b.total - a.total; },
+        nama: function (a, b) { return a.nama.toLowerCase() < b.nama.toLowerCase() ? -1 : 1; }
+      }[urut] || null;
+      if (cmp) daftar.sort(cmp);
+      var tampil = daftar.filter(cocok);
+      var nKontak = daftar.filter(function (p) { return p.hp || p.email; }).length;
+      var htmlDaftar = tampil.map(kartu).join('') || '<div class="kosong">' + (cari ? 'Tidak ada pembeli yang cocok dengan "' + esc(cari) + '".' : 'Belum ada pembeli. Ketuk "Tambah pembeli".') + '</div>';
+      if (!penuh && q(el, '#daftar-pembeli')) { q(el, '#daftar-pembeli').innerHTML = htmlDaftar; return; }
+      el.innerHTML = '<div class="angka-grid pembeli-ringkas"><div class="angka"><span>Pembeli</span><b>' + daftar.length + '</b><small>' + nKontak + ' dengan No HP / email</small></div>' +
+        '<div class="angka"><span>Total penjualan</span><b class="panjang">' + esc(rp(data.totalSemua || 0)) + '</b><small>semua catatan Penjualan</small></div></div>' +
+        '<button class="tombol utama penuh" type="button" id="pembeli-tambah">' + ikon('tambah') + 'Tambah pembeli</button>' +
+        '<div class="cari-pembeli">' + ikon('cari') + '<input class="masukan" type="search" id="pembeli-cari" placeholder="Cari nama, kota, No HP, atau email" autocomplete="off"></div>' +
+        '<div class="chips pembeli-urut">' + [['total', 'Pembelian terbesar'], ['terakhir', 'Terakhir beli'], ['nama', 'Nama A–Z']].map(function (x) {
+          return '<label class="chip"><input type="radio" name="pembeli-urut" value="' + x[0] + '"' + (urut === x[0] ? ' checked' : '') + '><span>' + esc(x[1]) + '</span></label>';
+        }).join('') + '</div>' +
+        '<div class="kisi-entri" id="daftar-pembeli">' + htmlDaftar + '</div>';
+    };
+    var terima = function (r, pesan) {
+      if (!r || !r.ok) { toast((r && r.galat) || 'Gagal.', 6000); return false; }
+      data = {daftar: r.daftar, totalSemua: r.totalSemua, jenis: r.jenis}; simpan('pembeli', data);
+      if (r.daftarBerubah) muatKonfig().catch(function () { /* daftar pilihan diperbarui saat aplikasi dibuka lagi */ });
+      if (pesan) toast(pesan, 3000);
+      if (location.hash === '#/pembeli') {
+        gambar(true);
+        var kotakCari = q(el, '#pembeli-cari');
+        if (kotakCari) kotakCari.value = cari;
+      }
+      return true;
+    };
+    var muat = function () {
+      panggil('pembeli').then(function (r) {
+        if (r && !r.ok && /tidak dikenal/i.test(r.galat || '')) r.galat = PESAN_API_LAMA.replace(', lalu ketuk Kirim ulang.', ', lalu buka lagi.');
+        if (!r.ok && !data) { el.innerHTML = '<div class="galat-kartu">' + esc(r.galat || 'Gagal memuat.') + '</div>'; return; }
+        terima(r);
+      }, function (e) {
+        if (!data) el.innerHTML = '<div class="galat-kartu">' + esc(e.jaringan ? 'Perlu sinyal untuk membuka data pembeli.' : e.message) + '</div>';
+        else toast(e.jaringan ? 'Tanpa sinyal: menampilkan data pembeli terakhir.' : e.message);
+      });
+    };
+    var gagal = function (e) { toast(e.jaringan ? 'Perlu sinyal untuk menyimpan.' : e.message, 5000); };
+    var cariP = function (key) { return ((data && data.daftar) || []).filter(function (p) { return p.key === key; })[0]; };
+
+    var BIDANG_PEMBELI = [
+      {j: 'teks', h: 'Nama', label: 'Nama PT / orang', bantuan: 'Sama dengan nama pembeli di catatan Penjualan, supaya total pembeliannya terhitung.'},
+      {j: 'pilih', h: 'Jenis', opsi: ['Perusahaan', 'Perorangan'], wajib: false, kosong: 'Tidak diisi'},
+      {j: 'teks', h: 'Nama kontak', wajib: false, bantuan: 'Untuk perusahaan: orang yang dihubungi, contoh Bu Rina (pembelian).'},
+      {j: 'teks', h: 'No HP', label: 'No HP / WhatsApp', wajib: false, tipe: 'tel'},
+      {j: 'teks', h: 'Email', wajib: false, tipe: 'email'},
+      {j: 'paragraf', h: 'Alamat', wajib: false},
+      {j: 'teks', h: 'Website', wajib: false, tipe: 'url', bantuan: 'Contoh: www.perusahaan.com'},
+      {j: 'paragraf', h: 'Catatan', wajib: false, bantuan: 'Contoh: minta kemasan jeriken 20 kg, bayar tempo 2 minggu.'}
+    ];
+    var formPembeli = function (lama, namaAwal) {
+      var draf = lama ? {'Nama': lama.nama, 'Jenis': lama.jenis, 'Nama kontak': lama.kontak, 'No HP': lama.hp, 'Email': lama.email, 'Alamat': lama.alamat,
+        'Website': lama.web, 'Catatan': lama.catatan} : {'Nama': namaAwal || ''};
+      var kunciNama = lama && lama.trx > 0;
+      var div = bukaLembar('<h2>' + (lama && lama.adaKontak ? 'Ubah data pembeli' : (lama ? 'Lengkapi kontak' : 'Tambah pembeli')) + '</h2>' +
+        (kunciNama ? '<p class="sub">Nama dipakai di catatan Penjualan, jadi tidak diubah di sini.</p>' : '') +
+        '<form novalidate>' + BIDANG_PEMBELI.map(function (b, i) { return htmlBidang(b, i, draf, 'p'); }).join('') + '</form>' +
+        '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">Simpan</button></div>');
+      var form = q(div, 'form');
+      BIDANG_PEMBELI.forEach(function (b, i) {
+        var inp = q(form, '[name="p' + i + '"]');
+        if (inp && b.tipe) { inp.setAttribute('inputmode', b.tipe === 'tel' ? 'tel' : (b.tipe === 'email' ? 'email' : 'url')); inp.setAttribute('autocapitalize', 'none'); }
+      });
+      if (kunciNama) { var inNama = q(form, '[name="p0"]'); inNama.readOnly = true; inNama.classList.add('terkunci'); }
+      pasangFormDinamis(form, function () {});
+      segarkanTampilanForm(form);
+      div.addEventListener('click', function (ev) {
+        var a = ev.target.closest('[data-aksi]');
+        if (!a) return;
+        if (a.dataset.aksi === 'batal') { div.remove(); return; }
+        if (a.dataset.aksi !== 'simpan') return;
+        var h = bacaIsian(BIDANG_PEMBELI, false, 'p', form);
+        var n = h.nilai, salah = h.salah.slice();
+        if (n['No HP'] && String(n['No HP']).replace(/\D/g, '').length < 8) salah.push(['No HP', 'Tulis No HP lengkap, contoh 0812 3456 7890.']);
+        if (n['Email'] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(n['Email'])) salah.push(['Email', 'Email belum benar, contoh nama@perusahaan.com.']);
+        if (n['Website'] && (/\s/.test(n['Website']) || n['Website'].indexOf('.') < 0)) salah.push(['Website', 'Website belum benar, contoh www.perusahaan.com.']);
+        if (n['Nama'] && /[,\[\]|*?~]/.test(n['Nama'])) salah.push(['Nama', 'Nama tidak boleh berisi koma, kurung siku, atau tanda | * ? ~.']);
+        tandaiSalah(salah, form);
+        if (salah.length) return;
+        var nilai = {};
+        BIDANG_PEMBELI.forEach(function (b) { nilai[b.h] = n[b.h] === undefined ? '' : n[b.h]; });
+        a.disabled = true; a.textContent = 'Menyimpan…';
+        panggil('pembeliSimpan', {id: lama && lama.adaKontak ? lama.id : '', nilai: nilai}).then(function (r) {
+          a.disabled = false; a.textContent = 'Simpan';
+          if (terima(r, 'Data pembeli tersimpan.')) {
+            div.remove();
+            var baru = (data.daftar || []).filter(function (p) { return p.id === r.id; })[0];
+            if (baru) bukaPembeli(baru.key);
+          }
+        }, function (e) { a.disabled = false; a.textContent = 'Simpan'; gagal(e); });
+      });
+    };
+
+    var bukaPembeli = function (key) {
+      var p = cariP(key);
+      if (!p) return;
+      var wa = nomorWa(p.hp), tombol = [];
+      if (p.hp) tombol.push('<a class="tombol kedua" href="tel:' + esc(String(p.hp).replace(/[^0-9+]/g, '')) + '">' + ikon('telepon') + 'Telepon</a>');
+      if (wa) {
+        if (bisaPilihWa()) {
+          tombol.push('<a class="tombol kedua" data-aksi="wa" href="' + esc(tautanWa(wa, '', 'com.whatsapp')) + '">' + ikon('pesan') + 'WhatsApp</a>');
+          tombol.push('<a class="tombol kedua" data-aksi="wa" href="' + esc(tautanWa(wa, '', 'com.whatsapp.w4b')) + '">' + ikon('pesan') + 'WA Bisnis</a>');
+        } else {
+          tombol.push('<a class="tombol kedua" data-aksi="wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(wa) + '">' + ikon('pesan') + 'WhatsApp</a>');
+        }
+      }
+      if (p.email) tombol.push('<a class="tombol kedua" href="mailto:' + esc(p.email) + '">' + ikon('surat') + 'Email</a>');
+      if (p.web) tombol.push('<a class="tombol kedua" target="_blank" rel="noopener" href="' + esc(alamatWeb(p.web)) + '">' + ikon('web') + 'Website</a>');
+      if (p.alamat) tombol.push('<a class="tombol kedua" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=' + esc(encodeURIComponent(p.alamat)) + '">' + ikon('peta') + 'Peta</a>');
+      var info = [['Nama kontak', p.kontak], ['No HP', p.hp], ['Email', p.email], ['Alamat', p.alamat], ['Website', p.web], ['Catatan', p.catatan]]
+        .filter(function (x) { return x[1]; });
+      var hargaAkhir = p.beli && p.beli.length ? p.beli[0] : null;
+      var nTampil = 10;
+      var htmlBeli = function () {
+        return (p.beli || []).slice(0, nTampil).map(function (b) {
+          return '<div class="baris-entri"><div class="teks"><b>' + esc(ang(b.jumlah, 2) + ' ' + (b.satuan || '') + ' ' + b.produk) + '</b>' +
+            '<span class="redup">' + esc([hariPendek(b.tgl) + '/' + tglIndo(b.tgl).slice(6), rp(b.harga) + (b.satuan ? '/' + b.satuan : ''), b.kirim].filter(function (x) { return x; }).join(' · ')) + '</span></div>' +
+            '<div class="kanan-beli"><b>' + esc(rp(b.total)) + '</b>' + (b.status && b.status !== 'Lunas' ? chipStatusBon('Belum lunas') : '') + '</div></div>';
+        }).join('') + ((p.beli || []).length > nTampil ? '<button class="tombol kedua penuh" data-aksi="lebih" style="margin-top:8px">Tampilkan semua (' + p.beli.length + ')</button>' : '');
+      };
+      var div = bukaLembar('<div class="rinci-kepala"><div><h2>' + esc(p.nama) + '</h2><p class="sub">' +
+          esc([p.jenis === 'Perusahaan' ? 'Perusahaan (PT/CV)' : p.jenis, p.kontak ? 'kontak: ' + p.kontak : ''].filter(function (x) { return x; }).join(' · ') || 'Pembeli') + '</p></div>' +
+        '<button class="tombol-tutup" data-aksi="tutup" aria-label="Tutup">×</button></div>' +
+        (tombol.length ? '<div class="aksi-kontak">' + tombol.join('') + '</div>' : '<p class="catatan">Belum ada kontak. Ketuk "' + (p.adaKontak ? 'Ubah data' : 'Lengkapi kontak') + '" di bawah.</p>') +
+        (info.length ? '<ul class="ringkas">' + info.map(function (x) { return '<li><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></li>'; }).join('') + '</ul>' : '') +
+        '<div class="daftar-judul" style="margin-top:14px">Pembelian</div>' +
+        (p.trx ? '<div class="angka-grid pembeli-angka"><div class="angka"><span>Total pembelian</span><b class="panjang">' + esc(rp(p.total)) + '</b><small>' + p.trx + 'x beli</small></div>' +
+          '<div class="angka"><span>Jumlah</span><b class="panjang">' + esc(ringkasSatuan(p.satuan) || '–') + '</b><small>sejak ' + esc(tglIndo(p.pertama)) + '</small></div>' +
+          '<div class="angka"><span>Terakhir beli</span><b class="panjang">' + esc(tglIndo(p.terakhir)) + '</b><small>' + esc(hargaAkhir ? rp(hargaAkhir.harga) + (hargaAkhir.satuan ? '/' + hargaAkhir.satuan : '') : '') + '</small></div>' +
+          '<div class="angka"><span>Belum lunas</span><b class="panjang' + (p.belumLunas > 0 ? ' minus' : '') + '">' + esc(rp(p.belumLunas)) + '</b></div></div>' +
+          '<div class="daftar-beli">' + htmlBeli() + '</div>'
+          : '<p class="catatan">Belum ada catatan penjualan dengan nama ini. Saat mencatat penjualan, pilih pembeli "' + esc(p.nama) + '".</p>') +
+        '<div class="baris-tombol" style="margin-top:14px">' + (p.adaKontak ? '<button class="tombol bahaya" data-aksi="hapus">' + ikon('sampah') + 'Hapus kontak</button>' : '') +
+        '<button class="tombol utama" data-aksi="ubah">' + ikon('pensil') + (p.adaKontak ? 'Ubah data' : 'Lengkapi kontak') + '</button></div>');
+      div.addEventListener('click', function (ev) {
+        var a = ev.target.closest('[data-aksi]');
+        if (!a) return;
+        var aksi = a.dataset.aksi;
+        if (aksi === 'wa') return;
+        if (aksi === 'tutup') { div.remove(); return; }
+        if (aksi === 'lebih') { nTampil = 1e6; q(div, '.daftar-beli').innerHTML = htmlBeli(); return; }
+        if (aksi === 'ubah') { div.remove(); formPembeli(p); return; }
+        if (aksi === 'hapus') {
+          if (!confirm('Hapus kontak ' + p.nama + '? Catatan penjualannya tidak ikut terhapus.')) return;
+          panggil('pembeliHapus', {id: p.id}).then(function (r) { if (terima(r, 'Kontak dihapus.')) div.remove(); }, gagal);
+        }
+      });
+    };
+
+    el.addEventListener('click', function (ev) {
+      if (ev.target.closest('#pembeli-tambah')) { formPembeli(null, cari); return; }
+      var k = ev.target.closest('[data-pembeli]');
+      if (k) bukaPembeli(k.dataset.pembeli);
+    });
+    el.addEventListener('keydown', function (ev) {
+      var k = ev.target.closest('[data-pembeli]');
+      if (k && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); bukaPembeli(k.dataset.pembeli); }
+    });
+    el.addEventListener('input', function (ev) {
+      if (ev.target.id !== 'pembeli-cari') return;
+      cari = ev.target.value.trim();
+      gambar();
+    });
+    el.addEventListener('change', function (ev) {
+      if (ev.target.name !== 'pembeli-urut') return;
+      urut = ev.target.value; simpan('pembeliUrut', urut);
+      gambar();
+    });
+    document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
+    gambar(true);
+    muat();
+  }
+
   function jumlahBonTerbuka() {
     var d = ambil('bon', null);
     if (!d || !d.bon) return 0;
@@ -3923,6 +4150,7 @@
       case 'tampilan': layarTampilan(); break;
       case 'batas': layarBatas(); break;
       case 'bon': layarBon(); break;
+      case 'pembeli': layarPembeli(); break;
       default: layarBeranda();
     }
   }

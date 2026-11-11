@@ -116,7 +116,7 @@ function pngPolos(w, h) {
   await page.waitForFunction(() => !JSON.parse(localStorage.getItem('sembada7.antrian') || '[]').length);
   assert.ok(objek('Absensi Harian').some(a => a['Keterangan'] === 'dari HP lama' && a['Pekerjaan'] === '2 trip'), 'absensi dari HP lama terkirim');
   const menu = await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent));
-  assert.deepStrictEqual(menu, ['Ambil Bahan', 'Laporan Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas', 'Catatan bon'], 'Produksi Suling tidak ditampilkan lagi (diganti Laporan Suling); pemilik dapat Catatan bon');
+  assert.deepStrictEqual(menu, ['Ambil Bahan', 'Laporan Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas', 'Data pembeli', 'Catatan bon'], 'Produksi Suling tidak ditampilkan lagi (diganti Laporan Suling); pemilik dapat Data pembeli & Catatan bon');
   await page.waitForSelector('#kotak-ringkas .angka-grid');
   await page.waitForSelector('#kotak-ringkas .kartu-stok');
   assert.ok(/Stok minyak sekarang/.test(await page.textContent('#kotak-ringkas')), 'stok minyak di beranda');

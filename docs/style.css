@@ -662,3 +662,31 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 .lembar .rinci-kepala h2 { margin-top: .25rem; }
 
 .tombol-catatan small.teks-awas { color: var(--merah); font-weight: 600; }
+
+/* Data pembeli */
+.pembeli-ringkas { margin-bottom: .75rem; }
+.pembeli-ringkas .angka small, .pembeli-angka .angka small { display: block; font-size: .6875rem; color: var(--teks-2); margin-top: .125rem; }
+.cari-pembeli { position: relative; margin: .875rem 0 .5rem; }
+.cari-pembeli svg { position: absolute; left: .875rem; top: 50%; transform: translateY(-50%); width: 1.125rem; height: 1.125rem; color: var(--teks-2); pointer-events: none; }
+.cari-pembeli .masukan { padding-left: 2.5rem; }
+.pembeli-urut { margin: .25rem 0 .75rem; }
+.pembeli-urut .chip span { min-height: 2.375rem; padding: .375rem .75rem; font-size: .875rem; }
+.kartu-pembeli h3 small b { color: var(--teks); }
+.kartu-pembeli h3 .chip-status { margin-left: .25rem; vertical-align: middle; }
+.kartu-pembeli .merah { color: var(--merah); font-weight: 600; font-size: .8125rem; }
+.kontak-ringkas { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .375rem; font-size: .875rem; }
+.kontak-ringkas svg { width: .9375rem; height: .9375rem; color: var(--aksen); flex: none; }
+.kontak-ringkas span { overflow-wrap: anywhere; margin-right: .5rem; }
+.kontak-kosong { font-size: .8125rem; }
+.aksi-kontak { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.25rem, 1fr)); gap: .5rem; margin: .5rem 0 .75rem; }
+.aksi-kontak .tombol { min-height: 2.75rem; padding: .5rem .75rem; font-size: .9375rem; text-decoration: none; }
+.aksi-kontak .tombol svg { width: 1.125rem; height: 1.125rem; }
+.pembeli-angka { margin: .25rem 0 .75rem; }
+.daftar-beli .baris-entri .teks span { display: block; font-size: .8125rem; }
+.kanan-beli { text-align: right; flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; font-size: .9375rem; }
+.masukan.terkunci { background: var(--latar); color: var(--teks-2); }
+@media (min-width: 760px) {
+  #pembeli-tambah { width: auto; min-width: 16rem; padding-left: 1.5rem; padding-right: 1.5rem; }
+  .pembeli-ringkas { max-width: 48rem; }
+  .cari-pembeli { max-width: 32rem; }
+}

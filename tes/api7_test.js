@@ -734,6 +734,72 @@ cek('Tampilan, nama aplikasi, dan logo disimpan untuk semua HP');
 }
 cek('Laporan Suling: tab dibuat otomatis, jam sebagai teks, pengisi tercatat, beda jumlah dengan Absensi muncul di Ringkasan');
 
+// ------------------------------------------------------------------ 10c. Data pembeli
+{
+  const pjLama = J(sheets['Penjualan'].data);
+  const daftarLama = J(sheets['Daftar'].data);
+  assert.ok(/Hanya pemilik/.test(panggil({ aksi: 'pembeli', token: panggil({ aksi: 'masuk', pengguna: 'eko', sandi: '9937' }).token }).galat), 'pencatat tidak boleh');
+  let rp = panggil({ aksi: 'pembeli', token: tokPemilik });
+  assert.ok(rp.ok, JSON.stringify(rp));
+  assert.ok(!sheets['Data Pembeli'], 'membaca tidak membuat tab');
+  const totalPj = nama => objek('Penjualan').filter(x => x['Pembeli'] === nama)
+    .reduce((t, x) => t + (x['Total (Rp)'] !== '' ? x['Total (Rp)'] : Math.round(x['Jumlah'] * x['Harga satuan (Rp)'])), 0);
+  const lus = rp.daftar.find(p => p.nama === 'Lusiani');
+  assert.ok(lus && lus.diDaftar && !lus.adaKontak, 'pembeli dari daftar pilihan & penjualan ikut tampil walau belum ada kontak');
+  assert.strictEqual(lus.total, totalPj('Lusiani'));
+  assert.strictEqual(lus.trx, objek('Penjualan').filter(x => x['Pembeli'] === 'Lusiani').length);
+  assert.ok(lus.beli.every((b, i, a) => !i || a[i - 1].tgl >= b.tgl), 'riwayat beli terbaru di atas');
+  assert.ok(rp.daftar.find(p => p.nama === 'Bapak'), 'pembeli di daftar pilihan tanpa penjualan tetap tampil');
+  // Lengkapi kontak pembeli lama (nama beda huruf besar/kecil tetap cocok).
+  rp = panggil({ aksi: 'pembeliSimpan', token: tokPemilik, nilai: { 'Nama': ' lusiani ', 'Jenis': 'Perorangan', 'Nama kontak': 'Bu Lusi', 'No HP': '0812-3456-7890',
+    'Email': 'Lusi@Contoh.com', 'Alamat': 'Kepuh, Tulungagung', 'Website': '', 'Catatan': 'kirim tiap Sabtu' } });
+  assert.ok(rp.ok, JSON.stringify(rp));
+  assert.strictEqual(rp.daftarBerubah, false, 'sudah ada di daftar pilihan: tidak ditambah lagi');
+  const shP = sheets['Data Pembeli'];
+  assert.ok(shP && shP.format[6] === '@', 'kolom No HP berformat teks');
+  let kp = objek('Data Pembeli');
+  assert.strictEqual(kp.length, 1);
+  assert.deepStrictEqual([kp[0]['Nama'], kp[0]['No HP'], kp[0]['Email'], kp[0]['Diubah oleh']], ['lusiani', '0812-3456-7890', 'lusi@contoh.com', 'Mas Wildan']);
+  let l2 = rp.daftar.filter(p => p.key === 'lusiani');
+  assert.strictEqual(l2.length, 1, 'tidak dobel');
+  assert.ok(l2[0].adaKontak && l2[0].hp === '0812-3456-7890' && l2[0].total === totalPj('Lusiani'));
+  // Nama yang sudah dipakai di Penjualan tidak bisa diganti dari sini.
+  rp = panggil({ aksi: 'pembeliSimpan', token: tokPemilik, id: l2[0].id, nilai: { 'Nama': 'Bu Lusiani', 'No HP': '0812-3456-7890' } });
+  assert.ok(/sudah dipakai di catatan Penjualan/.test(rp.galat), JSON.stringify(rp));
+  // Pembeli baru: masuk ke daftar pilihan Pembeli supaya bisa dipilih di formulir Penjualan.
+  rp = panggil({ aksi: 'pembeliSimpan', token: tokPemilik, nilai: { 'Nama': 'PT Haldin Pacifik', 'Jenis': 'Perusahaan', 'Nama kontak': 'Bagian pembelian',
+    'No HP': '+62 21 1234 5678', 'Email': 'beli@haldin.co.id', 'Website': 'www.haldin.co.id', 'Alamat': 'Jakarta' } });
+  assert.ok(rp.ok && rp.daftarBerubah, JSON.stringify(rp));
+  assert.ok(panggil({ aksi: 'config', token: tokPemilik }).master['Pilihan'].some(m => m.nilai['Daftar'] === 'Pembeli' && m.nilai['Pilihan'] === 'PT Haldin Pacifik'));
+  const hal = rp.daftar.find(p => p.nama === 'PT Haldin Pacifik');
+  assert.ok(hal.adaKontak && hal.diDaftar && hal.total === 0 && hal.trx === 0);
+  // Salah ketik nama pembeli baru (belum ada penjualan): boleh diganti, daftar pilihan ikut diganti.
+  rp = panggil({ aksi: 'pembeliSimpan', token: tokPemilik, id: hal.id, nilai: { 'Nama': 'PT Haldin Pacific', 'Jenis': 'Perusahaan', 'No HP': '+62 21 1234 5678' } });
+  assert.ok(rp.ok, JSON.stringify(rp));
+  const pilihanP = panggil({ aksi: 'config', token: tokPemilik }).master['Pilihan'].filter(m => m.nilai['Daftar'] === 'Pembeli').map(m => m.nilai['Pilihan']);
+  assert.ok(pilihanP.includes('PT Haldin Pacific') && !pilihanP.includes('PT Haldin Pacifik'), pilihanP.join(', '));
+  // Pemeriksaan isian.
+  const salahP = (n) => panggil({ aksi: 'pembeliSimpan', token: tokPemilik, nilai: Object.assign({ 'Nama': 'Toko Uji' }, n) }).galat || '';
+  assert.ok(/wajib/.test(salahP({ 'Nama': '' })));
+  assert.ok(/koma/.test(salahP({ 'Nama': 'CV Maju, Jaya' })));
+  assert.ok(/No HP/.test(salahP({ 'No HP': 'telpon aja' })));
+  assert.ok(/Email/.test(salahP({ 'Email': 'bukan-email' })));
+  assert.ok(/Website/.test(salahP({ 'Website': 'haldin' })));
+  assert.ok(/Jenis/.test(salahP({ 'Jenis': 'Pabrik' })));
+  assert.ok(/sudah ada/.test(salahP({ 'Nama': 'pt haldin pacific' })), 'nama kembar ditolak');
+  assert.strictEqual(objek('Data Pembeli').length, 2, 'isian salah tidak ditulis');
+  // Hapus kontak: Penjualan & daftar pilihan tidak berubah, pembelinya tetap tampil dari Penjualan.
+  rp = panggil({ aksi: 'pembeliHapus', token: tokPemilik, id: objek('Data Pembeli').find(x => x['Nama'] === 'lusiani')['ID'] });
+  assert.ok(rp.ok, JSON.stringify(rp));
+  assert.strictEqual(objek('Data Pembeli').length, 1);
+  const l3 = rp.daftar.find(p => p.key === 'lusiani');
+  assert.ok(l3 && !l3.adaKontak && l3.total === totalPj('Lusiani'));
+  assert.deepStrictEqual(J(sheets['Penjualan'].data), pjLama, 'tab Penjualan tidak berubah sama sekali');
+  assert.deepStrictEqual(J(sheets['Daftar'].data.map(r => r[10])).filter(x => x && x !== 'PT Haldin Pacific'), daftarLama.map(r => r[10]).filter(x => x), 'daftar Pembeli lama tetap');
+  assert.ok(['Tambah pembeli', 'Ubah pembeli', 'Hapus pembeli'].every(a => sheets['Log Aplikasi'].data.some(x => x[1] === a)), 'dicatat di Log');
+}
+cek('Data pembeli: gabungan kontak, daftar pilihan & Penjualan; total dari Penjualan; pembeli baru masuk daftar pilihan; Penjualan tidak diubah');
+
 // ------------------------------------------------------------------ 11. Semua file Apps Script dimuat bersama
 const m3 = muat(buatData(), { semuaBerkas: true });
 assert.ok(m3.panggil({ aksi: 'masuk', pengguna: 'wildan', sandi: '250610' }).ok);

@@ -32,6 +32,13 @@ Catatan lama tidak diubah.
   Laporan **tidak** menambah sulingan atau upah di Rekap (tetap dari Absensi); kalau jumlahnya beda dengan Absensi di tanggal
   yang sama, muncul sebagai keterangan "Jumlah suling beda" di Ringkasan. Akun yang dulu boleh mengisi Produksi Suling
   otomatis boleh mengisi Laporan Suling; akun lain diberi akses lewat Kelola › Pengguna › Boleh mengisi.
+- **Data pembeli** (3.13, Beranda › Data pembeli, untuk pemilik dan yang boleh mengatur): kontak pembeli (nama PT/orang, jenis,
+  nama kontak, No HP/WhatsApp, email, alamat, website, catatan) di tab baru "Data Pembeli" (semua kolom teks), dibuat otomatis
+  saat kontak pertama disimpan. Daftarnya gabungan tab itu, daftar pilihan "Pembeli", dan nama pembeli di tab Penjualan, jadi
+  pembeli lama langsung muncul dan tinggal dilengkapi kontaknya. Total pembelian, jumlah (kg/liter), terakhir beli, dan
+  yang belum lunas dihitung dari Penjualan (tab Penjualan tidak diubah). Tombol Telepon, WhatsApp/WA Bisnis, Email, Website,
+  dan Peta; cari lewat nama, alamat, No HP, atau email. Pembeli baru otomatis masuk daftar pilihan "Pembeli" di formulir
+  Penjualan. Nama yang sudah dipakai di Penjualan tidak bisa diganti dari sini supaya totalnya tetap cocok.
 - **Catatan bon** (Beranda › Catatan bon, untuk pemilik dan yang boleh mengatur): bon dua arah, yaitu "orang ngebon ke kita"
   (kasbon karyawan: nama dipilih dari daftar Karyawan aktif, atau Lainnya…) dan "kita ngebon ke orang" (utang ke toko/pemasok). Setiap orang
   punya catatan bon sendiri (semua bonnya, sisa, riwayat cicilan) dengan tombol Cicil (isi jumlah) dan Bayar lunas; cicilan dibagi ke bon

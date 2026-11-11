@@ -18,6 +18,8 @@
 //  - Tab "Laporan Suling" (aplikasi 3.12): laporan harian tim suling (anggota, jumlah suling, kondisi bahan,
 //    jam mulai & selesai, kondisi alat, catatan). Tidak ikut dihitung di Rekap: sulingan dan upah tetap dari Absensi.
 //    Kalau jumlahnya beda dengan Absensi di tanggal yang sama, muncul di daftar keterangan Ringkasan.
+//  - Tab "Data Pembeli" (aplikasi 3.13): kontak pembeli (nama PT/orang, jenis, nama kontak, No HP, email, alamat, website,
+//    catatan). Total pembelian dihitung dari tab Penjualan menurut nama pembeli; Penjualan tidak diubah.
 //  - Alat suling, karyawan, tarif upah, daftar pilihan, produk, dan kategori kas diatur dari aplikasi.
 //  - Catatan lama, rumus Rekap, Dashboard, dan HPP tidak diubah oleh kode ini.
 // =====================================================================
@@ -44,6 +46,9 @@ var SH_APLIKASI = 'Pengaturan Aplikasi';
 var SH_STOK = 'Stok Minyak';
 var SH_BON = 'Bon';
 var SH_BAYAR_BON = 'Bayar Bon';
+var SH_PEMBELI = 'Data Pembeli';
+var KEPALA_PEMBELI = ['ID', 'Timestamp', 'Nama', 'Jenis', 'Nama kontak', 'No HP', 'Email', 'Alamat', 'Website', 'Catatan', 'Diubah oleh'];
+var JENIS_PEMBELI = ['Perusahaan', 'Perorangan'];
 
 var URUTAN_TAB = ['Ambil Bahan', 'Produksi Suling', 'Laporan Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
 // Laporan Suling: Hari (rumus) | isian B..K | Lama nyuling (rumus). Jam disimpan sebagai teks "07:30".
@@ -113,7 +118,7 @@ function keluaranJson_(o) {
 }
 
 // Aksi yang hanya membaca. Aksi lain (simpan, ubah, hapus, kelola, timbang, batas, ...) membuang cache ringkasan.
-var AKSI_BACA = {masuk: 1, keluar: 1, config: 1, logo: 1, terbaru: 1, ringkasan: 1, stok: 1, batas: 1, penggunaDaftar: 1, bon: 1};
+var AKSI_BACA = {masuk: 1, keluar: 1, config: 1, logo: 1, terbaru: 1, ringkasan: 1, stok: 1, batas: 1, penggunaDaftar: 1, bon: 1, pembeli: 1};
 
 function layani_(ss, req) {
   var hasil = layaniInti_(ss, req);
@@ -157,6 +162,9 @@ function layaniInti_(ss, req) {
     case 'bonBayar': return bonBayar_(ss, akses, req);
     case 'bonBayarOrang': return bonBayarOrang_(ss, akses, req);
     case 'bonHapus': return bonHapus_(ss, akses, req);
+    case 'pembeli': return pembeliDaftar_(ss, akses);
+    case 'pembeliSimpan': return pembeliSimpan_(ss, akses, req);
+    case 'pembeliHapus': return pembeliHapus_(ss, akses, req);
     case 'batas': return batas_(ss, akses);
     case 'batasSimpan': return denganKunci_(function () { return batasSimpan_(ss, akses, req); });
   }
@@ -2658,6 +2666,169 @@ function bonHapus_(ss, akses, req) {
 // tab Pengaturan kolom B (sel kuning) dan Dashboard kolom D yang isinya angka biasa.
 // Sebelum menulis, judul barisnya dicek supaya tidak menimpa sel lain kalau susunan sheet berubah.
 // jenis: persen (aplikasi mengirim 15 untuk 15%), angka, rupiah. baris = baris peringatannya di Dashboard.
+// ---------------------------------------------------------------- DATA PEMBELI
+// Satu baris per pembeli di tab "Data Pembeli" (semua kolom teks, supaya No HP 08... tidak berubah jadi angka).
+// Daftar pembeli di aplikasi = gabungan tab Data Pembeli, daftar pilihan "Pembeli", dan nama pembeli di tab Penjualan.
+// Nama dicocokkan tanpa beda huruf besar/kecil. Total pembelian dari tab Penjualan (Total (Rp), atau Jumlah × Harga).
+
+function siapkanPembeli_(ss) {
+  var sh = ss.getSheetByName(SH_PEMBELI);
+  if (sh) return sh;
+  sh = ss.insertSheet(SH_PEMBELI);
+  sh.getRange(1, 1, Math.max(sh.getMaxRows(), 2), KEPALA_PEMBELI.length).setNumberFormat('@');
+  sh.getRange(1, 1, 1, KEPALA_PEMBELI.length).setValues([KEPALA_PEMBELI]).setFontWeight('bold');
+  sh.getRange(2, 2, Math.max(sh.getMaxRows() - 1, 1), 1).setNumberFormat('dd/MM/yyyy HH:mm');
+  sh.setFrozenRows(1);
+  catatLog_(ss, 'Buat tab', SH_PEMBELI, '', '', KEPALA_PEMBELI.join(', '), 'Sistem');
+  return sh;
+}
+
+function bacaKontakPembeli_(ss) {
+  var sh = ss.getSheetByName(SH_PEMBELI);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var kepala = kepalaSheet_(sh);
+  return sh.getRange(2, 1, sh.getLastRow() - 1, kepala.length).getValues().map(function (r, i) {
+    var g = function (h) { var j = kepala.indexOf(h); return j >= 0 ? r[j] : ''; };
+    var w = g('Timestamp');
+    return {baris: i + 2, id: teks_(g('ID')), nama: teks_(g('Nama')), jenis: teks_(g('Jenis')), kontak: teks_(g('Nama kontak')),
+      hp: teks_(g('No HP')), email: teks_(g('Email')), alamat: teks_(g('Alamat')), web: teks_(g('Website')), catatan: teks_(g('Catatan')),
+      diubah: adalahTanggal_(w) ? Utilities.formatDate(w, API_ZONA, 'dd/MM/yyyy HH:mm') : teks_(w), oleh: teks_(g('Diubah oleh'))};
+  }).filter(function (p) { return p.nama; });
+}
+
+function pilihanPembeli_(ss) {
+  return bacaMaster_(ss, 'Pilihan').filter(function (m) { return m.nilai['Daftar'] === 'Pembeli'; });
+}
+
+function pembeliDaftar_(ss, akses) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa melihat data pembeli.'};
+  var peta = {}, urut = [];
+  var ambil = function (nama) {
+    var k = normalNama_(nama);
+    if (!k) return null;
+    if (!peta[k]) {
+      peta[k] = {key: k, nama: teks_(nama), id: '', jenis: '', kontak: '', hp: '', email: '', alamat: '', web: '', catatan: '', diubah: '', oleh: '',
+        adaKontak: false, diDaftar: false, total: 0, trx: 0, satuan: {}, pertama: '', terakhir: '', belumLunas: 0, beli: []};
+      urut.push(k);
+    }
+    return peta[k];
+  };
+  bacaKontakPembeli_(ss).forEach(function (c) {
+    var p = ambil(c.nama);
+    ['id', 'jenis', 'kontak', 'hp', 'email', 'alamat', 'web', 'catatan', 'diubah', 'oleh'].forEach(function (f) { p[f] = c[f]; });
+    p.nama = c.nama; p.adaKontak = true;
+  });
+  pilihanPembeli_(ss).forEach(function (m) { var p = ambil(m.nilai['Pilihan']); if (p) p.diDaftar = true; });
+  var produk = {};
+  bacaMaster_(ss, 'Produk').forEach(function (m) { produk[m.nilai['Produk']] = m.nilai['Satuan'] || ''; });
+  var sh = ss.getSheetByName('Penjualan');
+  var semua = 0;
+  if (sh && sh.getLastRow() >= 2) {
+    var kepala = kepalaSheet_(sh);
+    sh.getRange(2, 1, sh.getLastRow() - 1, kepala.length).getValues().forEach(function (r) {
+      var g = function (h) { var j = kepala.indexOf(h); return j >= 0 ? r[j] : ''; };
+      var tgl = tglKunci_(g('Tanggal')), nama = teks_(g('Pembeli'));
+      if (!tgl || !nama) return;
+      var p = ambil(nama);
+      var jumlah = angka_(g('Jumlah')), harga = angka_(g('Harga satuan (Rp)'));
+      var total = teks_(g('Total (Rp)')) !== '' ? angka_(g('Total (Rp)')) : Math.round(jumlah * harga);
+      var satuan = teks_(g('Satuan')) || produk[teks_(g('Produk'))] || '';
+      var status = teks_(g('Status bayar'));
+      p.total += total; p.trx++; semua += total;
+      if (satuan) p.satuan[satuan] = bulat_((p.satuan[satuan] || 0) + jumlah, 3);
+      if (!p.pertama || tgl < p.pertama) p.pertama = tgl;
+      if (!p.terakhir || tgl > p.terakhir) p.terakhir = tgl;
+      if (status && status !== 'Lunas') p.belumLunas += total;
+      p.beli.push({tgl: tgl, produk: teks_(g('Produk')), jumlah: jumlah, satuan: satuan, harga: harga, total: total, status: status, kirim: teks_(g('Pengiriman'))});
+    });
+  }
+  var daftar = urut.map(function (k) {
+    var p = peta[k];
+    p.beli.sort(function (a, b) { return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : 0; });
+    return p;
+  });
+  return {ok: true, daftar: daftar, totalSemua: semua, jenis: JENIS_PEMBELI};
+}
+
+// Nomor HP: angka, spasi, +, -, titik, kurung; minimal 8 angka.
+function cekPembeli_(n) {
+  if (!n.nama) return 'Nama pembeli wajib diisi.';
+  if (n.nama.length > 80) return 'Nama terlalu panjang (paling banyak 80 huruf).';
+  if (/[,\[\]|*?~]/.test(n.nama)) return 'Nama tidak boleh berisi koma, kurung siku, atau tanda | * ? ~.';
+  if (n.jenis && JENIS_PEMBELI.indexOf(n.jenis) < 0) return 'Jenis pembeli tidak dikenal.';
+  if (n.hp && (!/^[0-9+()\-. ]+$/.test(n.hp) || n.hp.replace(/[^0-9]/g, '').length < 8)) return 'No HP hanya angka, contoh 0812 3456 7890.';
+  if (n.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(n.email)) return 'Email belum benar, contoh nama@perusahaan.com.';
+  if (n.web && (/\s/.test(n.web) || n.web.indexOf('.') < 0)) return 'Website belum benar, contoh www.perusahaan.com.';
+  var batas = {kontak: 80, hp: 40, email: 120, alamat: 300, web: 200, catatan: 500};
+  for (var k in batas) if (n[k].length > batas[k]) return 'Isian terlalu panjang.';
+  return '';
+}
+
+function pembeliSimpan_(ss, akses, req) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa mengubah data pembeli.'};
+  var v = req.nilai || {};
+  var n = {nama: teks_(v['Nama']).replace(/\s+/g, ' '), jenis: teks_(v['Jenis']), kontak: teks_(v['Nama kontak']), hp: teks_(v['No HP']),
+    email: teks_(v['Email']).toLowerCase(), alamat: teks_(v['Alamat']), web: teks_(v['Website']), catatan: teks_(v['Catatan'])};
+  var galat = cekPembeli_(n);
+  if (galat) return {ok: false, galat: galat};
+  var hasil = denganKunci_(function () {
+    var sh = siapkanPembeli_(ss);
+    var semua = bacaKontakPembeli_(ss);
+    var id = teks_(req.id);
+    var lama = id ? semua.filter(function (c) { return c.id === id; })[0] : null;
+    if (id && !lama) return {ok: false, galat: 'Data pembeli ini sudah berubah atau terhapus. Muat ulang.'};
+    var kembar = semua.filter(function (c) { return c !== lama && normalNama_(c.nama) === normalNama_(n.nama); })[0];
+    if (kembar) return {ok: false, galat: '"' + kembar.nama + '" sudah ada di data pembeli. Buka lalu ubah datanya.'};
+    var pilihan = pilihanPembeli_(ss);
+    var cariPilihan = function (nama) { return pilihan.filter(function (m) { return normalNama_(m.nilai['Pilihan']) === normalNama_(nama); })[0]; };
+    var gantiNama = lama && normalNama_(lama.nama) !== normalNama_(n.nama);
+    if (gantiNama) {
+      // Nama yang sudah dipakai di Penjualan tidak diganti di sini: total pembelian dicocokkan lewat nama.
+      var pj = bacaKolom_(ss, 'Penjualan', ['Pembeli']).some(function (r) { return normalNama_(r[0]) === normalNama_(lama.nama); });
+      if (pj) return {ok: false, galat: 'Nama "' + lama.nama + '" sudah dipakai di catatan Penjualan, jadi tidak bisa diganti di sini supaya total pembeliannya tetap cocok. Tulis nama orangnya di "Nama kontak".'};
+    }
+    var kepala = kepalaSheet_(sh);
+    var isi = {'ID': lama ? lama.id : idBaru_(), 'Timestamp': new Date(), 'Nama': n.nama, 'Jenis': n.jenis, 'Nama kontak': n.kontak, 'No HP': n.hp,
+      'Email': n.email, 'Alamat': n.alamat, 'Website': n.web, 'Catatan': n.catatan, 'Diubah oleh': akses.nama};
+    var baris = lama ? lama.baris : sh.getLastRow() + 1;
+    pastikanBaris_(sh, baris);
+    var row = kepala.map(function (h) { return isi[h] === undefined ? '' : isi[h]; });
+    sh.getRange(baris, 1, 1, row.length).setNumberFormat('@');
+    var jw = kepala.indexOf('Timestamp');
+    if (jw >= 0) sh.getRange(baris, jw + 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    sh.getRange(baris, 1, 1, row.length).setValues([row]);
+    // Supaya bisa dipilih di formulir Penjualan: nama baru ditambahkan ke daftar pilihan "Pembeli".
+    var keDaftar = false;
+    if (gantiNama && cariPilihan(lama.nama) && !cariPilihan(n.nama)) {
+      tulisMaster_(ss, 'Pilihan', cariPilihan(lama.nama), {'Daftar': 'Pembeli', 'Pilihan': n.nama});
+      keDaftar = true;
+    } else if (!cariPilihan(n.nama)) {
+      tambahMaster_(ss, 'Pilihan', {'Daftar': 'Pembeli', 'Pilihan': n.nama}, bacaMaster_(ss, 'Pilihan'));
+      keDaftar = true;
+    }
+    catatLog_(ss, lama ? 'Ubah pembeli' : 'Tambah pembeli', SH_PEMBELI, baris, lama ? JSON.stringify(lama) : '', JSON.stringify(n), akses.nama);
+    return {ok: true, id: isi['ID'], daftarBerubah: keDaftar};
+  });
+  if (!hasil.ok) return hasil;
+  var r = pembeliDaftar_(ss, akses);
+  r.id = hasil.id; r.daftarBerubah = hasil.daftarBerubah;
+  return r;
+}
+
+// Menghapus kontak saja. Catatan Penjualan dan daftar pilihan Pembeli tidak diubah.
+function pembeliHapus_(ss, akses, req) {
+  if (!akses.admin) return {ok: false, galat: 'Hanya pemilik atau pengguna yang boleh mengatur yang bisa mengubah data pembeli.'};
+  var hasil = denganKunci_(function () {
+    var sh = ss.getSheetByName(SH_PEMBELI);
+    var c = bacaKontakPembeli_(ss).filter(function (x) { return x.id && x.id === teks_(req.id); })[0];
+    if (!sh || !c) return {ok: false, galat: 'Data pembeli ini sudah terhapus. Muat ulang.'};
+    sh.deleteRow(c.baris);
+    catatLog_(ss, 'Hapus pembeli', SH_PEMBELI, c.baris, JSON.stringify(c), '', akses.nama);
+    return {ok: true};
+  });
+  return hasil.ok ? pembeliDaftar_(ss, akses) : hasil;
+}
+
 var BATAS_PERINGATAN = [
   {k: 'hargaBahan', sh: 'Pengaturan', sel: 'B6', judul: 'A6', cek: /harga bahan/i, jenis: 'persen', min: 1, maks: 100, baris: 15},
   {k: 'rendemen', sh: 'Pengaturan', sel: 'B7', judul: 'A7', cek: /rendemen/i, jenis: 'persen', min: 1, maks: 100, baris: 16},
