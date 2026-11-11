@@ -260,7 +260,11 @@
   // Angka upah hanya untuk pemilik (dan pengguna yang boleh mengatur, karena mereka bisa membuka Ringkasan & Tarif).
   function lihatUpah() { return !!(akses().pemilik || akses().admin); }
   function pemilik() { return !!akses().pemilik; }
-  function boleh(tab) { return (akses().tab || []).indexOf(tab) >= 0; }
+  // Pemilik selalu boleh mengisi semua formulir aplikasi, juga formulir baru yang belum dikenal Apps Script lama.
+  function boleh(tab) { return (akses().tab || []).indexOf(tab) >= 0 || (pemilik() && URUTAN_TAB.indexOf(tab) >= 0); }
+  // Formulir yang belum dikenal Apps Script (api.gs belum diterapkan ulang): isian disimpan di HP sampai diperbarui.
+  function apiLama(tab) { return pemilik() && (akses().tab || []).indexOf(tab) < 0; }
+  var PESAN_API_LAMA = 'Apps Script belum diperbarui. Perbarui dulu (Terapkan › Kelola deployment › Versi baru), lalu ketuk Kirim ulang.';
 
   function daftarInduk(tab, semua) {
     var d = (konfig && konfig.master && konfig.master[tab]) || [];
@@ -752,7 +756,9 @@
             terkirim++; simpanAntrian(); return true;
           }
           if (r && (r.kode === 'SESI' || r.kode === 'GANTI')) return false;
-          item.status = 'galat'; item.galat = (r && r.galat) || 'Ditolak server.'; simpanAntrian(); return true;
+          item.status = 'galat'; item.galat = (r && r.galat) || 'Ditolak server.';
+          if (/tidak dikenal/i.test(item.galat)) item.galat = PESAN_API_LAMA;
+          simpanAntrian(); return true;
         }, function (e) {
           if (e.jaringan) return false;
           item.status = 'galat'; item.galat = e.message; simpanAntrian(); return true;
@@ -956,7 +962,7 @@
     var tombol = menu.map(function (m) {
       var f = FORM[m.tab];
       return '<a class="tombol-catatan" href="#/isi/' + f.kunci + '"><span class="lingkar">' + ikon(f.ikon) + '</span>' +
-        '<span class="teks-tombol"><b>' + esc(m.label) + '</b><small>' + esc(f.ket) + '</small></span></a>';
+        '<span class="teks-tombol"><b>' + esc(m.label) + '</b>' + (apiLama(m.tab) ? '<small class="teks-awas">Perlu perbarui Apps Script dulu.</small>' : '<small>' + esc(f.ket) + '</small>') + '</span></a>';
     }).join('');
     if (admin()) {
       var nBon = jumlahBonTerbuka();
@@ -2413,6 +2419,8 @@
     var draf = ubah ? mentahDariNilai(bidang, ubah.nilai) : ambil('draf.' + kunci, {});
     if (!ubah) bidang.forEach(function (b) { if (b.awal && b.h && draf[b.h] === undefined) draf[b.h] = b.awal(); });
     var html = (ubah ? '<div class="pratinjau awas">Mengubah catatan yang sudah masuk Google Sheet. Perubahan dicatat di tab Log Aplikasi.</div>' : '') +
+      (!ubah && apiLama(tab) ? '<div class="pratinjau awas">Formulir ini baru. ' + esc(PESAN_API_LAMA.replace(', lalu ketuk Kirim ulang.', '.')) +
+        ' Isian yang disimpan sekarang aman di HP dan bisa dikirim ulang setelahnya.</div>' : '') +
       bidang.map(function (b, i) { return htmlBidang(b, i, draf, 'b'); }).join('') +
       '<div class="pratinjau" id="pratinjau" hidden></div>';
     var tglLama = ubah ? (ubah.nilai['Tanggal'] || ubah.nilai['Tanggal saring'] || '') : '';

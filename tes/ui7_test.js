@@ -652,6 +652,40 @@ function pngPolos(w, h) {
   assert.ok(objek('Absensi Harian').some(r => r['Diisi oleh'] === 'Tata' && r['Nama'] === 'Eko & Pak Gatot' && r['Jumlah sulingan'] === 3 && r['Upah (Rp)'] === 295000));
   cek('catatan tanpa sinyal tersimpan di HP lalu terkirim; pencatat tidak melihat angka upah');
 
+  // Apps Script belum diperbarui (belum kenal Laporan Suling): pemilik tetap melihat tombolnya, isian aman di HP lalu dikirim ulang.
+  const tabBaru = server.ctx.URUTAN_TAB;
+  server.ctx.URUTAN_TAB = tabBaru.filter(t => t !== 'Laporan Suling');
+  await page.goto(ASAL + '#/akun');
+  await page.click('#keluar');
+  await page.waitForSelector('#form-masuk');
+  await isi(page, '#pengguna', 'skw.wildan');
+  await isi(page, '#sandi', '250610');
+  await page.click('#form-masuk button[type=submit]');
+  await page.waitForSelector('.grid-catatan');
+  const tLap = await page.$('a.tombol-catatan[href="#/isi/laporan"]');
+  assert.ok(tLap, 'tombol Laporan Suling tetap ada di beranda pemilik');
+  assert.ok(/Perlu perbarui Apps Script/.test(await tLap.textContent()));
+  await foto(page, '19-beranda-api-lama', true);
+  await tLap.click();
+  await page.waitForSelector('#formulir');
+  assert.ok(/Apps Script belum diperbarui/.test(await page.textContent('.isi .pratinjau.awas')));
+  await pilih(page, 'b2', '1');
+  await pilih(page, 'b3', 'Segar semua');
+  await page.fill('[name=b4]', '08:00');
+  await page.fill('[name=b5]', '12:15');
+  await pilih(page, 'b6', 'Normal');
+  await page.click('#tombol-simpan');
+  await page.click('.tirai [data-aksi="kirim"]');
+  await page.waitForSelector('.status.galat');
+  await page.click('.status.galat');
+  await page.waitForSelector('[data-ulang]');
+  assert.ok(/Apps Script belum diperbarui/.test(await page.textContent('.isi')));
+  server.ctx.URUTAN_TAB = tabBaru;
+  await page.click('[data-ulang]');
+  await page.waitForFunction(() => !JSON.parse(localStorage.getItem('sembada7.antrian') || '[]').length, null, { timeout: 8000 });
+  assert.ok(objek('Laporan Suling').some(r => r['Mulai nyuling'] === '08:00' && r['Diisi oleh'] === 'Mas Wildan'), 'terkirim setelah Apps Script diperbarui');
+  cek('Apps Script lama: tombol Laporan Suling tetap tampil untuk pemilik, isian tersimpan di HP lalu terkirim ulang');
+
   assert.deepStrictEqual(galatHalaman.filter(g => !/ERR_INTERNET_DISCONNECTED|status of 404/.test(g)), [], 'tidak ada galat di halaman');
   await browser.close();
   console.log('\n' + langkah + ' langkah lulus. Gambar layar: ' + OUT);
