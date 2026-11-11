@@ -132,6 +132,12 @@ async function tanpaGeserSamping(page, layar) {
     }
     await foto('07-form-ambil', true);
 
+    await page.goto(ASAL + '#/isi/laporan');
+    await page.waitForSelector('.form-isi .masukan-jam');
+    const lebihLap = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    assert.ok(lebihLap <= 1, 'formulir Laporan Suling tidak bisa digeser ke samping: ' + lebihLap);
+    await foto('07b-form-laporan', true);
+
     await page.goto(ASAL + '#/isi/absensi');
     await page.waitForSelector('.form-isi .baris-kisi');
     await foto('08-form-absensi', true);

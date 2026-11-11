@@ -25,6 +25,13 @@ Catatan lama tidak diubah.
   dengan Dashboard (tab Pengaturan kolom B dan Dashboard kolom D). Laba usaha di peringatan bisa dihitung 1–4 minggu terakhir.
 - **Semua upah dari Absensi**: tim suling memilih 1x, 2x, atau 3x suling (jumlah sulingan dan upahnya ikut tercatat),
   atau "Kerja lain…" untuk pekerjaan dengan upah khusus. Formulir Produksi Suling tidak ditampilkan lagi supaya tidak tercatat dua kali.
+- **Laporan Suling** (3.12) diisi tim suling setiap hari setelah nyuling, ke tab baru "Laporan Suling" (dibuat otomatis saat laporan pertama):
+  tanggal (hari ikut otomatis), anggota tim (terisi dari regu tim suling, misalnya "Eko & Pak Gatot" menjadi Eko dan Pak Gatot),
+  jumlah suling, kondisi bahan, jam mulai & selesai (lama nyuling dihitung otomatis, termasuk yang lewat tengah malam),
+  kondisi alat, dan keterangan lapangan. Pengisinya tercatat di kolom "Diisi oleh". Jam disimpan sebagai teks "07:30".
+  Laporan **tidak** menambah sulingan atau upah di Rekap (tetap dari Absensi); kalau jumlahnya beda dengan Absensi di tanggal
+  yang sama, muncul sebagai keterangan "Jumlah suling beda" di Ringkasan. Akun yang dulu boleh mengisi Produksi Suling
+  otomatis boleh mengisi Laporan Suling; akun lain diberi akses lewat Kelola › Pengguna › Boleh mengisi.
 - **Catatan bon** (Beranda › Catatan bon, untuk pemilik dan yang boleh mengatur): bon dua arah, yaitu "orang ngebon ke kita"
   (kasbon karyawan: nama dipilih dari daftar Karyawan aktif, atau Lainnya…) dan "kita ngebon ke orang" (utang ke toko/pemasok). Setiap orang
   punya catatan bon sendiri (semua bonnya, sisa, riwayat cicilan) dengan tombol Cicil (isi jumlah) dan Bayar lunas; cicilan dibagi ke bon

@@ -101,6 +101,22 @@
   function salin(o) { return JSON.parse(JSON.stringify(o)); }
   // Saring Minyak dengan 0 sulingan = minyak yang dikumpulkan dari sisa saringan.
   function bukanSisaSaringan(n) { return n['Jumlah sulingan yang disaring'] !== 0; }
+  // Laporan Suling: kalau hari itu tidak nyuling (0), jam, kondisi bahan & alat boleh kosong.
+  function jalanSuling(n) { return n['Jumlah suling'] !== 0; }
+  // Jam "07:30" -> menit sejak tengah malam (null kalau bukan jam).
+  function menitJam(s) {
+    var m = /^(\d{1,2})[:.](\d{2})$/.exec(String(s === undefined || s === null ? '' : s).trim());
+    return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null;
+  }
+  // Lama nyuling dalam menit; lewat tengah malam tetap benar (22:00 -> 06:00 = 8 jam).
+  function lamaSuling(mulai, selesai) {
+    var a = menitJam(mulai), b = menitJam(selesai);
+    return a === null || b === null ? null : (b - a + 1440) % 1440;
+  }
+  function teksLama(menit) {
+    var j = Math.floor(menit / 60), m = menit % 60;
+    return j ? j + ' jam' + (m ? ' ' + m + ' menit' : '') : m + ' menit';
+  }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function hariIni() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
   // Tanggal boleh di masa depan (misal isi untuk besok), paling jauh MAKS_HARI_DEPAN hari (sama dengan API).
@@ -233,7 +249,8 @@
   // ------------------------------------------------------------ akses & data induk
   // Produksi Suling tidak ditampilkan lagi: sulingan dan upah tim suling dicatat lewat Absensi (1x, 2x, 3x suling),
   // supaya tidak tercatat dua kali. Formulir dan catatan lamanya tetap dikenali API.
-  var URUTAN_TAB = ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
+  // Laporan Suling (3.12) hanya catatan lapangan tim suling: tidak menambah sulingan/upah (tetap dari Absensi).
+  var URUTAN_TAB = ['Ambil Bahan', 'Laporan Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
   function tabAktif(daftar) { return (daftar || []).filter(function (t) { return URUTAN_TAB.indexOf(t) >= 0; }); }
   function semuaTabAktif(daftar) { return URUTAN_TAB.every(function (t) { return (daftar || []).indexOf(t) >= 0; }); }
   var TAB_KELOMPOK = {'Produksi Suling': true, 'Absensi': true};
@@ -274,6 +291,17 @@
       .map(function (m) { return m.nilai['Nama']; });
   }
   function timKaryawan(nama) { var k = cariInduk('Karyawan', 'Nama', nama); return k ? k.nilai['Tim'] : ''; }
+  // Anggota tim suling satu per satu: regu "Eko & Pak Gatot" dipecah menjadi Eko dan Pak Gatot.
+  function anggotaSuling() {
+    var ts = timDenganJenis('Penyulingan');
+    var nama = ts.length ? karyawanTim(ts) : daftarInduk('Karyawan').filter(function (m) { return /suling/i.test(m.nilai['Tim'] || ''); })
+      .map(function (m) { return m.nilai['Nama']; });
+    var out = [];
+    nama.forEach(function (n) {
+      String(n || '').split(/\s*(?:&|,|\+|\bdan\b)\s*/i).forEach(function (x) { x = x.trim(); if (x && out.indexOf(x) < 0) out.push(x); });
+    });
+    return out;
+  }
   function pilihanDaftar(d) {
     return daftarInduk('Pilihan').filter(function (m) { return m.nilai['Daftar'] === d; }).map(function (m) { return m.nilai['Pilihan']; });
   }
@@ -325,6 +353,7 @@
       case 'pengumpul': var tp = timDenganJenis('Pengumpulan'); return tp.length ? karyawanTim(tp) : karyawanTim();
       case 'operator': var ts = timDenganJenis('Penyulingan'); return ts.length ? karyawanTim(ts) : karyawanTim();
       case 'karyawan': return karyawanTim();
+      case 'anggotaSuling': return anggotaSuling();
       case 'karyawanSemua': return nilaiInduk('Karyawan', 'Nama', true);
       case 'alat': return nilaiInduk('Alat Suling', 'Nama alat');
       case 'alatSemua': return nilaiInduk('Alat Suling', 'Nama alat', true);
@@ -504,6 +533,40 @@
       },
       baris: function (r) {
         return [r['Alat suling'], r['Jumlah sulingan'] + ' sulingan' + (r['Operator'] ? ' · ' + r['Operator'] : '') + (r['Kondisi alat'] ? ' · ' + r['Kondisi alat'] : '')];
+      }
+    },
+    'Laporan Suling': {
+      kunci: 'laporan', ikon: 'api', ket: 'Diisi tim suling setiap hari setelah nyuling.',
+      bidang: [
+        {j: 'tanggal', h: 'Tanggal', bantuan: 'Hari terisi otomatis dari tanggal.'},
+        {j: 'centang', h: 'Anggota tim', sumber: 'anggotaSuling', lainnya: true, awal: anggotaSuling,
+          bantuan: 'Yang ikut nyuling hari ini. Hapus centang yang tidak masuk. Ada pengganti? Tulis di Lainnya.'},
+        {j: 'pilih', h: 'Jumlah suling', opsi: ['0', '1', '2', '3'], lainnya: true, angka: true, satuan: 'x suling',
+          bantuan: 'Berapa kali suling hari ini. 0 = alat tidak jalan.'},
+        {j: 'pilih', h: 'Kondisi bahan', daftar: 'Kondisi bahan', wajib: jalanSuling},
+        {j: 'jam', h: 'Mulai nyuling', wajib: jalanSuling},
+        {j: 'jam', h: 'Selesai nyuling', wajib: jalanSuling, bantuan: 'Selesai lewat tengah malam? Tulis jamnya saja, lama nyuling dihitung otomatis.'},
+        {j: 'centang', h: 'Kondisi alat', daftar: 'Kondisi alat', lainnya: true, wajib: jalanSuling},
+        {j: 'paragraf', h: 'Keterangan', wajib: false,
+          bantuan: 'Catatan lapangan yang perlu ditindaklanjuti: kayu bakar menipis, bahan kurang, alat perlu diperbaiki, hujan.'}
+      ],
+      pratinjau: function (n) {
+        var t = [];
+        if (n['Tanggal']) t.push('Hari: ' + namaHari(n['Tanggal']) + ', ' + tglIndo(n['Tanggal']));
+        var lama = lamaSuling(n['Mulai nyuling'], n['Selesai nyuling']);
+        if (lama) {
+          var x = 'Lama nyuling: ' + teksLama(lama) + (menitJam(n['Selesai nyuling']) < menitJam(n['Mulai nyuling']) ? ' (selesai lewat tengah malam)' : '');
+          if (n['Jumlah suling'] > 0) x += ', rata-rata ' + teksLama(Math.round(lama / n['Jumlah suling'])) + ' per sulingan';
+          t.push(x);
+        }
+        return t.length ? t : null;
+      },
+      cek: function (n) {
+        var s = [];
+        if (n['Jumlah suling'] > 20) s.push(['Jumlah suling', 'Jumlah suling terlalu besar. Periksa lagi.']);
+        if (n['Jumlah suling'] === 0 && !n['Keterangan']) s.push(['Keterangan', 'Tulis kenapa tidak nyuling, contoh: bahan habis atau ketel bocor.']);
+        if (lamaSuling(n['Mulai nyuling'], n['Selesai nyuling']) === 0) s.push(['Selesai nyuling', 'Jam selesai sama dengan jam mulai.']);
+        return s;
       }
     },
     'Saring Minyak': {
@@ -1009,7 +1072,7 @@
     return r ? bRinci('Rata-rata ' + r.n + ' ' + c.p + ' sebelumnya', f(r.nilai), label) : '';
   }
   function ketHari(m, tgl) {
-    return (m.keterangan || []).filter(function (k) { return k.tgl === tgl && ['Absensi', 'Produksi suling', 'Kondisi alat'].indexOf(k.bagian) >= 0; })
+    return (m.keterangan || []).filter(function (k) { return k.tgl === tgl && ['Absensi', 'Produksi suling', 'Laporan suling', 'Kondisi alat'].indexOf(k.bagian) >= 0; })
       .map(function (k) { return k.isi; }).join(' · ');
   }
   var LABEL_POS = {'Pengumpulan': 'upah pengumpul', 'Penyulingan': 'upah penyuling', 'Harian & lain': 'upah kerja harian & lain', 'Perawatan alat': 'operasional & perawatan'};
@@ -1969,6 +2032,8 @@
         (b.j === 'rupiah' ? '<div class="petunjuk-angka" id="' + id + '_pet"></div>' : '');
     } else if (b.j === 'desimal') {
       isi = '<input class="masukan" type="text" inputmode="decimal" name="' + id + '" value="' + esc(d === undefined ? '' : d) + '">';
+    } else if (b.j === 'jam') {
+      isi = '<input class="masukan masukan-jam" type="time" name="' + id + '" value="' + esc(d || '') + '">';
     } else if (b.j === 'teks') {
       isi = '<input class="masukan" type="text" name="' + id + '" value="' + esc(d || '') + '" autocomplete="off"' + (b.saran ? ' list="' + id + '_saran"' : '') + '>' +
         (b.saran ? '<datalist id="' + id + '_saran">' + b.saran.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>' : '');
@@ -2195,6 +2260,14 @@
         nilai[b.h] = v;
       } else if (b.j === 'sandi') {
         nilai[b.h] = v;
+      } else if (b.j === 'jam') {
+        var mj = menitJam(v);
+        if (mj === null) { salah.push([b.h, 'Tulis jam, contoh 07:30.']); return; }
+        nilai[b.h] = pad(Math.floor(mj / 60)) + ':' + pad(mj % 60);
+      } else if (b.angka) {
+        var z = angkaBulat(v);
+        if (isNaN(z)) { salah.push([b.h, 'Tulis angka saja.']); return; }
+        nilai[b.h] = z;
       } else if (typeof v === 'string') {
         nilai[b.h] = v.trim();
       } else {
@@ -2294,6 +2367,7 @@
 
   function tampilNilai(b, v) {
     if (Array.isArray(v)) return v.join(', ');
+    if (b.satuan) return String(v) + b.satuan;
     if (b.j === 'rupiah') return rp(v);
     if (b.j === 'desimal' || b.j === 'angka') return ang(v, 3);
     if (b.j === 'tanggal') return tglIndo(v);
@@ -2337,6 +2411,7 @@
     }
     var bidang = ubah ? (FORM_UBAH[tab] || FORM[tab].bidang) : bidangTampil(tab);
     var draf = ubah ? mentahDariNilai(bidang, ubah.nilai) : ambil('draf.' + kunci, {});
+    if (!ubah) bidang.forEach(function (b) { if (b.awal && b.h && draf[b.h] === undefined) draf[b.h] = b.awal(); });
     var html = (ubah ? '<div class="pratinjau awas">Mengubah catatan yang sudah masuk Google Sheet. Perubahan dicatat di tab Log Aplikasi.</div>' : '') +
       bidang.map(function (b, i) { return htmlBidang(b, i, draf, 'b'); }).join('') +
       '<div class="pratinjau" id="pratinjau" hidden></div>';
@@ -2514,8 +2589,9 @@
           toast(e.jaringan ? 'Perlu sinyal untuk memuat catatan lainnya.' : e.message, 5000);
           return;
         }
-        if (cache) toast(e.message + ' Menampilkan data terakhir yang tersimpan.');
-        else el.innerHTML = '<div class="galat-kartu">' + esc(e.message) + '</div>';
+        var pesan = /tidak dikenal/i.test(e.message) ? 'Apps Script belum diperbarui. Perbarui dulu (Terapkan › Versi baru), lalu buka lagi.' : e.message;
+        if (cache) toast(pesan + ' Menampilkan data terakhir yang tersimpan.');
+        else el.innerHTML = '<div class="galat-kartu">' + esc(pesan) + '</div>';
       });
     };
     document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
@@ -2592,6 +2668,17 @@
         var kondisiSaring = [g('Kondisi bahan') !== '' ? 'Bahan: ' + f('Kondisi bahan') : '', g('Kondisi alat') !== '' ? 'Alat: ' + f('Kondisi alat') : '',
           g('Hidrosol diambil (liter)') !== '' ? 'hidrosol ' + f('Hidrosol diambil (liter)') : ''].filter(function (x) { return x; });
         if (kondisiSaring.length) baris.push(kondisiSaring.join(' · '));
+      } else if (tab === 'Laporan Suling') {
+        var nSul = g('Jumlah suling');
+        judul = namaHari(g('Tanggal')) + ', ' + tglIndo(g('Tanggal')) + (nSul === '' ? '' : ' · ' + (Number(nSul) === 0 ? 'tidak nyuling' : nSul + 'x suling'));
+        var lamaL = lamaSuling(g('Mulai nyuling'), g('Selesai nyuling'));
+        if (g('Mulai nyuling') !== '' || g('Selesai nyuling') !== '') {
+          baris.push('Jam ' + (f('Mulai nyuling') || '?') + '–' + (f('Selesai nyuling') || '?') + (lamaL ? ' · <b>' + teksLama(lamaL) + '</b>' : ''));
+        }
+        if (g('Anggota tim') !== '') baris.push(f('Anggota tim'));
+        var kondL = [g('Kondisi bahan') !== '' ? 'Bahan: ' + f('Kondisi bahan') : '', g('Kondisi alat') !== '' ? 'Alat: ' + f('Kondisi alat') : '']
+          .filter(function (x) { return x; });
+        if (kondL.length) baris.push(kondL.join(' · '));
       } else if (tab === 'Penjualan') {
         judul = tglIndo(g('Tanggal')) + ' · ' + g('Pembeli');
         baris.push(f('Jumlah') + ' ' + f('Satuan') + ' ' + f('Produk'));

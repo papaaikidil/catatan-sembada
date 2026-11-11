@@ -151,6 +151,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-size: 1.0625rem; min-height: var(--tinggi-masukan); outline: none;
 }
 textarea.masukan { min-height: 5.5rem; resize: vertical; }
+.masukan-jam { display: block; -webkit-appearance: none; appearance: none; font-variant-numeric: tabular-nums; text-align: left; }
 .masukan:focus { border-color: var(--aksen); box-shadow: 0 0 0 3px var(--aksen-muda); }
 .salah > .masukan, .salah .masukan { border-color: var(--merah); }
 .pesan-salah { color: var(--merah); font-size: .8125rem; font-weight: 600; margin-top: .375rem; }

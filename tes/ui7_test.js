@@ -116,7 +116,7 @@ function pngPolos(w, h) {
   await page.waitForFunction(() => !JSON.parse(localStorage.getItem('sembada7.antrian') || '[]').length);
   assert.ok(objek('Absensi Harian').some(a => a['Keterangan'] === 'dari HP lama' && a['Pekerjaan'] === '2 trip'), 'absensi dari HP lama terkirim');
   const menu = await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent));
-  assert.deepStrictEqual(menu, ['Ambil Bahan', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas', 'Catatan bon'], 'Produksi Suling tidak ditampilkan lagi; pemilik dapat Catatan bon');
+  assert.deepStrictEqual(menu, ['Ambil Bahan', 'Laporan Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas', 'Catatan bon'], 'Produksi Suling tidak ditampilkan lagi (diganti Laporan Suling); pemilik dapat Catatan bon');
   await page.waitForSelector('#kotak-ringkas .angka-grid');
   await page.waitForSelector('#kotak-ringkas .kartu-stok');
   assert.ok(/Stok minyak sekarang/.test(await page.textContent('#kotak-ringkas')), 'stok minyak di beranda');
@@ -578,12 +578,52 @@ function pngPolos(w, h) {
   await isi(page, '#pengguna', 'eko');
   await isi(page, '#sandi', '9937');
   await page.click('#form-masuk button[type=submit]');
-  // Akun tim suling yang dulu hanya boleh mengisi Produksi Suling sekarang tidak punya formulir sampai diberi akses.
-  await page.waitForSelector('.isi .kosong');
-  assert.ok(/belum diberi akses/.test(await page.textContent('.isi')));
+  // Akun tim suling yang dulu boleh mengisi Produksi Suling sekarang mengisi Laporan Suling.
+  await page.waitForSelector('.grid-catatan');
+  assert.deepStrictEqual(await page.$$eval('.tombol-catatan b', bs => bs.map(b => b.textContent)), ['Laporan Suling']);
   assert.strictEqual(await page.$('.nav a[href="#/kelola"]'), null);
   await foto(page, '17-beranda-eko');
-  cek('akun Eko (dulu hanya Produksi Suling) tidak melihat formulir apa pun');
+  await page.click('a[href="#/isi/laporan"]');
+  await page.waitForSelector('#formulir');
+  // Anggota tim terisi otomatis dari regu tim suling (Eko & Pak Gatot dipecah per orang).
+  assert.deepStrictEqual(await page.$$eval('input[name=b1]:checked', xs => xs.map(x => x.value)), ['Eko', 'Pak Gatot']);
+  await pilih(page, 'b2', '2');
+  await pilih(page, 'b3', 'Segar semua');
+  await page.fill('[name=b4]', '19:30');
+  await page.fill('[name=b5]', '05:00');
+  await pilih(page, 'b6', 'Normal');
+  await isi(page, '[name=b7]', 'kayu bakar tinggal untuk 2 hari');
+  await page.waitForFunction(() => /Lama nyuling: 9 jam 30 menit \(selesai lewat tengah malam\), rata-rata 4 jam 45 menit per sulingan/.test(document.getElementById('pratinjau').textContent));
+  assert.ok(/Hari: \w+, \d{2}\/\d{2}\/\d{4}/.test(await page.textContent('#pratinjau')), 'hari tampil dari tanggal');
+  await foto(page, '17b-laporan-suling', true);
+  await page.click('#tombol-simpan');
+  await page.waitForSelector('.tirai [data-aksi="kirim"]');
+  await foto(page, '17c-laporan-periksa');
+  await page.click('.tirai [data-aksi="kirim"]');
+  await page.waitForFunction(() => location.hash === '#/');
+  await page.waitForFunction(() => !JSON.parse(localStorage.getItem('sembada7.antrian') || '[]').length, null, { timeout: 8000 });
+  const lapS = objek('Laporan Suling');
+  assert.strictEqual(lapS.length, 1);
+  assert.deepStrictEqual([lapS[0]['Anggota tim'], lapS[0]['Jumlah suling'], lapS[0]['Kondisi bahan'], lapS[0]['Mulai nyuling'], lapS[0]['Selesai nyuling'],
+    lapS[0]['Kondisi alat'], lapS[0]['Keterangan'], lapS[0]['Diisi oleh']],
+    ['Eko, Pak Gatot', 2, 'Segar semua', '19:30', '05:00', 'Normal', 'kayu bakar tinggal untuk 2 hari', 'Eko']);
+  assert.strictEqual(iso(lapS[0]['Tanggal']), hariIni);
+  // Tidak nyuling (0): jam & kondisi boleh kosong, tapi alasannya wajib ditulis.
+  await page.click('a[href="#/isi/laporan"]');
+  await page.waitForSelector('#formulir');
+  await pilih(page, 'b2', '0');
+  await page.click('#tombol-simpan');
+  await page.waitForSelector('.bidang.salah[data-h="Keterangan"]');
+  assert.strictEqual(await page.$('.bidang.salah[data-h="Mulai nyuling"]'), null, 'jam boleh kosong kalau tidak nyuling');
+  await page.click('#tombol-kosong');
+  // Riwayat tim suling: kartu laporan tanpa tombol ubah/hapus.
+  await page.goto(ASAL + '#/terbaru/laporan');
+  await page.waitForSelector('#daftar-entri .entri');
+  const kartuLap = await page.textContent('#daftar-entri .entri');
+  assert.ok(/2x suling/.test(kartuLap) && /Jam 19:30–05:00 · 9 jam 30 menit/.test(kartuLap) && /Eko, Pak Gatot/.test(kartuLap) && /kayu bakar/.test(kartuLap), kartuLap);
+  assert.strictEqual(await page.$('#daftar-entri [data-ubah]'), null);
+  await foto(page, '17d-riwayat-laporan');
+  cek('akun Eko (dulu Produksi Suling) mengisi Laporan Suling: anggota terisi otomatis, lama nyuling dihitung, tercatat siapa pengisinya');
 
   // Pencatat (bukan pemilik) mengisi absensi tanpa sinyal: tidak melihat angka upah, lalu terkirim saat online.
   await page.goto(ASAL + '#/akun');

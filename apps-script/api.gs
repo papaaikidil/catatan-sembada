@@ -15,6 +15,9 @@
 //    tim suling memilih 1x, 2x, atau 3x suling, jumlah sulingan dan upahnya ikut tercatat.
 //  - Tab "Produksi Suling" (sulingan per alat) tetap dikenali dan ikut dihitung di Rekap, tapi sejak aplikasi 3.3
 //    tidak ditampilkan lagi supaya sulingan dan upah tidak tercatat dua kali.
+//  - Tab "Laporan Suling" (aplikasi 3.12): laporan harian tim suling (anggota, jumlah suling, kondisi bahan,
+//    jam mulai & selesai, kondisi alat, catatan). Tidak ikut dihitung di Rekap: sulingan dan upah tetap dari Absensi.
+//    Kalau jumlahnya beda dengan Absensi di tanggal yang sama, muncul di daftar keterangan Ringkasan.
 //  - Alat suling, karyawan, tarif upah, daftar pilihan, produk, dan kategori kas diatur dari aplikasi.
 //  - Catatan lama, rumus Rekap, Dashboard, dan HPP tidak diubah oleh kode ini.
 // =====================================================================
@@ -30,6 +33,7 @@ var API_BATAS_GAGAL = 5;         // sandi salah sebanyak ini dalam 15 menit = na
 var SH_ABSENSI = 'Absensi Harian';
 var SH_ABSENSI_LAMA = 'Absensi';
 var SH_PRODUKSI = 'Produksi Suling';
+var SH_LAPORAN = 'Laporan Suling';
 var SH_KARYAWAN = 'Karyawan';
 var SH_ALAT = 'Alat Suling';
 var SH_TARIF = 'Tarif Upah';
@@ -41,7 +45,11 @@ var SH_STOK = 'Stok Minyak';
 var SH_BON = 'Bon';
 var SH_BAYAR_BON = 'Bayar Bon';
 
-var URUTAN_TAB = ['Ambil Bahan', 'Produksi Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
+var URUTAN_TAB = ['Ambil Bahan', 'Produksi Suling', 'Laporan Suling', 'Saring Minyak', 'Absensi', 'Penjualan', 'Kas'];
+// Laporan Suling: Hari (rumus) | isian B..K | Lama nyuling (rumus). Jam disimpan sebagai teks "07:30".
+var KEPALA_LAPORAN = ['Hari', 'Timestamp', 'Tanggal', 'Anggota tim', 'Jumlah suling', 'Kondisi bahan', 'Mulai nyuling', 'Selesai nyuling',
+  'Kondisi alat', 'Keterangan', 'Diisi oleh', 'Lama nyuling (jam)'];
+var KOLOM_JAM = ['Mulai nyuling', 'Selesai nyuling'];
 var KEPALA_ABSENSI = ['Hari', 'Timestamp', 'Tanggal', 'Nama', 'Tim', 'Pekerjaan', 'Alat', 'Jumlah sulingan', 'Upah (Rp)',
   'Pos upah', 'Pekerjaan lain', 'Kerja lain untuk', 'Keterangan', 'Diisi oleh'];
 var KEPALA_PRODUKSI = ['Hari', 'Timestamp', 'Tanggal', 'Alat suling', 'Operator', 'Jumlah sulingan', 'Kondisi alat', 'Keterangan',
@@ -384,7 +392,10 @@ function tulisPengguna_(ss, baris, nilai) {
 
 function tabBoleh_(boleh) {
   if (/^semua$/i.test(boleh)) return URUTAN_TAB.slice();
-  return pecahDaftar_(boleh).filter(function (t) { return URUTAN_TAB.indexOf(t) >= 0; });
+  var tab = pecahDaftar_(boleh).filter(function (t) { return URUTAN_TAB.indexOf(t) >= 0; });
+  // Formulir Produksi Suling sudah tidak dipakai: yang dulu boleh mengisinya otomatis boleh mengisi Laporan Suling.
+  if (tab.indexOf(SH_PRODUKSI) >= 0 && tab.indexOf(SH_LAPORAN) < 0) tab.splice(tab.indexOf(SH_PRODUKSI) + 1, 0, SH_LAPORAN);
+  return tab;
 }
 
 function aksesDari_(p) {
@@ -1101,6 +1112,8 @@ function simpan_(ss, akses, req) {
       hasil = simpanAbsensi_(ss, akses, req);
     } else if (tab === 'Produksi Suling') {
       hasil = simpanProduksi_(ss, akses, req, id);
+    } else if (tab === SH_LAPORAN) {
+      hasil = simpanLaporan_(ss, akses, req.nilai || {});
     } else {
       hasil = simpanUmum_(ss, tab, req.nilai || {});
     }
@@ -1135,10 +1148,79 @@ function simpanUmum_(ss, tab, nilai) {
       '. Buka menu Akun > Perbarui data, lalu kirim ulang.'};
   }
   sh.insertRowBefore(2);
+  formatJam_(sh, 2, info.kepala);
   sh.getRange(2, 2, 1, baris.isi.length).setValues([baris.isi]);
   SpreadsheetApp.flush();
   rapikan_(sh, info.lastCol);
   return {ok: true};
+}
+
+// Kolom jam (Mulai/Selesai nyuling) diformat teks supaya "07:30" tidak diubah Sheet menjadi angka waktu.
+function formatJam_(sh, r, kepala) {
+  KOLOM_JAM.forEach(function (h) {
+    var j = kepala.indexOf(h);
+    if (j >= 1) sh.getRange(r, 2 + j).setNumberFormat('@');
+  });
+}
+
+// ---------------------------------------------------------------- LAPORAN SULING (DIISI TIM SULING)
+
+function siapkanLaporan_(ss) {
+  var sh = ss.getSheetByName(SH_LAPORAN);
+  if (sh) return sh;
+  var dekat = ss.getSheetByName(SH_PRODUKSI) || ss.getSheetByName('Ambil Bahan');
+  sh = ss.insertSheet(SH_LAPORAN, dekat ? dekat.getIndex() : 0);
+  var n = KEPALA_LAPORAN.length;
+  sh.getRange(1, 1).setFormula('=ARRAYFORMULA(IF(ROW(C:C)=1,"Hari",IF(LEN(C:C),IFERROR(CHOOSE(WEEKDAY(C:C,2),' +
+    '"Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"),""),)))');
+  sh.getRange(1, 2, 1, n - 2).setValues([KEPALA_LAPORAN.slice(1, n - 1)]);
+  // Lama nyuling (jam) dari jam mulai & selesai; lewat tengah malam tetap benar. Jam boleh teks "07:30" atau angka waktu.
+  sh.getRange(1, n).setFormula('=ARRAYFORMULA(IF(ROW(C:C)=1,"Lama nyuling (jam)",IF(LEN(C:C)*LEN(G:G)*LEN(H:H),' +
+    'ROUND(MOD(IFERROR(TIMEVALUE(H:H),H:H)-IFERROR(TIMEVALUE(G:G),G:G),1)*24,2),)))');
+  sh.setFrozenRows(1);
+  // Warna judul mengikuti tab Saring Minyak: isian hijau, rumus abu-abu.
+  var contoh = ss.getSheetByName('Saring Minyak');
+  if (contoh) {
+    var akhirContoh = contoh.getLastColumn();
+    contoh.getRange(1, 1).copyTo(sh.getRange(1, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    contoh.getRange(1, 2).copyTo(sh.getRange(1, 2, 1, n - 2), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    contoh.getRange(1, akhirContoh).copyTo(sh.getRange(1, n), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  } else {
+    sh.getRange(1, 1, 1, n).setFontWeight('bold');
+  }
+  var baris = Math.max(sh.getMaxRows() - 1, 1);
+  var f = ['dd/MM/yyyy HH:mm', 'dd/MM/yyyy', '@', '0', '@', '@', '@', '@', '@', '@', '0.00'];
+  f.forEach(function (x, j) { sh.getRange(2, 2 + j, baris, 1).setNumberFormat(x); });
+  catatLog_(ss, 'Buat tab', SH_LAPORAN, '', '', KEPALA_LAPORAN.join(', '), 'Sistem');
+  return sh;
+}
+
+function jamSah_(v) { return /^([01]?\d|2[0-3]):[0-5]\d$/.test(teks_(v)); }
+function jamRapi_(v) { var m = /^(\d{1,2}):(\d{2})$/.exec(teks_(v)); return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : teks_(v); }
+
+// Pemeriksaan isian Laporan Suling (dipakai saat simpan dan ubah). Mengembalikan teks galat atau ''.
+function cekLaporan_(nilai) {
+  var n = nilai['Jumlah suling'];
+  if (n !== undefined && n !== '') {
+    var x = Number(n);
+    if (!isFinite(x) || x < 0 || x > 20 || Math.round(x) !== x) return 'Jumlah suling harus angka bulat 0 sampai 20.';
+  }
+  for (var i = 0; i < KOLOM_JAM.length; i++) {
+    var v = nilai[KOLOM_JAM[i]];
+    if (v !== undefined && v !== '' && !jamSah_(v)) return KOLOM_JAM[i] + ' harus jam, contoh 07:30.';
+  }
+  return '';
+}
+
+function simpanLaporan_(ss, akses, nilai) {
+  var galat = cekLaporan_(nilai);
+  if (galat) return {ok: false, galat: galat};
+  if (nilai['Jumlah suling'] === undefined || nilai['Jumlah suling'] === '') return {ok: false, galat: 'Jumlah suling wajib diisi.'};
+  var isi = {};
+  Object.keys(nilai).forEach(function (k) { isi[k] = KOLOM_JAM.indexOf(k) >= 0 ? jamRapi_(nilai[k]) : nilai[k]; });
+  isi['Diisi oleh'] = akses.nama;
+  siapkanLaporan_(ss);
+  return simpanUmum_(ss, SH_LAPORAN, isi);
 }
 
 function rapikan_(sh, lastCol) {
@@ -1469,6 +1551,7 @@ function simpanProduksi_(ss, akses, req, id) {
 function nilaiUntukAplikasi_(h, v) {
   if (adalahTanggal_(v)) {
     if (h === 'Timestamp') return Utilities.formatDate(v, API_ZONA, 'dd/MM/yyyy HH:mm');
+    if (KOLOM_JAM.indexOf(h) >= 0) return Utilities.formatDate(v, API_ZONA, 'HH:mm');   // diketik langsung di Sheet
     return tglIso_(v);
   }
   return v === null || v === undefined ? '' : v;
@@ -1549,6 +1632,12 @@ function ubah_(ss, akses, req) {
         else asing.push(k);
       });
       if (asing.length) return {ok: false, galat: 'Kolom tidak ditemukan di tab ' + tab + ': ' + asing.join(', ') + '.'};
+      if (tab === SH_LAPORAN) {
+        var galatLap = cekLaporan_(nilai);
+        if (galatLap) return {ok: false, galat: galatLap};
+        KOLOM_JAM.forEach(function (h) { var j = info.kepala.indexOf(h); if (j >= 1 && baru[j] !== '') baru[j] = jamRapi_(baru[j]); });
+        formatJam_(sh, r, info.kepala);
+      }
       var kolTgl = info.kepala[1];
       if (nilai[kolTgl] !== undefined && !adalahTanggal_(baru[1])) return {ok: false, galat: kolTgl + ' wajib diisi.'};
       if (nilai[kolTgl] !== undefined && galatTanggal_(tglKunci_(baru[1]))) return {ok: false, galat: galatTanggal_(tglKunci_(baru[1]))};
@@ -1701,7 +1790,7 @@ function angkaRekap_(v) {
 // Ubahan langsung di Google Sheet terlihat paling lambat CACHE_RINGKASAN_DETIK kemudian, atau langsung lewat tombol
 // muat ulang di layar Ringkasan (segar: true). Ganti REV_RINGKASAN kalau bentuk data ringkasan berubah.
 var CACHE_RINGKASAN_DETIK = 600;
-var REV_RINGKASAN = 'rk20261031';
+var REV_RINGKASAN = 'rk20261111';
 
 function ringkasanCepat_(ss, akses, req) {
   if (!akses.admin) return ringkasan_(ss, akses);
@@ -1985,7 +2074,8 @@ function catatanPeriode_(ss, sets) {
 }
 
 // Keterangan dan kejadian tidak biasa per minggu (sama dengan daftar di bagian bawah Dashboard):
-// keterangan Ambil Bahan, Produksi Suling, Saring Minyak, Absensi, kerja lain, kondisi alat bukan Normal, dan Penjualan.
+// keterangan Ambil Bahan, Produksi Suling, Laporan Suling, Saring Minyak, Absensi, kerja lain, kondisi alat bukan Normal, dan Penjualan.
+// Juga: jumlah suling di Laporan Suling yang beda dengan Absensi tim suling di tanggal yang sama.
 function keteranganMinggu_(ss, minggu) {
   var keMinggu = {};
   minggu.forEach(function (m) { m.keterangan = []; m._sudah = {}; keMinggu[m.mulai] = m; });
@@ -2012,12 +2102,17 @@ function keteranganMinggu_(ss, minggu) {
     var k = teks_(g(r, 'Kondisi alat'));
     if (k && k !== 'Normal') tambah(t, 'Kondisi alat', 'Saat saring: ' + k);
   });
+  var sulingAbsen = {};   // tanggal -> jumlah sulingan menurut Absensi (+ Produksi Suling lama)
   bacaProduksi_(ss).forEach(function (p) {
     tambah(p.tgl, 'Produksi suling', p.ket);
     if (p.kondisi && p.kondisi !== 'Normal') tambah(p.tgl, 'Kondisi alat', p.alat + ': ' + p.kondisi);
+    sulingAbsen[p.tgl] = (sulingAbsen[p.tgl] || 0) + p.n;
   });
+  var timSuling = timDenganJenis_(bacaTarifApi_(ss), 'Penyulingan');
   baca(SH_ABSENSI, function (r, g) {
     var t = tglKunci_(g(r, 'Tanggal'));
+    var nSul = angka_(g(r, 'Jumlah sulingan'));
+    if (t && (nSul > 0 || timSuling.indexOf(teks_(g(r, 'Tim'))) >= 0)) sulingAbsen[t] = (sulingAbsen[t] || 0) + nSul;
     tambah(t, 'Absensi', g(r, 'Keterangan'));
     var pl = teks_(g(r, 'Pekerjaan lain'));
     if (pl) {
@@ -2030,7 +2125,21 @@ function keteranganMinggu_(ss, minggu) {
     var k = teks_(g(r, 'Keterangan'));
     if (k) tambah(tglKunci_(g(r, 'Tanggal')), 'Penjualan', teks_(g(r, 'Pembeli')) + ': ' + k);
   });
-  var urutBagian = ['Ambil bahan', 'Produksi suling', 'Kondisi alat', 'Saring minyak', 'Absensi', 'Kerja lain', 'Penjualan'];
+  var sulingLapor = {};
+  baca(SH_LAPORAN, function (r, g) {
+    var t = tglKunci_(g(r, 'Tanggal'));
+    if (!t) return;
+    tambah(t, 'Laporan suling', g(r, 'Keterangan'));
+    var k = pecahDaftar_(g(r, 'Kondisi alat')).filter(function (x) { return x !== 'Normal'; });
+    if (k.length) tambah(t, 'Kondisi alat', 'Saat nyuling: ' + k.join(', '));
+    if (teks_(g(r, 'Jumlah suling')) !== '') sulingLapor[t] = (sulingLapor[t] || 0) + angka_(g(r, 'Jumlah suling'));
+  });
+  Object.keys(sulingLapor).forEach(function (t) {
+    if (sulingAbsen[t] === undefined || sulingAbsen[t] === sulingLapor[t]) return;
+    tambah(t, 'Laporan suling', 'Jumlah suling beda: laporan tim ' + sulingLapor[t] + 'x, Absensi ' + sulingAbsen[t] +
+      'x. Cek mana yang benar (upah & rekap dihitung dari Absensi).');
+  });
+  var urutBagian = ['Ambil bahan', 'Produksi suling', 'Laporan suling', 'Kondisi alat', 'Saring minyak', 'Absensi', 'Kerja lain', 'Penjualan'];
   minggu.forEach(function (m) {
     m.keterangan.sort(function (a, b) {
       return a.tgl < b.tgl ? 1 : a.tgl > b.tgl ? -1 : urutBagian.indexOf(a.bagian) - urutBagian.indexOf(b.bagian);

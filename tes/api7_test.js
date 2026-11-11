@@ -41,7 +41,7 @@ r = panggil({ aksi: 'masuk', pengguna: 'Wildan', sandi: '250610' });
 assert.strictEqual(r.ok, true, JSON.stringify(r));
 let tokPemilik = r.token;
 assert.strictEqual(r.akses.pemilik, true); assert.strictEqual(r.akses.admin, true); assert.strictEqual(r.akses.nama, 'Mas Wildan');
-assert.strictEqual(r.akses.tab.length, 6); assert.strictEqual(r.versiApi, 7);
+assert.strictEqual(r.akses.tab.length, 7); assert.strictEqual(r.versiApi, 7);
 const akun = objek('Akun Aplikasi');
 assert.deepStrictEqual(akun.map(a => a['Nama pengguna']), ['wildan', 'rofik', 'pakmuh', 'romadi', 'eko', 'pakgatot'], 'PIN bersama tidak dibuatkan akun');
 assert.deepStrictEqual(akun.map(a => a['Boleh mengisi']), ['Semua', 'Ambil Bahan', 'Ambil Bahan', 'Ambil Bahan', 'Produksi Suling', 'Produksi Suling']);
@@ -55,7 +55,7 @@ assert.ok(r.ok); const tokRofik = r.token;
 assert.deepStrictEqual(J(r.akses.tab), ['Ambil Bahan']); assert.strictEqual(r.akses.admin, false);
 r = panggil({ aksi: 'masuk', pengguna: 'eko', sandi: '9937' });
 assert.ok(r.ok); const tokEko = r.token;
-assert.deepStrictEqual(J(r.akses.tab), ['Produksi Suling']);
+assert.deepStrictEqual(J(r.akses.tab), ['Produksi Suling', 'Laporan Suling'], 'akses Produksi Suling lama = boleh mengisi Laporan Suling');
 for (let i = 0; i < 5; i++) assert.strictEqual(panggil({ aksi: 'masuk', pengguna: 'romadi', sandi: '0000' }).kode, 'SALAH');
 assert.strictEqual(panggil({ aksi: 'masuk', pengguna: 'romadi', sandi: '1508' }).kode, 'KUNCI', 'dikunci setelah 5 kali salah');
 assert.strictEqual(panggil({ aksi: 'config', token: 'palsu' }).kode, 'SESI');
@@ -661,6 +661,78 @@ assert.strictEqual(r.tampilan.warna, 'biru'); assert.strictEqual(r.pengaturan.na
 assert.strictEqual(panggil({ aksi: 'logo', token: tokPemilik }).logo, 'data:image/png;base64,iVBORw0KGgo=');
 assert.ok(/tidak valid/.test(panggil({ aksi: 'tampilanSimpan', token: tokPemilik, logo: 'javascript:alert(1)' }).galat));
 cek('Tampilan, nama aplikasi, dan logo disimpan untuk semua HP');
+
+// ------------------------------------------------------------------ 10b. Laporan Suling (diisi tim suling)
+{
+  assert.ok(!sheets['Laporan Suling'], 'tab Laporan Suling belum ada sebelum laporan pertama');
+  const lo = panggil({ aksi: 'masuk', pengguna: 'eko', sandi: '9937' });
+  assert.ok(lo.ok && lo.akses.tab.includes('Laporan Suling'), JSON.stringify(lo));
+  const tokE = lo.token;
+  // Jumlah sulingan menurut Absensi (+ Produksi Suling lama) di tanggal itu, untuk cek "jumlah beda".
+  const nAbsen = objek('Absensi Harian').filter(a => isoT(a['Tanggal']) === lusa && (a['Jumlah sulingan'] > 0 || a['Tim'] === 'Tim suling'))
+    .reduce((t, a) => t + (Number(a['Jumlah sulingan']) || 0), 0) +
+    objek('Produksi Suling').filter(p => isoT(p['Tanggal']) === lusa).reduce((t, p) => t + (Number(p['Jumlah sulingan']) || 0), 0);
+  assert.ok(nAbsen > 0, 'data uji: ada absensi tim suling di tanggal itu');
+  const isian = { 'Tanggal': lusa, 'Anggota tim': ['Eko', 'Pak Gatot'], 'Jumlah suling': nAbsen + 1, 'Kondisi bahan': 'Segar semua',
+    'Mulai nyuling': '7:15', 'Selesai nyuling': '01:45', 'Kondisi alat': ['Normal', 'Spiral bocor'], 'Keterangan': 'kayu bakar tinggal sedikit' };
+  let rl = panggil({ aksi: 'simpan', token: tokE, tab: 'Laporan Suling', id: 'lap-uji-1', nilai: isian });
+  assert.ok(rl.ok, JSON.stringify(rl));
+  const shL = sheets['Laporan Suling'];
+  assert.deepStrictEqual(J(shL.data[0].slice(1, 11)), ['Timestamp', 'Tanggal', 'Anggota tim', 'Jumlah suling', 'Kondisi bahan', 'Mulai nyuling',
+    'Selesai nyuling', 'Kondisi alat', 'Keterangan', 'Diisi oleh']);
+  assert.ok(/WEEKDAY/.test(shL.rumus['1,1']) && /TIMEVALUE/.test(shL.rumus['1,12']), 'kolom Hari dan Lama nyuling berupa rumus');
+  assert.deepStrictEqual(J(ctx.kolomForm_(shL).kepala), ['Timestamp', 'Tanggal', 'Anggota tim', 'Jumlah suling', 'Kondisi bahan', 'Mulai nyuling',
+    'Selesai nyuling', 'Kondisi alat', 'Keterangan', 'Diisi oleh'], 'kolom isian berhenti sebelum kolom rumus');
+  assert.strictEqual(shL.format[7], '@'); assert.strictEqual(shL.format[8], '@');
+  let lap = objek('Laporan Suling');
+  assert.strictEqual(lap.length, 1);
+  assert.ok(isDate(lap[0]['Tanggal']) && isoT(lap[0]['Tanggal']) === lusa);
+  assert.strictEqual(lap[0]['Anggota tim'], 'Eko, Pak Gatot'); assert.strictEqual(lap[0]['Jumlah suling'], nAbsen + 1);
+  assert.strictEqual(lap[0]['Mulai nyuling'], '07:15', 'jam dirapikan jadi 2 digit'); assert.strictEqual(lap[0]['Selesai nyuling'], '01:45');
+  assert.strictEqual(lap[0]['Kondisi alat'], 'Normal, Spiral bocor'); assert.strictEqual(lap[0]['Diisi oleh'], 'Eko', 'pengisi dicatat otomatis');
+  assert.ok(panggil({ aksi: 'simpan', token: tokE, tab: 'Laporan Suling', id: 'lap-uji-1', nilai: isian }).dobel, 'kiriman ulang tidak dobel');
+  assert.strictEqual(objek('Laporan Suling').length, 1);
+  const salahLap = (ubahan) => panggil({ aksi: 'simpan', token: tokE, tab: 'Laporan Suling', nilai: Object.assign({}, isian, ubahan) });
+  assert.ok(/harus jam/.test(salahLap({ 'Mulai nyuling': '25:00' }).galat));
+  assert.ok(/angka bulat/.test(salahLap({ 'Jumlah suling': -1 }).galat));
+  assert.ok(/angka bulat/.test(salahLap({ 'Jumlah suling': 1.5 }).galat));
+  assert.ok(/wajib/.test(salahLap({ 'Jumlah suling': '' }).galat));
+  assert.ok(/paling jauh 30 hari/.test(salahLap({ 'Tanggal': isoHari(31) }).galat));
+  assert.strictEqual(objek('Laporan Suling').length, 1, 'isian salah tidak ditulis');
+  const lr = panggil({ aksi: 'masuk', pengguna: 'rofik', sandi: '5420' });
+  if (lr.ok) assert.ok(/tidak boleh/.test(panggil({ aksi: 'simpan', token: lr.token, tab: 'Laporan Suling', nilai: isian }).galat), 'pengumpul tidak boleh');
+  // Riwayat: jam tetap teks "07:15", juga kalau di Sheet terlanjur berupa angka waktu.
+  let t = panggil({ aksi: 'terbaru', token: tokE, tab: 'Laporan Suling', n: 10 });
+  assert.ok(t.ok && t.total === 1, JSON.stringify(t));
+  assert.strictEqual(t.data[0].nilai['Mulai nyuling'], '07:15');
+  // Ringkasan: keterangan, kondisi alat bukan Normal, dan jumlah yang beda dengan Absensi.
+  const mingguLusa = rs => rs.minggu.find(m => m.mulai <= lusa && lusa <= m.sampai);
+  let rk = panggil({ aksi: 'ringkasan', token: tokPemilik, segar: true });
+  let ketL = mingguLusa(rk).keterangan.map(k => k.bagian + ': ' + k.isi);
+  assert.ok(ketL.includes('Laporan suling: kayu bakar tinggal sedikit'), ketL.join(' / '));
+  assert.ok(ketL.includes('Kondisi alat: Saat nyuling: Spiral bocor'), ketL.join(' / '));
+  assert.ok(ketL.includes('Laporan suling: Jumlah suling beda: laporan tim ' + (nAbsen + 1) + 'x, Absensi ' + nAbsen + 'x. Cek mana yang benar (upah & rekap dihitung dari Absensi).'), ketL.join(' / '));
+  assert.strictEqual(mingguLusa(rk).sulingan, mingguLusa(panggil({ aksi: 'ringkasan', token: tokPemilik, segar: true })).sulingan, 'laporan tidak menambah sulingan di Rekap');
+  // Pemilik mengubah: jumlah disamakan, jam dirapikan, pengisi tetap.
+  assert.ok(/Hanya pemilik/.test(panggil({ aksi: 'ubah', token: tokE, tab: 'Laporan Suling', id: t.data[0].id, nilai: { 'Jumlah suling': 1 } }).galat));
+  rl = panggil({ aksi: 'ubah', token: tokPemilik, tab: 'Laporan Suling', id: t.data[0].id, nilai: Object.assign({}, isian, { 'Jumlah suling': nAbsen, 'Mulai nyuling': '6:30' }) });
+  assert.ok(rl.ok, JSON.stringify(rl));
+  lap = objek('Laporan Suling');
+  assert.strictEqual(lap[0]['Jumlah suling'], nAbsen); assert.strictEqual(lap[0]['Mulai nyuling'], '06:30'); assert.strictEqual(lap[0]['Diisi oleh'], 'Eko');
+  assert.ok(/harus jam/.test(panggil({ aksi: 'ubah', token: tokPemilik, tab: 'Laporan Suling', id: panggil({ aksi: 'terbaru', token: tokE, tab: 'Laporan Suling', n: 10 }).data[0].id, nilai: { 'Selesai nyuling': 'sore' } }).galat));
+  rk = panggil({ aksi: 'ringkasan', token: tokPemilik, segar: true });
+  assert.ok(!mingguLusa(rk).keterangan.some(k => /beda/.test(k.isi)), 'setelah disamakan, peringatan beda hilang');
+  // Jam yang diketik langsung di Sheet (jadi angka waktu) tetap tampil sebagai jam.
+  const jKol = shL.data[0].indexOf('Selesai nyuling');
+  shL.data[1][jKol] = new Date('1899-12-30T16:20:00+07:00');
+  t = panggil({ aksi: 'terbaru', token: tokE, tab: 'Laporan Suling', n: 10 });
+  assert.strictEqual(t.data[0].nilai['Selesai nyuling'], '16:20');
+  // Hapus oleh pemilik.
+  assert.ok(panggil({ aksi: 'hapus', token: tokPemilik, tab: 'Laporan Suling', id: t.data[0].id }).ok);
+  assert.strictEqual(objek('Laporan Suling').length, 0);
+  assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Buat tab' && x[2] === 'Laporan Suling'), 'pembuatan tab dicatat di Log');
+}
+cek('Laporan Suling: tab dibuat otomatis, jam sebagai teks, pengisi tercatat, beda jumlah dengan Absensi muncul di Ringkasan');
 
 // ------------------------------------------------------------------ 11. Semua file Apps Script dimuat bersama
 const m3 = muat(buatData(), { semuaBerkas: true });
