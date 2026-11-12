@@ -94,13 +94,64 @@ const namaKartu = page => page.$$eval('#daftar-pembeli .kartu-pembeli h3 > span'
   assert.deepStrictEqual([kp.length, kp[0]['Nama'], kp[0]['Jenis'], kp[0]['No HP'], kp[0]['Email']], [1, 'Lusiani', 'Perorangan', '0812 3456 789', 'lusi@contoh.com']);
   const tautan = await page.$$eval('.tirai .aksi-kontak a', as => as.map(a => a.textContent.trim() + '=' + a.getAttribute('href')));
   assert.ok(tautan.includes('Telepon=tel:08123456789'), tautan.join(' | '));
-  assert.ok(tautan.includes('WhatsApp=https://wa.me/628123456789'), tautan.join(' | '));
+  assert.ok(!tautan.some(t => /^WhatsApp/.test(t)), 'tombol WhatsApp pindah ke samping No HP');
+  // Tombol WhatsApp di baris No HP. Di komputer langsung membuka wa.me (tidak ada WA Bisnis terpisah).
+  assert.ok(/No HP \/ WA\s*0812 3456 789\s*Chat WhatsApp/.test(await page.textContent('.tirai .baris-hp')), await page.textContent('.tirai .baris-hp'));
+  await page.evaluate(() => { window.__dibuka = []; window.open = (u) => { window.__dibuka.push(u); return null; }; });
+  await page.click('.tirai [data-aksi="wa-pilih"]');
+  assert.deepStrictEqual(await page.evaluate(() => window.__dibuka), ['https://wa.me/628123456789?text=']);
   assert.ok(tautan.includes('Email=mailto:lusi@contoh.com'), tautan.join(' | '));
   assert.ok(tautan.some(t => /^Peta=https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=Kepuh%2C%20Boyolangu/.test(t)), tautan.join(' | '));
   await page.screenshot({ path: path.join(OUT, 'pembeli-detail.png'), fullPage: true });
   await page.click('.tirai [data-aksi="tutup"]');
   assert.ok(/0812 3456 789/.test(await page.textContent('[data-pembeli="lusiani"]')), 'kontak tampil di kartu');
-  cek('lengkapi kontak pembeli lama: nama terkunci, email dicek, tombol telepon/WhatsApp/email/peta');
+  cek('lengkapi kontak pembeli lama: nama terkunci, email dicek, tombol telepon/email/peta, Chat WhatsApp di samping No HP');
+
+  // HP: tombol WhatsApp membuka pilihan WhatsApp pribadi / WA Bisnis yang langsung membuka percakapan.
+  for (const [nama, ua, harap] of [
+    ['iPhone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+      ['https://api.whatsapp.com/send?phone=628123456789&text=', 'whatsapp://send?phone=628123456789&text=']],
+    ['Android', 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Mobile Safari/537.36',
+      ['intent://send?phone=628123456789&text=#Intent;scheme=whatsapp;package=com.whatsapp;end', 'intent://send?phone=628123456789&text=#Intent;scheme=whatsapp;package=com.whatsapp.w4b;end']]
+  ]) {
+    const c2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, serviceWorkers: 'block', locale: 'id-ID', timezoneId: 'Asia/Jakarta', userAgent: ua });
+    const p2 = await c2.newPage();
+    p2.on('pageerror', e => galat.push(e.message));
+    await pasang(p2);
+    await p2.goto(ASAL);
+    await p2.waitForSelector('#form-masuk');
+    await p2.fill('#pengguna', 'wildan');
+    await p2.fill('#sandi', '250610');
+    await p2.click('#form-masuk button[type=submit]');
+    await p2.waitForSelector('.tombol-pembeli');
+    await p2.goto(ASAL + '#/pembeli');
+    await p2.waitForSelector('[data-pembeli="lusiani"] [data-wa]');
+    // Dari kartu daftar: langsung pilihan WhatsApp, tidak membuka rincian pembeli.
+    await p2.click('[data-pembeli="lusiani"] [data-wa]');
+    await p2.waitForSelector('.tirai .pilih-wa');
+    assert.strictEqual((await p2.$$('.tirai')).length, 1, nama + ': hanya lembar pilihan WhatsApp');
+    const pil = await p2.$$eval('.tirai .pilih-wa a', as => as.map(a => [a.textContent.trim(), a.getAttribute('href'), a.getAttribute('target')]));
+    assert.deepStrictEqual(pil.map(x => x[0]), ['WhatsApp pribadi', 'WhatsApp Bisnis'], nama);
+    assert.deepStrictEqual(pil.map(x => x[1]), harap, nama + ': ' + JSON.stringify(pil));
+    if (nama === 'iPhone') {
+      assert.deepStrictEqual(pil.map(x => x[2]), ['_blank', null]);
+      await p2.screenshot({ path: path.join(OUT, 'pembeli-pilih-wa.png') });
+    }
+    await p2.click('.tirai [data-aksi="tutup"]');
+    // Dari rincian: tombol Chat WhatsApp di baris No HP.
+    await p2.click('[data-pembeli="lusiani"] h3');
+    await p2.click('.tirai [data-aksi="wa-pilih"]');
+    await p2.waitForSelector('.tirai .pilih-wa');
+    assert.strictEqual((await p2.$$('.tirai')).length, 2, nama + ': pilihan muncul di atas rincian');
+    if (nama === 'Android') await p2.screenshot({ path: path.join(OUT, 'pembeli-detail-wa.png') });
+    // Pilihan terakhir diingat (tombol yang dipakai terakhir jadi tombol utama).
+    await p2.evaluate(() => { const a = document.querySelector('.tirai .pilih-wa [data-wa-jenis="bisnis"]'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
+    await p2.waitForFunction(() => document.querySelectorAll('.tirai').length === 1);
+    await p2.click('.tirai [data-aksi="wa-pilih"]');
+    assert.ok(await p2.$eval('.tirai .pilih-wa [data-wa-jenis="bisnis"]', a => a.classList.contains('utama')), nama + ': WA Bisnis diingat');
+    await c2.close();
+  }
+  cek('HP (iPhone & Android): tombol WhatsApp di kartu dan di samping No HP membuka pilihan WhatsApp pribadi / WA Bisnis');
 
   // Tambah pembeli baru dari kotak cari: masuk daftar pilihan Pembeli di formulir Penjualan.
   await page.fill('#pembeli-cari', 'PT Haldin');

@@ -1473,8 +1473,40 @@
     if (!paket) return 'https://wa.me/' + (no || '') + '?text=' + encodeURIComponent(teks);
     return 'intent://' + q + '#Intent;scheme=whatsapp;package=' + paket + ';end';
   }
-  // Pilihan WhatsApp biasa / WA Bisnis hanya bisa di Android (Chrome atau APK terbaru).
+  // Pilihan WhatsApp biasa / WA Bisnis lewat nama paket: Android (Chrome atau APK terbaru).
   function bisaPilihWa() { return DI_ANDROID && (!DI_APK || VERSI_APK >= 2); }
+  // iPhone juga bisa memilih: WhatsApp pribadi lewat tautan api.whatsapp.com, WA Bisnis lewat tautan whatsapp://.
+  function adaPilihanWa() { return bisaPilihWa() || DI_IOS; }
+  // jenis: 'pribadi' atau 'bisnis'. Langsung membuka percakapan dengan nomor itu (teks boleh kosong).
+  function tautanWaApp(no, teks, jenis) {
+    var bisnis = jenis === 'bisnis';
+    if (bisaPilihWa()) return tautanWa(no, teks || '', bisnis ? 'com.whatsapp.w4b' : 'com.whatsapp');
+    var q = 'send?' + (no ? 'phone=' + no + '&' : '') + 'text=' + encodeURIComponent(teks || '');
+    if (DI_IOS) return bisnis ? 'whatsapp://' + q : 'https://api.whatsapp.com/' + q;
+    return tautanWa(no, teks || '', '');
+  }
+  function htmlTautanWa(no, teks, jenis, label, kelas) {
+    var url = tautanWaApp(no, teks, jenis);
+    return '<a class="tombol ' + (kelas || 'kedua') + '" data-aksi="wa" data-wa-jenis="' + jenis + '" href="' + esc(url) + '"' +
+      (/^https:/.test(url) ? ' target="_blank" rel="noopener"' : '') + '>' + ikon('pesan') + label + '</a>';
+  }
+  // Lembar pilihan WhatsApp pribadi / WA Bisnis. Di komputer langsung membuka wa.me.
+  function pilihWa(no, teks, ke) {
+    if (!adaPilihanWa()) { window.open(tautanWa(no, teks || '', ''), '_blank', 'noopener'); return; }
+    var akhir = ambil('waTerakhir', 'pribadi');
+    var div = bukaLembar('<div class="rinci-kepala"><div><h2>Chat WhatsApp</h2><p class="sub">' + esc(ke || '') + '</p></div>' +
+      '<button class="tombol-tutup" data-aksi="tutup" aria-label="Tutup">×</button></div>' +
+      '<p class="catatan">Pilih aplikasi untuk memulai percakapan:</p>' +
+      '<div class="pilih-wa">' + htmlTautanWa(no, teks, 'pribadi', 'WhatsApp pribadi', (akhir === 'pribadi' ? 'utama' : 'kedua') + ' penuh') +
+      htmlTautanWa(no, teks, 'bisnis', 'WhatsApp Bisnis', (akhir === 'bisnis' ? 'utama' : 'kedua') + ' penuh') + '</div>' +
+      (DI_IOS ? '<p class="catatan">Di iPhone yang memasang dua-duanya, iPhone sendiri yang ikut menentukan aplikasi yang terbuka. Kalau yang terbuka bukan yang dipilih, WhatsApp biasanya menawarkan "Buka di WhatsApp Business".</p>' : ''));
+    div.addEventListener('click', function (ev) {
+      var a = ev.target.closest('[data-wa-jenis]');
+      if (a) { simpan('waTerakhir', a.dataset.waJenis); setTimeout(function () { div.remove(); }, 400); return; }
+      if (ev.target.closest('[data-aksi="tutup"]')) div.remove();
+    });
+    return div;
+  }
   var APK_TERBARU = 'https://github.com/papaaikidil/catatan-sembada/releases/latest';
   function lebarSlip() { return ambil('slipKertas', '58') === '80' ? 48 : 32; }
   function asciiSaja(s) {
@@ -1691,7 +1723,7 @@
           return '<a class="tombol kedua" data-aksi="wa" data-paket="' + (paket || '') + '" target="_blank" rel="noopener" href="' + esc(tautanWa(wa, teksWa, paket)) + '">' + ikon('pesan') + label + '</a>';
         };
         waHtml = '<span class="label-kecil">Kirim slip ke ' + esc(o1.nama) + (wa ? '' : ' (No HP belum diisi di Kelola › Karyawan, pilih kontaknya di WhatsApp)') + '</span>' +
-          (bisaPilihWa() ? '<div class="baris-tombol">' + keWa('com.whatsapp', 'WhatsApp') + keWa('com.whatsapp.w4b', 'WA Bisnis') + '</div>'
+          (adaPilihanWa() ? '<div class="baris-tombol">' + htmlTautanWa(wa, teksWa, 'pribadi', 'WhatsApp') + htmlTautanWa(wa, teksWa, 'bisnis', 'WA Bisnis') + '</div>'
             : '<div class="baris-tombol">' + keWa('', 'Kirim lewat WhatsApp') + '</div>' +
               (DI_APK ? '<p class="catatan">Untuk memilih WhatsApp biasa atau WA Bisnis, pasang <a href="' + APK_TERBARU + '" target="_blank" rel="noopener">APK Sembada terbaru</a>.</p>' : ''));
       }
@@ -2875,7 +2907,9 @@
         '<h3><span>' + esc(p.nama) + (p.jenis === 'Perusahaan' ? ' <small class="chip-status netral">PT/CV</small>' : '') + '</span><small>' + (p.total ? '<b>' + esc(rp(p.total)) + '</b>' : 'belum ada penjualan') + '</small></h3>' +
         (info.length ? '<p class="redup">' + esc(info.join(' · ')) + '</p>' : '') +
         (p.belumLunas > 0 ? '<p class="merah">Belum lunas ' + esc(rp(p.belumLunas)) + '</p>' : '') +
-        (kontak.length ? '<p class="kontak-ringkas">' + (p.hp ? ikon('telepon') + '<span>' + esc(p.hp) + '</span>' : '') + (p.email ? ikon('surat') + '<span>' + esc(p.email) + '</span>' : '') + '</p>'
+        (kontak.length ? '<p class="kontak-ringkas">' + (p.hp ? ikon('telepon') + '<span>' + esc(p.hp) + '</span>' +
+          (nomorWa(p.hp) ? '<button type="button" class="tombol-wa-kecil" data-wa="' + esc(p.key) + '" aria-label="Chat WhatsApp ' + esc(p.nama) + '">' + ikon('pesan') + 'WhatsApp</button>' : '') : '') +
+          (p.email ? ikon('surat') + '<span>' + esc(p.email) + '</span>' : '') + '</p>'
           : '<p class="redup kontak-kosong">' + (p.adaKontak ? 'Belum ada No HP / email' : 'Kontak belum diisi. Ketuk untuk melengkapi.') + '</p>') + '</div>';
     };
     // penuh = false: hanya daftar yang diganti (saat mengetik di kotak cari, supaya papan ketik tidak tertutup).
@@ -2984,14 +3018,6 @@
       if (!p) return;
       var wa = nomorWa(p.hp), tombol = [];
       if (p.hp) tombol.push('<a class="tombol kedua" href="tel:' + esc(String(p.hp).replace(/[^0-9+]/g, '')) + '">' + ikon('telepon') + 'Telepon</a>');
-      if (wa) {
-        if (bisaPilihWa()) {
-          tombol.push('<a class="tombol kedua" data-aksi="wa" href="' + esc(tautanWa(wa, '', 'com.whatsapp')) + '">' + ikon('pesan') + 'WhatsApp</a>');
-          tombol.push('<a class="tombol kedua" data-aksi="wa" href="' + esc(tautanWa(wa, '', 'com.whatsapp.w4b')) + '">' + ikon('pesan') + 'WA Bisnis</a>');
-        } else {
-          tombol.push('<a class="tombol kedua" data-aksi="wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(wa) + '">' + ikon('pesan') + 'WhatsApp</a>');
-        }
-      }
       if (p.email) tombol.push('<a class="tombol kedua" href="mailto:' + esc(p.email) + '">' + ikon('surat') + 'Email</a>');
       if (p.web) tombol.push('<a class="tombol kedua" target="_blank" rel="noopener" href="' + esc(alamatWeb(p.web)) + '">' + ikon('web') + 'Website</a>');
       if (p.alamat) tombol.push('<a class="tombol kedua" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=' + esc(encodeURIComponent(p.alamat)) + '">' + ikon('peta') + 'Peta</a>');
@@ -3010,7 +3036,13 @@
           esc([p.jenis === 'Perusahaan' ? 'Perusahaan (PT/CV)' : p.jenis, p.kontak ? 'kontak: ' + p.kontak : ''].filter(function (x) { return x; }).join(' · ') || 'Pembeli') + '</p></div>' +
         '<button class="tombol-tutup" data-aksi="tutup" aria-label="Tutup">×</button></div>' +
         (tombol.length ? '<div class="aksi-kontak">' + tombol.join('') + '</div>' : '<p class="catatan">Belum ada kontak. Ketuk "' + (p.adaKontak ? 'Ubah data' : 'Lengkapi kontak') + '" di bawah.</p>') +
-        (info.length ? '<ul class="ringkas">' + info.map(function (x) { return '<li><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></li>'; }).join('') + '</ul>' : '') +
+        (info.length ? '<ul class="ringkas">' + info.map(function (x) {
+          if (x[0] === 'No HP' && wa) {
+            return '<li class="baris-hp"><span>No HP / WA</span><b>' + esc(x[1]) + '</b>' +
+              '<button type="button" class="tombol utama tombol-wa" data-aksi="wa-pilih">' + ikon('pesan') + 'Chat WhatsApp</button></li>';
+          }
+          return '<li><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></li>';
+        }).join('') + '</ul>' : '') +
         '<div class="daftar-judul" style="margin-top:14px">Pembelian</div>' +
         (p.trx ? '<div class="angka-grid pembeli-angka"><div class="angka"><span>Total pembelian</span><b class="panjang">' + esc(rp(p.total)) + '</b><small>' + p.trx + 'x beli</small></div>' +
           '<div class="angka"><span>Jumlah</span><b class="panjang">' + esc(ringkasSatuan(p.satuan) || '–') + '</b><small>sejak ' + esc(tglIndo(p.pertama)) + '</small></div>' +
@@ -3025,6 +3057,7 @@
         if (!a) return;
         var aksi = a.dataset.aksi;
         if (aksi === 'wa') return;
+        if (aksi === 'wa-pilih') { pilihWa(wa, '', p.nama + ' · ' + p.hp); return; }
         if (aksi === 'tutup') { div.remove(); return; }
         if (aksi === 'lebih') { nTampil = 1e6; q(div, '.daftar-beli').innerHTML = htmlBeli(); return; }
         if (aksi === 'ubah') { div.remove(); formPembeli(p); return; }
@@ -3037,10 +3070,13 @@
 
     el.addEventListener('click', function (ev) {
       if (ev.target.closest('#pembeli-tambah')) { formPembeli(null, cari); return; }
+      var tWa = ev.target.closest('[data-wa]');
+      if (tWa) { var pw = cariP(tWa.dataset.wa); if (pw) pilihWa(nomorWa(pw.hp), '', pw.nama + ' · ' + pw.hp); return; }
       var k = ev.target.closest('[data-pembeli]');
       if (k) bukaPembeli(k.dataset.pembeli);
     });
     el.addEventListener('keydown', function (ev) {
+      if (ev.target.closest('button, a, input')) return;
       var k = ev.target.closest('[data-pembeli]');
       if (k && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); bukaPembeli(k.dataset.pembeli); }
     });
