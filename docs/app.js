@@ -1180,7 +1180,7 @@
     var x = c.rc ? c.rc.saring.filter(function (s) { return CATATAN_KOREKSI.test(s.ket || ''); }) : [];
     return x.length ? 'Ada catatan Saring Minyak yang ditulis untuk membetulkan stok (' + hariPendek(x[0].tgl) + ', ' + ang(x[0].kg) +
       ' kg). Catatan itu ikut dihitung sebagai minyak hasil ' + c.ini + ', jadi angka minyak, rendemen, dan biaya per kg ikut berubah. ' +
-      'Untuk membetulkan stok, pakai tombol "Catat hasil timbang" di kartu Stok minyak.' : '';
+      'Untuk membetulkan stok, pakai tombol "Atur stok" di kartu Stok minyak.' : '';
   }
   var AWAS_SULING = 'Kalau memang ada nyuling, pilih 1x, 2x, atau 3x suling untuk tim suling di Absensi supaya sulingan, upah, dan hari alat kosong benar.';
 
@@ -1848,10 +1848,12 @@
     else r.push('Belum pernah ditimbang: dihitung dari semua catatan');
     r.push('+ disaring ' + ang(st.masuk) + ' kg' + (st.nMasuk ? ' (' + st.nMasuk + ' kali)' : ''));
     r.push('− terjual ' + ang(st.keluar) + ' kg' + (st.nKeluar ? ' (' + st.nKeluar + ' kali)' : ''));
+    if (st.kurang) r.push('− dikurangi ' + ang(st.kurang) + ' kg (hilang, tumpah, dll.)');
+    if (st.tambah) r.push('+ ditambah ' + ang(st.tambah) + ' kg');
     return r;
   }
   function peringatanStok(st) {
-    if (st.kg < 0) return 'Stok menurut catatan minus. Ada saring yang belum dicatat, atau ada stok lama sebelum catatan dimulai. Timbang minyak di gudang lalu catat hasilnya.';
+    if (st.kg < 0) return 'Stok menurut catatan minus. Ada saring yang belum dicatat, atau ada stok lama sebelum catatan dimulai. Timbang minyak di gudang, lalu Atur stok › Samakan dengan timbangan.';
     if (!st.dasar) return 'Belum pernah ditimbang. Timbang minyak di gudang sekali, supaya angka ini bisa dicocokkan.';
     return '';
   }
@@ -1872,37 +1874,89 @@
     if (st.akhirKeluar) akhir.push('Jual terakhir ' + tglIndo(st.akhirKeluar.tgl) + ': ' + ang(st.akhirKeluar.kg) + ' kg' + (st.akhirKeluar.pembeli ? ' ke ' + st.akhirKeluar.pembeli : ''));
     // Hasil timbang bisa diketuk untuk diubah atau dihapus (butuh API yang mengirim nomor baris).
     var riwayat = (st.riwayat || []).map(function (x, i) {
-      var sel = x.selisih === null || x.selisih === undefined ? '' : (x.selisih > 0 ? '+' : '') + ang(x.selisih) + ' kg dari catatan';
+      var atur = x.jenis === 'Kurangi' || x.jenis === 'Tambah';
+      var sel = atur ? (x.alasan || (x.jenis === 'Kurangi' ? 'dikurangi' : 'ditambah')) :
+        (x.selisih === null || x.selisih === undefined ? '' : (x.selisih > 0 ? '+' : '') + ang(x.selisih) + ' kg dari catatan');
       var bisa = !!x.baris && admin();
-      return '<div class="baris-angka' + (bisa ? ' timbang-ketuk" data-timbang="' + i + '" role="button" tabindex="0" aria-label="Ubah hasil timbang ' + esc(tglIndo(x.tgl)) : '') + '">' +
-        '<span>' + esc(tglIndo(x.tgl)) + (bisa ? ' <i class="ubah-kecil">' + ikon('pensil') + '</i>' : '') +
+      var jenisTeks = x.jenis === 'Kurangi' ? 'Dikurangi' : x.jenis === 'Tambah' ? 'Ditambah' : 'Ditimbang';
+      return '<div class="baris-angka' + (bisa ? ' timbang-ketuk" data-timbang="' + i + '" role="button" tabindex="0" aria-label="Ubah ' + esc(jenisTeks.toLowerCase() + ' ' + tglIndo(x.tgl)) : '') + '">' +
+        '<span>' + esc(tglIndo(x.tgl)) + ' · ' + esc(jenisTeks) + (bisa ? ' <i class="ubah-kecil">' + ikon('pensil') + '</i>' : '') +
         '<small>' + esc([x.oleh, x.ket].filter(function (y) { return y; }).join(' · ')) + '</small></span>' +
-        '<b>' + esc(ang(x.kg)) + ' kg<small class="' + (x.selisih < 0 ? 'merah' : '') + '">' + esc(sel) + '</small></b></div>';
+        '<b' + (x.jenis === 'Kurangi' ? ' class="merah"' : '') + '>' + esc(atur ? (x.jenis === 'Kurangi' ? '−' : '+') + ang(x.jumlah) + ' kg' : ang(x.kg) + ' kg') +
+        '<small class="' + (!atur && x.selisih < 0 ? 'merah' : '') + '">' + esc(sel) + '</small></b></div>';
     }).join('');
     return '<div class="kartu kartu-stok"><h2>Stok minyak</h2>' +
       '<div class="stok-atas"><b class="stok-angka' + (st.kg < 0 ? ' minus' : '') + '">' + esc(ang(st.kg)) + ' kg</b></div>' +
       '<div class="rincian-stok">' + rincianStok(st).map(function (x) { return '<div>' + esc(x) + '</div>'; }).join('') + '</div>' +
       (akhir.length ? '<p class="sub">' + esc(akhir.join(' · ')) + '</p>' : '') +
       (awas ? '<div class="pratinjau awas">' + esc(awas) + '</div>' : '') +
-      '<button class="tombol utama penuh" id="catat-timbang" style="margin-top:12px">' + ikon('kotak') + 'Catat hasil timbang</button>' +
-      (riwayat ? '<div class="daftar-baris"><div class="daftar-judul">Timbang terakhir' + (admin() && (st.riwayat || []).some(function (x) { return x.baris; }) ? ' · ketuk untuk mengubah' : '') + '</div>' + riwayat + '</div>' : '') + '</div>';
+      '<button class="tombol utama penuh" id="catat-timbang" style="margin-top:12px">' + ikon('pensil') + 'Atur stok</button>' +
+      '<p class="bantuan-stok">Kurangi (hilang, tumpah, sampel), tambah, atau samakan dengan hasil timbangan.</p>' +
+      (riwayat ? '<div class="daftar-baris"><div class="daftar-judul">Timbang & atur stok terakhir' + (admin() && (st.riwayat || []).some(function (x) { return x.baris; }) ? ' · ketuk untuk mengubah' : '') + '</div>' + riwayat + '</div>' : '') + '</div>';
   }
-  // Catat hasil timbang baru, atau ubah/hapus hasil timbang lama (lama = satu baris dari stok.riwayat).
-  function lembarTimbang(selesai, lama) {
+  // Atur stok: kurangi (hilang, tumpah, sampel), tambah, atau samakan dengan hasil timbangan.
+  // lama = satu baris dari stok.riwayat (diubah atau dihapus). st = stok sekarang (untuk pratinjau).
+  var CARA_STOK = {Kurangi: 'Kurangi stok', Tambah: 'Tambah stok', Timbang: 'Samakan dengan timbangan'};
+  var ALASAN_KURANG = ['Hilang', 'Tumpah / bocor', 'Sampel / contoh', 'Dipakai sendiri', 'Rusak'];
+  var ALASAN_TAMBAH = ['Minyak lama ketemu', 'Koreksi catatan', 'Titipan / beli minyak'];
+  function lembarTimbang(selesai, lama, st) {
     var bidang = [
+      {j: 'pilih', h: 'Cara', opsi: [CARA_STOK.Kurangi, CARA_STOK.Tambah, CARA_STOK.Timbang]},
       {j: 'tanggal', h: 'Tanggal'},
-      {j: 'desimal', h: 'Stok ditimbang (kg)', bantuan: 'Timbang semua minyak di gudang. Saring dan penjualan yang dicatat sesudah ini otomatis menambah atau mengurangi stok. Contoh 12,5.'},
-      {j: 'teks', h: 'Keterangan', wajib: false, bantuan: 'Contoh: termasuk 2 jeriken di rumah.'}
+      {j: 'desimal', h: 'Jumlah (kg)', mode: ['Kurangi', 'Tambah'], bantuan: 'Berapa kg yang dikurangi atau ditambahkan. Contoh 2,9.'},
+      {j: 'desimal', h: 'Stok ditimbang (kg)', mode: ['Timbang'],
+        bantuan: 'Timbang semua minyak di gudang. Stok di aplikasi jadi sama dengan angka ini; selisihnya dengan catatan tercatat. Contoh 12,5.'},
+      {j: 'pilih', h: 'Alasan dikurangi', label: 'Alasan', opsi: ALASAN_KURANG, lainnya: true, mode: ['Kurangi']},
+      {j: 'pilih', h: 'Alasan ditambah', label: 'Alasan', opsi: ALASAN_TAMBAH, lainnya: true, mode: ['Tambah']},
+      {j: 'teks', h: 'Keterangan', wajib: false, bantuan: 'Contoh: jeriken bocor di gudang, atau termasuk 2 jeriken di rumah.'}
     ];
-    var draf = lama ? {'Tanggal': lama.tgl, 'Stok ditimbang (kg)': String(lama.kg).replace('.', ','), 'Keterangan': lama.ket || ''} : {};
+    var jenisLama = lama ? (lama.jenis || 'Timbang') : 'Kurangi';
+    var draf = {'Cara': CARA_STOK[jenisLama]};
+    if (lama) {
+      draf['Tanggal'] = lama.tgl;
+      draf['Keterangan'] = lama.ket || '';
+      if (jenisLama === 'Timbang') draf['Stok ditimbang (kg)'] = String(lama.kg).replace('.', ',');
+      else {
+        draf['Jumlah (kg)'] = String(lama.jumlah).replace('.', ',');
+        draf[jenisLama === 'Kurangi' ? 'Alasan dikurangi' : 'Alasan ditambah'] = lama.alasan || '';
+      }
+    }
     var labelSimpan = lama ? 'Simpan perubahan' : 'Simpan';
-    var div = bukaLembar((lama ? '<h2>Ubah hasil timbang</h2><p class="sub">Dicatat ' + esc(lama.oleh || '') + '. Selisih dengan catatan dihitung ulang.</p>'
-      : '<h2>Catat hasil timbang</h2><p class="sub">Dipakai sebagai patokan stok. Selisih dengan catatan akan terlihat.</p>') +
-      '<form novalidate>' + bidang.map(function (b, i) { return htmlBidang(b, i, draf, 't'); }).join('') + '</form>' +
+    var stokKini = st && typeof st.kg === 'number' ? st.kg : null;
+    var div = bukaLembar((lama ? '<h2>Ubah ' + (jenisLama === 'Timbang' ? 'hasil timbang' : 'atur stok') + '</h2><p class="sub">Dicatat ' + esc(lama.oleh || '') + '. Stok dihitung ulang.</p>'
+      : '<h2>Atur stok minyak</h2><p class="sub">' + (stokKini === null ? 'Kurangi, tambah, atau samakan dengan hasil timbangan.' : 'Stok sekarang menurut catatan: <b>' + esc(ang(stokKini)) + ' kg</b>') + '</p>') +
+      '<form novalidate>' + bidang.map(function (b, i) { return htmlBidang(b, i, draf, 't'); }).join('') +
+      '<div class="pratinjau" id="pratinjau-stok" hidden></div></form>' +
       '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">' + labelSimpan + '</button></div>' +
-      (lama ? '<div class="baris-tombol"><button class="tombol bahaya" data-aksi="hapus">' + ikon('sampah') + 'Hapus hasil timbang ini</button></div>' : ''));
+      (lama ? '<div class="baris-tombol"><button class="tombol bahaya" data-aksi="hapus">' + ikon('sampah') + 'Hapus catatan ini</button></div>' : ''));
     var form = q(div, 'form');
+    var cara = function () {
+      var v = nilaiRadio(form, 't0');
+      return Object.keys(CARA_STOK).filter(function (k) { return CARA_STOK[k] === v; })[0] || 'Kurangi';
+    };
+    var segarkan = function () {
+      var c = cara();
+      bidang.forEach(function (b, i) {
+        var el = q(form, '.bidang[data-h="' + b.h + '"]');
+        if (el) el.hidden = !!b.mode && b.mode.indexOf(c) < 0;
+      });
+      var pr = q(form, '#pratinjau-stok');
+      var skr = hariIni(), tgl = (q(form, '[name=t1]') || {}).value;
+      var jml = angkaDesimal((q(form, c === 'Timbang' ? '[name=t3]' : '[name=t2]') || {}).value || '');
+      // Pratinjau hanya untuk catatan baru hari ini (tanggal lain dihitung dari stok di tanggal itu).
+      if (lama || stokKini === null || tgl !== skr || isNaN(jml)) { pr.hidden = true; return; }
+      var jadi = c === 'Kurangi' ? stokKini - jml : c === 'Tambah' ? stokKini + jml : jml;
+      jadi = Math.round(jadi * 100) / 100;
+      pr.hidden = false;
+      pr.className = 'pratinjau' + (jadi < 0 ? ' awas' : '');
+      pr.innerHTML = 'Stok: <b>' + esc(ang(stokKini)) + ' kg → ' + esc(ang(jadi)) + ' kg</b>' +
+        (c === 'Timbang' && jadi !== stokKini ? ' (' + (jadi > stokKini ? 'lebih ' : 'kurang ') + esc(ang(Math.abs(jadi - stokKini))) + ' kg dari catatan)' : '') +
+        (jadi < 0 ? '<br>Stok tidak boleh minus.' : '');
+    };
     pasangFormDinamis(form);
+    form.addEventListener('change', segarkan);
+    form.addEventListener('input', segarkan);
+    segarkan();
     var beres = function (r) {
       var rk = ambil('ringkasan', null);
       if (rk) { rk.stok = r.stok; simpan('ringkasan', rk); }
@@ -1919,30 +1973,47 @@
       if (!a) return;
       if (a.dataset.aksi === 'batal') { div.remove(); return; }
       if (a.dataset.aksi === 'hapus') {
-        tanyaHapus('Hasil timbang', tglIndo(lama.tgl) + ' · ' + ang(lama.kg) + ' kg', function () {
+        var ringkas = jenisLama === 'Timbang' ? ang(lama.kg) + ' kg' : (jenisLama === 'Kurangi' ? '−' : '+') + ang(lama.jumlah) + ' kg';
+        tanyaHapus(jenisLama === 'Timbang' ? 'Hasil timbang' : 'Atur stok', tglIndo(lama.tgl) + ' · ' + ringkas, function () {
           a.disabled = true;
           panggil('stokUbah', {hapus: true, baris: lama.baris, w: lama.w, tanggalLama: lama.tgl}).then(function (r) {
             a.disabled = false;
             if (!r.ok) { toast(r.galat || 'Gagal menghapus.', 6000); return; }
             div.remove();
-            toast('Hasil timbang dihapus. Isinya tetap ada di tab Log Aplikasi.', 5000);
+            toast('Dihapus. Isinya tetap ada di tab Log Aplikasi.', 5000);
             beres(r);
-          }, gagal(a, 'Hapus hasil timbang ini'));
+          }, gagal(a, 'Hapus catatan ini'));
         });
         return;
       }
-      var h = bacaIsian(bidang, false, 't', form);
+      var c = cara();
+      // Bidang yang tidak dipakai cara ini dilewati (k), urutan tetap supaya nama isian t0, t1, ... cocok.
+      var h = bacaIsian(bidang.map(function (b) {
+        if (!b.mode || b.mode.indexOf(c) >= 0) return b;
+        var x = {}; Object.keys(b).forEach(function (k) { x[k] = b[k]; }); x.k = true; return x;
+      }), false, 't', form);
+      var jumlah = h.nilai['Jumlah (kg)'];
+      if (c !== 'Timbang' && typeof jumlah === 'number' && !(jumlah > 0)) h.salah.push(['Jumlah (kg)', 'Tulis jumlah lebih dari 0.']);
+      if (c === 'Kurangi' && !lama && stokKini !== null && h.nilai['Tanggal'] === hariIni() && jumlah > stokKini + 1e-9) {
+        h.salah.push(['Jumlah (kg)', 'Stok menurut catatan hanya ' + ang(stokKini) + ' kg. Kalau gudang sudah kosong, pilih "Samakan dengan timbangan" dan tulis 0.']);
+      }
       tandaiSalah(h.salah, form);
       if (h.salah.length) return;
       a.disabled = true; a.textContent = 'Menyimpan…';
-      var data = {tanggal: h.nilai['Tanggal'], kg: h.nilai['Stok ditimbang (kg)'], keterangan: h.nilai['Keterangan'] || ''};
+      var data = {jenis: c, tanggal: h.nilai['Tanggal'], keterangan: h.nilai['Keterangan'] || ''};
+      if (c === 'Timbang') data.kg = h.nilai['Stok ditimbang (kg)'];
+      else { data.jumlah = jumlah; data.alasan = h.nilai[c === 'Kurangi' ? 'Alasan dikurangi' : 'Alasan ditambah'] || ''; }
       if (lama) { data.baris = lama.baris; data.w = lama.w; data.tanggalLama = lama.tgl; }
       panggil(lama ? 'stokUbah' : 'stokCatat', data).then(function (r) {
         a.disabled = false; a.textContent = labelSimpan;
-        if (!r.ok) { toast(r.galat || 'Gagal menyimpan.', 5000); return; }
+        if (!r.ok) { toast(r.galat || 'Gagal menyimpan.', 6000); return; }
         div.remove();
-        var sel = r.selisih;
-        toast(sel === 0 ? 'Tersimpan. Cocok dengan catatan.' : 'Tersimpan. ' + (sel > 0 ? 'Lebih ' : 'Kurang ') + ang(Math.abs(sel)) + ' kg dari catatan (' + ang(r.catatan) + ' kg).', 6000);
+        if (c === 'Timbang') {
+          var sel = r.selisih;
+          toast(sel === 0 ? 'Tersimpan. Cocok dengan catatan.' : 'Tersimpan. ' + (sel > 0 ? 'Lebih ' : 'Kurang ') + ang(Math.abs(sel)) + ' kg dari catatan (' + ang(r.catatan) + ' kg).', 6000);
+        } else {
+          toast('Stok ' + (c === 'Kurangi' ? 'dikurangi ' : 'ditambah ') + ang(jumlah) + ' kg. Stok sekarang ' + ang(r.stok.kg) + ' kg.', 6000);
+        }
         beres(r);
       }, function (e) {
         a.disabled = false; a.textContent = labelSimpan;
@@ -2010,7 +2081,7 @@
       var rk = ambil('ringkasan', null);
       var lama = t && rk && rk.stok && rk.stok.riwayat ? rk.stok.riwayat[Number(t.dataset.timbang)] : null;
       if (t && !lama) return false;
-      lembarTimbang(function () { ringkasanBasi(); isi.innerHTML = htmlRingkasan(ambil('ringkasan', null)); muat(); }, lama);
+      lembarTimbang(function () { ringkasanBasi(); isi.innerHTML = htmlRingkasan(ambil('ringkasan', null)); muat(); }, lama, rk && rk.stok);
       return true;
     };
     isi.addEventListener('click', bukaTimbang);

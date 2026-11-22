@@ -422,7 +422,8 @@ const sesudahSaring = objek('Saring Minyak').filter(x => formatTanggal(x['Tangga
 const sesudahJual = objek('Penjualan').filter(x => formatTanggal(x['Tanggal'], 'yyyy-MM-dd') > isoHari(-3)).reduce((t, x) => t + x['Minyak terjual (kg)'], 0);
 assert.strictEqual(st.kg, Math.round((2.5 + sesudahSaring - sesudahJual) * 100) / 100, 'stok = timbang + disaring sesudahnya - terjual sesudahnya');
 assert.strictEqual(st.riwayat[0].ket, 'timbang semua jeriken'); assert.strictEqual(st.riwayat[0].oleh, 'Mas Wildan');
-assert.deepStrictEqual(sheets['Stok Minyak'].data[0], ['Timestamp', 'Tanggal', 'Stok ditimbang (kg)', 'Stok menurut catatan (kg)', 'Selisih (kg)', 'Keterangan', 'Diisi oleh']);
+assert.deepStrictEqual(sheets['Stok Minyak'].data[0], ['Timestamp', 'Tanggal', 'Stok ditimbang (kg)', 'Stok menurut catatan (kg)', 'Selisih (kg)', 'Keterangan', 'Diisi oleh',
+  'Jenis', 'Diatur (kg)', 'Alasan']);
 // Isian Saring Minyak dengan "Stok minyak di gudang" yang lebih baru jadi patokan baru.
 panggil({ aksi: 'simpan', token: tokPemilik, tab: 'Saring Minyak', id: 'sm-stok', nilai: { 'Tanggal saring': kemarin, 'Jumlah sulingan yang disaring': 2,
   'Minyak (kg)': 3.1, 'Kondisi bahan': 'Segar semua', 'Kondisi alat': ['Normal'], 'Stok minyak di gudang (kg)': 20 } });
@@ -469,6 +470,55 @@ assert.ok(r.ok && r.stok.dasar.tgl === hariIni && r.stok.kg === 17.1, JSON.strin
 assert.strictEqual(sheets['Stok Minyak'].getLastRow(), nStok - 1);
 assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Hapus timbang'), 'hapus timbang dicatat di Log');
 cek('Stok minyak: dari catatan, hasil timbang jadi patokan, selisih tercatat, Saring "stok di gudang" ikut dipakai, jual sesudah timbang di hari yang sama ikut dikurangi, timbang bisa diubah & dihapus');
+
+// ------------------------------------------------------------------ 9b1. Atur stok: kurangi / tambah sekian kg
+{
+  // Tab lama (7 kolom, sebelum 3.14): kolom Jenis, Diatur (kg), Alasan ditambahkan di ujung saat pertama dipakai.
+  const shS = sheets['Stok Minyak'];
+  shS.data.forEach(r => r.splice(7));
+  assert.strictEqual(panggil({ aksi: 'stok', token: tokPemilik }).stok.kg, 17.1);
+  r = panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, jenis: 'Kurangi', jumlah: 2.9, alasan: 'Hilang', keterangan: 'jeriken di gudang berkurang' });
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.deepStrictEqual([r.catatan, r.kg, r.selisih, r.stok.kg, r.stok.kurang, r.stok.nKurang], [17.1, 14.2, -2.9, 14.2, 2.9, 1],
+    'stok sesudah hasil timbang tadi pagi dikurangi 2,9 kg');
+  assert.deepStrictEqual(shS.data[0].slice(7), ['Jenis', 'Diatur (kg)', 'Alasan']);
+  let at = objek('Stok Minyak')[0];
+  assert.deepStrictEqual([at['Jenis'], at['Diatur (kg)'], at['Alasan'], at['Stok ditimbang (kg)'], at['Stok menurut catatan (kg)'], at['Selisih (kg)']],
+    ['Kurangi', 2.9, 'Hilang', '', 17.1, -2.9]);
+  assert.strictEqual(r.stok.dasar.tgl, hariIni, 'pengurangan bukan patokan: patokan tetap hasil timbang');
+  const rw = r.stok.riwayat[0];
+  assert.deepStrictEqual([rw.jenis, rw.jumlah, rw.alasan, rw.ket], ['Kurangi', 2.9, 'Hilang', 'jeriken di gudang berkurang']);
+  // Tambah, lalu penjualan sesudahnya tetap mengurangi.
+  r = panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, jenis: 'Tambah', jumlah: 0.5, alasan: 'Minyak lama ketemu' });
+  assert.ok(r.ok && r.stok.kg === 14.7 && r.stok.tambah === 0.5, JSON.stringify(r.stok));
+  // Pemeriksaan
+  assert.ok(/tidak cukup/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, jenis: 'Kurangi', jumlah: 50 }).galat));
+  assert.ok(/jumlah minyak/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, jenis: 'Kurangi', jumlah: 0 }).galat));
+  assert.ok(/tidak dikenal/.test(panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, jenis: 'Buang', jumlah: 1 }).galat));
+  assert.strictEqual(panggil({ aksi: 'stokCatat', token: tokRofik, tanggal: hariIni, jenis: 'Kurangi', jumlah: 1 }).ok, false, 'pencatat tidak boleh');
+  // Mengubah pengurangan lama: stok ikut berubah (dihitung bertumpuk, bukan patokan).
+  const kur = r.stok.riwayat.find(x => x.jenis === 'Kurangi');
+  r = panggil({ aksi: 'stokUbah', token: tokPemilik, baris: kur.baris, w: kur.w, tanggalLama: kur.tgl, tanggal: hariIni, jenis: 'Kurangi', jumlah: 3.5, alasan: 'Tumpah / bocor' });
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.strictEqual(r.stok.kg, 14.1, '17,1 - 3,5 + 0,5');
+  at = objek('Stok Minyak').find(x => x['Jenis'] === 'Kurangi');
+  assert.deepStrictEqual([at['Diatur (kg)'], at['Alasan'], at['Selisih (kg)']], [3.5, 'Tumpah / bocor', -3.5]);
+  assert.ok(sheets['Log Aplikasi'].data.some(x => x[1] === 'Atur stok') && sheets['Log Aplikasi'].data.some(x => x[1] === 'Ubah atur stok'));
+  // Timbang ulang sesudahnya jadi patokan baru: pengurangan sebelumnya sudah termasuk.
+  r = panggil({ aksi: 'stokCatat', token: tokPemilik, tanggal: hariIni, kg: 14, keterangan: 'timbang sore' });
+  assert.ok(r.ok && r.stok.kg === 14 && r.stok.kurang === 0 && r.stok.dasar.kg === 14, JSON.stringify(r));
+  // Hapus pengurangan & penambahan: kembali seperti sebelum diatur (patokan timbang sore tetap).
+  for (const x of r.stok.riwayat.filter(y => y.jenis !== 'Timbang')) {
+    const st2 = panggil({ aksi: 'stok', token: tokPemilik }).stok.riwayat.find(y => y.w === x.w && y.jenis === x.jenis);
+    assert.ok(panggil({ aksi: 'stokUbah', token: tokPemilik, hapus: true, baris: st2.baris, w: st2.w, tanggalLama: st2.tgl }).ok);
+  }
+  assert.strictEqual(panggil({ aksi: 'stok', token: tokPemilik }).stok.kg, 14);
+  // Hapus timbang sore juga: kembali ke 17,1 kg.
+  const sore = panggil({ aksi: 'stok', token: tokPemilik }).stok.riwayat[0];
+  assert.ok(panggil({ aksi: 'stokUbah', token: tokPemilik, hapus: true, baris: sore.baris, w: sore.w, tanggalLama: sore.tgl }).ok);
+  assert.strictEqual(panggil({ aksi: 'stok', token: tokPemilik }).stok.kg, 17.1);
+}
+cek('Atur stok: kurangi/tambah sekian kg dengan alasan, tidak boleh minus, bisa diubah & dihapus, timbang ulang jadi patokan baru');
 
 // ------------------------------------------------------------------ 9b2. Cache ringkasan
 {

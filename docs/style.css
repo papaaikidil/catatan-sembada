@@ -699,3 +699,6 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
   border: 1px solid var(--aksen); border-radius: 999px; background: var(--aksen-muda); color: var(--aksen); font: inherit; font-size: .8125rem; font-weight: 700; cursor: pointer; }
 .tombol-wa-kecil svg { width: .9375rem; height: .9375rem; color: currentColor; }
 @media (min-width: 760px) { .ringkas li.baris-hp .tombol-wa { flex-basis: auto; margin-left: auto; order: 3; } }
+.bantuan-stok { margin: .5rem 0 0; font-size: .8125rem; color: var(--teks-2); text-align: center; }
+.baris-angka b.merah { color: var(--merah); }
+#pratinjau-stok b { white-space: nowrap; }

@@ -58,6 +58,12 @@ Catatan lama tidak diubah.
   Kondisi bahan & alat boleh kosong, keterangan wajib. Ikut menambah stok dan minyak dihasilkan, tidak menambah sulingan.
 - **Stok minyak**: hasil timbang jadi patokan; saring dan penjualan yang dicatat sesudah timbangan (termasuk di hari yang sama)
   ikut menambah atau mengurangi stok. Hasil timbang di Ringkasan bisa diketuk untuk diubah atau dihapus (tercatat di Log Aplikasi).
+  **Atur stok** (3.14): tombol di kartu Stok minyak dengan tiga cara — *Kurangi stok* sekian kg (alasan: hilang, tumpah/bocor,
+  sampel, dipakai sendiri, rusak, lainnya), *Tambah stok* sekian kg (minyak lama ketemu, koreksi catatan, titipan/beli), atau
+  *Samakan dengan timbangan* (hasil timbang jadi patokan seperti sebelumnya). Ada pratinjau "stok sekarang → stok jadi", dan
+  stok tidak boleh minus. Kurangi/tambah disimpan di tab Stok Minyak (kolom Jenis, Diatur (kg), Alasan ditambahkan di ujung
+  tab) dan dihitung bertumpuk seperti saring/penjualan sesudah patokan terakhir, jadi bisa diubah atau dihapus kapan saja
+  dan stok ikut berubah. Tidak mengubah angka produksi, Rekap, maupun Kas.
 - **Tanggal masa depan**: semua isian boleh diisi untuk besok atau beberapa hari ke depan (paling jauh 30 hari),
   dengan peringatan di layar "Periksa lagi".
 - **Cepat dibuka**: aplikasi dibuka dari salinan di HP (tidak menunggu sinyal); versi baru diambil di belakang dan
