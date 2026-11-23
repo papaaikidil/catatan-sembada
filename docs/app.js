@@ -216,7 +216,8 @@
     web: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/>',
     peta: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
     toko: '<path d="M3 9 4.5 4h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/>',
-    cari: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'
+    cari: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    truk: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>'
   };
   function ikon(n, tebal) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (tebal || 2) +
@@ -975,6 +976,10 @@
       var nPembeli = dPembeli && dPembeli.daftar ? dPembeli.daftar.length : 0;
       tombol += '<a class="tombol-catatan tombol-pembeli" href="#/pembeli"><span class="lingkar">' + ikon('toko') + '</span>' +
         '<span class="teks-tombol"><b>Data pembeli</b><small>' + (nPembeli ? nPembeli + ' pembeli · kontak & total beli' : 'Kontak pembeli dan total pembeliannya') + '</small></span></a>';
+      var dSup = ambil('suplier', null);
+      var nSup = dSup && dSup.daftar ? dSup.daftar.length : 0;
+      tombol += '<a class="tombol-catatan tombol-suplier" href="#/suplier"><span class="lingkar">' + ikon('truk') + '</span>' +
+        '<span class="teks-tombol"><b>Data supplier</b><small>' + (nSup ? nSup + ' supplier · kontak & barang' : 'Kontak supplier bahan, kayu bakar, dll.') + '</small></span></a>';
       var nBon = jumlahBonTerbuka();
       tombol += '<a class="tombol-catatan tombol-bon" href="#/bon"><span class="lingkar">' + ikon('bon') + '</span>' +
         '<span class="teks-tombol"><b>Catatan bon</b><small>' + (nBon ? nBon + ' belum lunas' : 'Kasbon karyawan, sudah dibayar atau belum') + '</small></span></a>';
@@ -3166,6 +3171,195 @@
     muat();
   }
 
+  // ------------------------------------------------------------ pencarian: semua kata harus ada (huruf besar/kecil sama saja)
+  // Angka dicocokkan tanpa spasi/tanda hubung, jadi "08131111" menemukan "0813-1111-2222".
+  function kataCari(cari) { return String(cari || '').toLowerCase().split(/\s+/).filter(function (k) { return k; }); }
+  function cocokCari(teks, kata) {
+    var t = String(teks || '').toLowerCase(), angka = t.replace(/\D/g, '');
+    return kata.every(function (k) { return t.indexOf(k) >= 0 || (/^\d+$/.test(k) && angka.indexOf(k) >= 0); });
+  }
+  // Teks aman untuk HTML dengan kata yang dicari diberi <mark>.
+  function sorot(teks, kata) {
+    teks = String(teks === undefined || teks === null ? '' : teks);
+    var ks = (kata || []).filter(function (k) { return !/^\d+$/.test(k) || teks.indexOf(k) >= 0; })
+      .map(function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+    if (!ks.length) return esc(teks);
+    var re = new RegExp('(' + ks.join('|') + ')', 'gi');
+    return teks.split(re).map(function (x, i) { return i % 2 ? '<mark>' + esc(x) + '</mark>' : esc(x); }).join('');
+  }
+
+  // ------------------------------------------------------------ layar: data supplier
+  // Buku kontak supplier (tab "Data Supplier"): nama, supplier apa, No HP, alamat, catatan. Untuk pemilik dan yang boleh mengatur.
+  var BARANG_SUPLIER = ['Bahan jeruk purut', 'Kayu bakar', 'Jeriken / kemasan', 'Alat & perbaikan', 'Angkutan'];
+  function layarSuplier() {
+    if (!admin()) { location.hash = '#/'; return; }
+    var data = ambil('suplier', null);
+    var cari = '', saring = '';
+    kerangka('Data supplier', 'Kontak supplier & barangnya', '<div id="isi-suplier">' + (data ? '' : '<div class="memuat">Memuat…</div>') + '</div>',
+      {kembali: '#/', aktif: 'beranda', muat: true});
+    var el = document.getElementById('isi-suplier');
+    var pecah = function (x) { return String(x || '').split(/\s*,\s*/).filter(function (y) { return y; }); };
+    var semuaBarang = function () {
+      var out = [];
+      ((data && data.daftar) || []).forEach(function (p) { pecah(p.barang).forEach(function (b) { if (out.indexOf(b) < 0) out.push(b); }); });
+      return out.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+    };
+    var teksCari = function (p) { return [p.nama, p.barang, p.hp, p.alamat, p.catatan].join(' \n '); };
+    var kartu = function (p, kata) {
+      return '<div class="kartu entri kartu-pembeli kartu-suplier bisa-ketuk" data-suplier="' + esc(p.id) + '" role="button" tabindex="0">' +
+        '<h3><span>' + sorot(p.nama, kata) + '</span></h3>' +
+        '<p class="barang-suplier">' + pecah(p.barang).map(function (b) { return '<span class="chip-status netral">' + sorot(b, kata) + '</span>'; }).join('') + '</p>' +
+        (p.hp ? '<p class="kontak-ringkas">' + ikon('telepon') + '<span>' + sorot(p.hp, kata) + '</span>' +
+          (nomorWa(p.hp) ? '<button type="button" class="tombol-wa-kecil" data-wa="' + esc(p.id) + '" aria-label="Chat WhatsApp ' + esc(p.nama) + '">' + ikon('pesan') + 'WhatsApp</button>' : '') + '</p>'
+          : '<p class="redup kontak-kosong">No HP belum diisi</p>') +
+        (p.alamat ? '<p class="redup alamat-suplier">' + ikon('peta') + '<span>' + sorot(p.alamat, kata) + '</span></p>' : '') +
+        (p.catatan ? '<p class="redup catatan-suplier">' + sorot(p.catatan, kata) + '</p>' : '') + '</div>';
+    };
+    var gambar = function (penuh) {
+      if (!data) return;
+      var daftar = (data.daftar || []).slice().sort(function (a, b) { return a.nama.toLowerCase() < b.nama.toLowerCase() ? -1 : 1; });
+      var kata = kataCari(cari);
+      var tampil = daftar.filter(function (p) { return (!saring || pecah(p.barang).indexOf(saring) >= 0) && cocokCari(teksCari(p), kata); });
+      var info = daftar.length ? (tampil.length === daftar.length ? daftar.length + ' supplier' : 'Menampilkan ' + tampil.length + ' dari ' + daftar.length + ' supplier') : '';
+      var htmlDaftar = '<p class="redup info-cari">' + esc(info) + '</p>' + (tampil.map(function (p) { return kartu(p, kata); }).join('') ||
+        '<div class="kosong">' + (daftar.length ? 'Tidak ada supplier yang cocok' + (cari ? ' dengan "' + esc(cari) + '"' : '') + '.' : 'Belum ada supplier. Ketuk "Tambah supplier".') + '</div>');
+      if (!penuh && q(el, '#daftar-suplier')) { q(el, '#daftar-suplier').innerHTML = htmlDaftar; return; }
+      var barang = semuaBarang();
+      if (saring && barang.indexOf(saring) < 0) saring = '';
+      el.innerHTML = '<button class="tombol utama penuh" type="button" id="suplier-tambah">' + ikon('tambah') + 'Tambah supplier</button>' +
+        '<div class="cari-pembeli">' + ikon('cari') + '<input class="masukan" type="search" id="suplier-cari" placeholder="Cari kata apa saja: nama, barang, No HP, alamat, catatan" autocomplete="off"></div>' +
+        (barang.length > 1 ? '<div class="chips pembeli-urut">' + [''].concat(barang).map(function (b) {
+          return '<label class="chip"><input type="radio" name="suplier-saring" value="' + esc(b) + '"' + (saring === b ? ' checked' : '') + '><span>' + esc(b || 'Semua') + '</span></label>';
+        }).join('') + '</div>' : '') +
+        '<div class="kisi-entri" id="daftar-suplier">' + htmlDaftar + '</div>';
+      var kotak = q(el, '#suplier-cari');
+      if (kotak) kotak.value = cari;
+    };
+    var terima = function (r, pesan) {
+      if (!r || !r.ok) { toast((r && r.galat) || 'Gagal.', 6000); return false; }
+      data = {daftar: r.daftar}; simpan('suplier', data);
+      if (pesan) toast(pesan, 3000);
+      if (location.hash === '#/suplier') gambar(true);
+      return true;
+    };
+    var muat = function () {
+      panggil('suplier').then(function (r) {
+        if (r && !r.ok && /tidak dikenal/i.test(r.galat || '')) r.galat = PESAN_API_LAMA.replace(', lalu ketuk Kirim ulang.', ', lalu buka lagi.');
+        if (!r.ok && !data) { el.innerHTML = '<div class="galat-kartu">' + esc(r.galat || 'Gagal memuat.') + '</div>'; return; }
+        terima(r);
+      }, function (e) {
+        if (!data) el.innerHTML = '<div class="galat-kartu">' + esc(e.jaringan ? 'Perlu sinyal untuk membuka data supplier.' : e.message) + '</div>';
+        else toast(e.jaringan ? 'Tanpa sinyal: menampilkan data supplier terakhir.' : e.message);
+      });
+    };
+    var gagal = function (e) { toast(e.jaringan ? 'Perlu sinyal untuk menyimpan.' : e.message, 5000); };
+    var cariS = function (id) { return ((data && data.daftar) || []).filter(function (p) { return p.id === id; })[0]; };
+
+    var bidangSuplier = function () {
+      var opsi = BARANG_SUPLIER.slice();
+      semuaBarang().forEach(function (b) { if (opsi.indexOf(b) < 0) opsi.push(b); });
+      return [
+        {j: 'teks', h: 'Nama', label: 'Nama supplier'},
+        {j: 'centang', h: 'Supplier apa', opsi: opsi, lainnya: true, bantuan: 'Boleh pilih lebih dari satu. Barang lain tulis di Lainnya.'},
+        {j: 'teks', h: 'No HP', label: 'No HP / WhatsApp', wajib: false, tipe: 'tel'},
+        {j: 'paragraf', h: 'Alamat', wajib: false},
+        {j: 'paragraf', h: 'Catatan', wajib: false, bantuan: 'Contoh: harga Rp350rb per rit, kirim tiap Kamis, bisa tempo 1 minggu.'}
+      ];
+    };
+    var formSuplier = function (lama, namaAwal) {
+      var BIDANG = bidangSuplier();
+      var draf = lama ? mentahDariNilai(BIDANG, {'Nama': lama.nama, 'Supplier apa': pecah(lama.barang), 'No HP': lama.hp, 'Alamat': lama.alamat, 'Catatan': lama.catatan})
+        : {'Nama': namaAwal || ''};
+      var div = bukaLembar('<h2>' + (lama ? 'Ubah data supplier' : 'Tambah supplier') + '</h2>' +
+        '<form novalidate>' + BIDANG.map(function (b, i) { return htmlBidang(b, i, draf, 's'); }).join('') + '</form>' +
+        '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">Simpan</button></div>');
+      var form = q(div, 'form');
+      var inHp = q(form, '[name="s2"]');
+      if (inHp) { inHp.setAttribute('inputmode', 'tel'); inHp.setAttribute('autocomplete', 'tel'); }
+      pasangFormDinamis(form, function () {});
+      div.addEventListener('click', function (ev) {
+        var a = ev.target.closest('[data-aksi]');
+        if (!a) return;
+        if (a.dataset.aksi === 'batal') { div.remove(); return; }
+        if (a.dataset.aksi !== 'simpan') return;
+        var h = bacaIsian(BIDANG, false, 's', form);
+        var n = h.nilai, salah = h.salah.slice();
+        if (n['No HP'] && String(n['No HP']).replace(/\D/g, '').length < 8) salah.push(['No HP', 'Tulis No HP lengkap, contoh 0812 3456 7890.']);
+        tandaiSalah(salah, form);
+        if (salah.length) return;
+        var nilai = {};
+        BIDANG.forEach(function (b) { nilai[b.h] = n[b.h] === undefined ? '' : n[b.h]; });
+        a.disabled = true; a.textContent = 'Menyimpan…';
+        panggil('suplierSimpan', {id: lama ? lama.id : '', nilai: nilai}).then(function (r) {
+          a.disabled = false; a.textContent = 'Simpan';
+          if (terima(r, 'Data supplier tersimpan.')) { div.remove(); if (cariS(r.id)) bukaSuplier(r.id); }
+        }, function (e) { a.disabled = false; a.textContent = 'Simpan'; gagal(e); });
+      });
+    };
+
+    var bukaSuplier = function (id) {
+      var p = cariS(id);
+      if (!p) return;
+      var wa = nomorWa(p.hp), tombol = [];
+      if (p.hp) tombol.push('<a class="tombol kedua" href="tel:' + esc(String(p.hp).replace(/[^0-9+]/g, '')) + '">' + ikon('telepon') + 'Telepon</a>');
+      if (p.alamat) tombol.push('<a class="tombol kedua" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=' + esc(encodeURIComponent(p.alamat)) + '">' + ikon('peta') + 'Peta</a>');
+      var info = [['Supplier apa', p.barang], ['No HP', p.hp], ['Alamat', p.alamat], ['Catatan', p.catatan]].filter(function (x) { return x[1]; });
+      var div = bukaLembar('<div class="rinci-kepala"><div><h2>' + esc(p.nama) + '</h2><p class="sub">' + esc(p.barang) + '</p></div>' +
+        '<button class="tombol-tutup" data-aksi="tutup" aria-label="Tutup">×</button></div>' +
+        (tombol.length ? '<div class="aksi-kontak">' + tombol.join('') + '</div>' : '') +
+        '<ul class="ringkas">' + info.map(function (x) {
+          if (x[0] === 'No HP' && wa) {
+            return '<li class="baris-hp"><span>No HP / WA</span><b>' + esc(x[1]) + '</b>' +
+              '<button type="button" class="tombol utama tombol-wa" data-aksi="wa-pilih">' + ikon('pesan') + 'Chat WhatsApp</button></li>';
+          }
+          return '<li><span>' + esc(x[0]) + '</span><b>' + esc(x[1]) + '</b></li>';
+        }).join('') + '</ul>' +
+        (p.diubah ? '<p class="catatan">Terakhir diubah ' + esc(p.diubah) + (p.oleh ? ' oleh ' + esc(p.oleh) : '') + '.</p>' : '') +
+        '<div class="baris-tombol" style="margin-top:14px"><button class="tombol bahaya" data-aksi="hapus">' + ikon('sampah') + 'Hapus</button>' +
+        '<button class="tombol utama" data-aksi="ubah">' + ikon('pensil') + 'Ubah data</button></div>');
+      div.addEventListener('click', function (ev) {
+        var a = ev.target.closest('[data-aksi]');
+        if (!a) return;
+        var aksi = a.dataset.aksi;
+        if (aksi === 'wa') return;
+        if (aksi === 'wa-pilih') { pilihWa(wa, '', p.nama + ' · ' + p.hp); return; }
+        if (aksi === 'tutup') { div.remove(); return; }
+        if (aksi === 'ubah') { div.remove(); formSuplier(p); return; }
+        if (aksi === 'hapus') {
+          tanyaHapus('Supplier', p.nama, function () {
+            panggil('suplierHapus', {id: p.id}).then(function (r) { if (terima(r, 'Supplier dihapus. Isinya tetap ada di tab Log Aplikasi.')) div.remove(); }, gagal);
+          });
+        }
+      });
+    };
+
+    el.addEventListener('click', function (ev) {
+      if (ev.target.closest('#suplier-tambah')) { formSuplier(null, cari); return; }
+      var tWa = ev.target.closest('[data-wa]');
+      if (tWa) { var pw = cariS(tWa.dataset.wa); if (pw) pilihWa(nomorWa(pw.hp), '', pw.nama + ' · ' + pw.hp); return; }
+      var k = ev.target.closest('[data-suplier]');
+      if (k) bukaSuplier(k.dataset.suplier);
+    });
+    el.addEventListener('keydown', function (ev) {
+      if (ev.target.closest('button, a, input')) return;
+      var k = ev.target.closest('[data-suplier]');
+      if (k && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); bukaSuplier(k.dataset.suplier); }
+    });
+    el.addEventListener('input', function (ev) {
+      if (ev.target.id !== 'suplier-cari') return;
+      cari = ev.target.value.trim();
+      gambar();
+    });
+    el.addEventListener('change', function (ev) {
+      if (ev.target.name !== 'suplier-saring') return;
+      saring = ev.target.value;
+      gambar();
+    });
+    document.getElementById('tombol-muat').addEventListener('click', function () { toast('Memuat ulang…', 1500); muat(); });
+    gambar(true);
+    muat();
+  }
+
   function jumlahBonTerbuka() {
     var d = ambil('bon', null);
     if (!d || !d.bon) return 0;
@@ -4258,6 +4452,7 @@
       case 'batas': layarBatas(); break;
       case 'bon': layarBon(); break;
       case 'pembeli': layarPembeli(); break;
+      case 'suplier': layarSuplier(); break;
       default: layarBeranda();
     }
   }

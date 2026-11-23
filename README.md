@@ -40,6 +40,12 @@ Catatan lama tidak diubah.
   dan Peta; di samping No HP (dan di kartu daftar) ada tombol WhatsApp yang menawarkan pilihan WhatsApp pribadi atau
   WA Bisnis lalu langsung membuka percakapan (Android: lewat nama paket; iPhone: api.whatsapp.com / whatsapp://). Cari lewat nama, alamat, No HP, atau email. Pembeli baru otomatis masuk daftar pilihan "Pembeli" di formulir
   Penjualan. Nama yang sudah dipakai di Penjualan tidak bisa diganti dari sini supaya totalnya tetap cocok.
+- **Data supplier** (3.15, Beranda › Data supplier, untuk pemilik dan yang boleh mengatur): buku kontak supplier — nama,
+  supplier apa (bisa lebih dari satu: bahan jeruk purut, kayu bakar, jeriken/kemasan, alat & perbaikan, angkutan, atau
+  tulis sendiri), No HP/WhatsApp, alamat, catatan (harga, jadwal kirim). Disimpan di tab baru "Data Supplier" (semua kolom
+  teks), dibuat otomatis saat supplier pertama disimpan. Kotak cari mencari kata apa saja di semua isian (No HP boleh tanpa
+  spasi/tanda hubung, semua kata harus ada) dan kata yang cocok disorot; bisa disaring per barang. Rincian: Telepon, Peta,
+  dan Chat WhatsApp (pilihan WA pribadi / WA Bisnis). Tidak dihubungkan ke catatan lain.
 - **Catatan bon** (Beranda › Catatan bon, untuk pemilik dan yang boleh mengatur): bon dua arah, yaitu "orang ngebon ke kita"
   (kasbon karyawan: nama dipilih dari daftar Karyawan aktif, atau Lainnya…) dan "kita ngebon ke orang" (utang ke toko/pemasok). Setiap orang
   punya catatan bon sendiri (semua bonnya, sisa, riwayat cicilan) dengan tombol Cicil (isi jumlah) dan Bayar lunas; cicilan dibagi ke bon

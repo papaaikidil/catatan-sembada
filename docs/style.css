@@ -702,3 +702,12 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 .bantuan-stok { margin: .5rem 0 0; font-size: .8125rem; color: var(--teks-2); text-align: center; }
 .baris-angka b.merah { color: var(--merah); }
 #pratinjau-stok b { white-space: nowrap; }
+/* Data supplier */
+.barang-suplier { display: flex; flex-wrap: wrap; gap: .25rem; margin: .125rem 0 .25rem; }
+.alamat-suplier { display: flex; gap: .375rem; align-items: flex-start; font-size: .875rem; }
+.alamat-suplier svg { width: .9375rem; height: .9375rem; flex: none; margin-top: .15rem; color: var(--teks-2); }
+.catatan-suplier { font-size: .8125rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.info-cari { font-size: .8125rem; margin: 0 0 .25rem; grid-column: 1 / -1; }
+mark { background: #fde68a; color: inherit; border-radius: .1875rem; padding: 0 .0625rem; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) mark { background: #a16207; color: #fff; } }
+:root[data-theme="dark"] mark { background: #a16207; color: #fff; }

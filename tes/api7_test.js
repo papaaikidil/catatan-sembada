@@ -850,6 +850,39 @@ cek('Laporan Suling: tab dibuat otomatis, jam sebagai teks, pengisi tercatat, be
 }
 cek('Data pembeli: gabungan kontak, daftar pilihan & Penjualan; total dari Penjualan; pembeli baru masuk daftar pilihan; Penjualan tidak diubah');
 
+// ------------------------------------------------------------------ 10d. Data supplier
+{
+  const tokE2 = panggil({ aksi: 'masuk', pengguna: 'eko', sandi: '9937' }).token;
+  assert.ok(/Hanya pemilik/.test(panggil({ aksi: 'suplier', token: tokE2 }).galat), 'pencatat tidak boleh melihat');
+  let rs = panggil({ aksi: 'suplier', token: tokPemilik });
+  assert.ok(rs.ok && rs.daftar.length === 0 && !sheets['Data Supplier'], 'membaca tidak membuat tab');
+  rs = panggil({ aksi: 'suplierSimpan', token: tokPemilik, nilai: { 'Nama': ' Pak  Darmo ', 'Supplier apa': ['Kayu bakar', 'Bahan jeruk purut'], 'No HP': '0813-1111-2222',
+    'Alamat': 'Ngunut, Tulungagung', 'Catatan': 'kirim tiap Kamis, Rp350rb/rit' } });
+  assert.ok(rs.ok, JSON.stringify(rs));
+  const shSp = sheets['Data Supplier'];
+  assert.deepStrictEqual(shSp.data[0], ['ID', 'Timestamp', 'Nama', 'Supplier apa', 'No HP', 'Alamat', 'Catatan', 'Diubah oleh']);
+  assert.strictEqual(shSp.format[5], '@', 'No HP teks');
+  let sp = objek('Data Supplier');
+  assert.deepStrictEqual([sp[0]['Nama'], sp[0]['Supplier apa'], sp[0]['No HP'], sp[0]['Diubah oleh']], ['Pak Darmo', 'Kayu bakar, Bahan jeruk purut', '0813-1111-2222', 'Mas Wildan']);
+  assert.ok(rs.daftar.length === 1 && rs.daftar[0].barang === 'Kayu bakar, Bahan jeruk purut' && rs.daftar[0].id === rs.id && rs.daftar[0].baris === undefined);
+  // Ubah
+  rs = panggil({ aksi: 'suplierSimpan', token: tokPemilik, id: rs.id, nilai: { 'Nama': 'Pak Darmo', 'Supplier apa': 'Kayu bakar', 'No HP': '0813 1111 2222', 'Alamat': 'Ngunut' } });
+  assert.ok(rs.ok && objek('Data Supplier').length === 1 && objek('Data Supplier')[0]['Supplier apa'] === 'Kayu bakar', JSON.stringify(rs));
+  // Pemeriksaan
+  const salahS = n => panggil({ aksi: 'suplierSimpan', token: tokPemilik, nilai: Object.assign({ 'Nama': 'Toko Jeriken Jaya', 'Supplier apa': 'Jeriken' }, n) }).galat || '';
+  assert.ok(/Nama supplier wajib/.test(salahS({ 'Nama': '' })));
+  assert.ok(/Supplier apa wajib/.test(salahS({ 'Supplier apa': [] })));
+  assert.ok(/No HP/.test(salahS({ 'No HP': 'tanya pak RT' })));
+  assert.ok(/sudah ada/.test(salahS({ 'Nama': 'pak darmo' })), 'nama kembar ditolak');
+  assert.strictEqual(objek('Data Supplier').length, 1);
+  assert.ok(/Hanya pemilik/.test(panggil({ aksi: 'suplierSimpan', token: tokE2, nilai: { 'Nama': 'X', 'Supplier apa': 'Y' } }).galat));
+  // Hapus
+  rs = panggil({ aksi: 'suplierHapus', token: tokPemilik, id: rs.id });
+  assert.ok(rs.ok && rs.daftar.length === 0 && objek('Data Supplier').length === 0);
+  assert.ok(['Tambah supplier', 'Ubah supplier', 'Hapus supplier'].every(a => sheets['Log Aplikasi'].data.some(x => x[1] === a)), 'dicatat di Log');
+}
+cek('Data supplier: tab dibuat saat pertama disimpan, No HP teks, kembar ditolak, ubah & hapus, hanya pemilik/admin');
+
 // ------------------------------------------------------------------ 11. Semua file Apps Script dimuat bersama
 const m3 = muat(buatData(), { semuaBerkas: true });
 assert.ok(m3.panggil({ aksi: 'masuk', pengguna: 'wildan', sandi: '250610' }).ok);
