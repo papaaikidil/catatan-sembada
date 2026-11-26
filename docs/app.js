@@ -2954,6 +2954,113 @@
   var KET_ARAH = {'Orang ngebon': 'Kasbon karyawan, pinjaman, atau yang belum bayar ke kita', 'Kita ngebon': 'Utang kita ke toko, pemasok, atau orang lain'};
   var POLA_TANDA_BON = /\s*\[(bayar )?bon:[^\]]+\]/;
   function tanpaTandaBon(t) { return String(t === null || t === undefined ? '' : t).replace(POLA_TANDA_BON, '').trim(); }
+  // ------------------------------------------------------------ ambil nama & No HP dari kontak HP
+  // APK (1.0.6+): window.SembadaKontak memakai pemilih kontak Android (tanpa izin membaca semua kontak).
+  // Chrome Android: Contact Picker (navigator.contacts). iPhone: IsiOtomatis Kontak dari Safari (lewat autocomplete).
+  var tungguKontak = {};
+  window.__hasilKontak = function (id, o, pesan) { var f = tungguKontak[id]; delete tungguKontak[id]; if (f) f(o, pesan); };
+  function caraKontak() {
+    if (window.SembadaKontak && typeof window.SembadaKontak.pilih === 'function') return 'apk';
+    if ('contacts' in navigator && 'ContactsManager' in window && navigator.contacts && typeof navigator.contacts.select === 'function') return 'web';
+    if (DI_IOS) return 'ios';
+    if (DI_APK) return 'apk-lama';
+    return '';
+  }
+  function teksAlamatKontak(a) {
+    if (!a) return '';
+    if (typeof a === 'string') return a;
+    return [(a.addressLine || []).join(', '), a.dependentLocality, a.city, a.region, a.postalCode].filter(function (x) { return x; }).join(', ');
+  }
+  // Hasil: {nama, hp: [..], email: [..], alamat: [..]}, null kalau dibatalkan.
+  function ambilKontak() {
+    var cara = caraKontak();
+    if (cara === 'apk') {
+      return new Promise(function (res, rej) {
+        var id = 'k' + Date.now();
+        tungguKontak[id] = function (o, pesan) {
+          if (o) res({nama: o.nama || '', hp: o.hp ? [o.hp] : [], email: [], alamat: []});
+          else if (pesan) rej(new Error(pesan));
+          else res(null);
+        };
+        window.SembadaKontak.pilih(id);
+      });
+    }
+    if (cara === 'web') {
+      return Promise.resolve(navigator.contacts.getProperties ? navigator.contacts.getProperties() : ['name', 'tel']).catch(function () { return ['name', 'tel']; })
+        .then(function (ada) {
+          return navigator.contacts.select(['name', 'tel', 'email', 'address'].filter(function (x) { return ada.indexOf(x) >= 0; }), {multiple: false});
+        }).then(function (h) {
+          var c = h && h[0];
+          if (!c) return null;
+          return {nama: (c.name || [])[0] || '', hp: c.tel || [], email: c.email || [], alamat: (c.address || []).map(teksAlamatKontak).filter(function (x) { return x; })};
+        });
+    }
+    return Promise.resolve(null);
+  }
+  function bersihHp(x) { return String(x || '').replace(/[^\d+()\-. ]/g, '').replace(/\s+/g, ' ').trim(); }
+  // Tombol "Ambil dari kontak HP" di atas formulir. peta: nama isian {nama, kontak?, hp, email?, alamat?}.
+  function pasangAmbilKontak(form, peta) {
+    var cara = caraKontak();
+    // Untuk IsiOtomatis browser (iPhone: "IsiOtomatis Kontak" › "Kontak Lain").
+    var otomatis = {nama: 'name', hp: 'tel', email: 'email', alamat: 'street-address'};
+    Object.keys(otomatis).forEach(function (k) { var el = peta[k] && q(form, '[name="' + peta[k] + '"]'); if (el) el.setAttribute('autocomplete', otomatis[k]); });
+    if (peta.kontak && q(form, '[name="' + peta.kontak + '"]')) q(form, '[name="' + peta.kontak + '"]').setAttribute('autocomplete', 'off');
+    if (!cara) return;
+    form.insertAdjacentHTML('beforebegin', '<button type="button" class="tombol kedua penuh tombol-kontak">' + ikon('telepon') + 'Ambil dari kontak HP</button><div class="catatan-kontak" hidden></div>');
+    var tombol = form.previousElementSibling.previousElementSibling, catatan = form.previousElementSibling;
+    var isi = function (nama, v, timpa) {
+      var el = nama && q(form, '[name="' + nama + '"]');
+      if (!el || !v || el.readOnly) return false;
+      if (!timpa && String(el.value || '').trim()) return false;
+      el.value = v;
+      el.dispatchEvent(new Event('input', {bubbles: true}));
+      var b = el.closest('.bidang'); if (b) b.classList.remove('salah');
+      return true;
+    };
+    var pakai = function (k, hp) {
+      hp = bersihHp(hp);
+      isi(peta.hp, hp, true);
+      if (!isi(peta.nama, k.nama, false) && peta.kontak) isi(peta.kontak, k.nama, false);
+      isi(peta.email, (k.email || [])[0], false);
+      isi(peta.alamat, (k.alamat || [])[0], false);
+      toast('Diisi dari kontak: ' + [k.nama, hp].filter(function (x) { return x; }).join(' · '), 3500);
+    };
+    tombol.addEventListener('click', function () {
+      if (cara === 'ios') {
+        catatan.hidden = false;
+        catatan.innerHTML = 'Di iPhone: ketuk <b>IsiOtomatis Kontak</b> (AutoFill Contact) di atas papan ketik › <b>Kontak Lain</b> › pilih kontaknya. ' +
+          'Kalau tombol itu tidak muncul, nyalakan di Pengaturan › Safari › IsiOtomatis › Gunakan Info Kontak.';
+        var hpEl = q(form, '[name="' + peta.hp + '"]');
+        if (hpEl) hpEl.focus();
+        return;
+      }
+      if (cara === 'apk-lama') {
+        catatan.hidden = false;
+        catatan.innerHTML = 'Untuk mengambil dari kontak HP, pasang <a href="' + APK_TERBARU + '" target="_blank" rel="noopener">APK Sembada terbaru</a>.';
+        return;
+      }
+      tombol.disabled = true;
+      ambilKontak().then(function (k) {
+        tombol.disabled = false;
+        if (!k) return;
+        var nomor = (k.hp || []).map(bersihHp).filter(function (x, i, a) { return x && a.indexOf(x) === i; });
+        if (!nomor.length) { toast('Kontak ini tidak punya nomor HP.', 4000); return; }
+        if (nomor.length === 1) { pakai(k, nomor[0]); return; }
+        var div = bukaLembar('<h2>Pilih nomor</h2><p class="sub">' + esc(k.nama) + ' punya ' + nomor.length + ' nomor.</p><div class="pilih-wa">' +
+          nomor.map(function (n, i) { return '<button type="button" class="tombol ' + (i ? 'kedua' : 'utama') + ' penuh" data-nomor="' + i + '">' + ikon('telepon') + esc(n) + '</button>'; }).join('') +
+          '</div><button type="button" class="tombol kedua penuh" data-aksi="batal">Batal</button>');
+        div.addEventListener('click', function (ev) {
+          var b = ev.target.closest('[data-nomor]');
+          if (b) { pakai(k, nomor[+b.dataset.nomor]); div.remove(); return; }
+          if (ev.target.closest('[data-aksi="batal"]')) div.remove();
+        });
+      }, function (e) {
+        tombol.disabled = false;
+        toast(e && e.message ? e.message : 'Kontak tidak bisa dibuka.', 5000);
+      });
+    });
+  }
+
   // ------------------------------------------------------------ layar: data pembeli
   // Kontak pembeli (tab "Data Pembeli") + total pembelian dari tab Penjualan. Untuk pemilik dan yang boleh mengatur.
   function ringkasSatuan(sat) {
@@ -3060,6 +3167,7 @@
         if (inp && b.tipe) { inp.setAttribute('inputmode', b.tipe === 'tel' ? 'tel' : (b.tipe === 'email' ? 'email' : 'url')); inp.setAttribute('autocapitalize', 'none'); }
       });
       if (kunciNama) { var inNama = q(form, '[name="p0"]'); inNama.readOnly = true; inNama.classList.add('terkunci'); }
+      pasangAmbilKontak(form, {nama: 'p0', kontak: 'p2', hp: 'p3', email: 'p4', alamat: 'p5'});
       pasangFormDinamis(form, function () {});
       segarkanTampilanForm(form);
       div.addEventListener('click', function (ev) {
@@ -3275,7 +3383,8 @@
         '<div class="baris-tombol"><button class="tombol kedua" data-aksi="batal">Batal</button><button class="tombol utama" data-aksi="simpan">Simpan</button></div>');
       var form = q(div, 'form');
       var inHp = q(form, '[name="s2"]');
-      if (inHp) { inHp.setAttribute('inputmode', 'tel'); inHp.setAttribute('autocomplete', 'tel'); }
+      if (inHp) inHp.setAttribute('inputmode', 'tel');
+      pasangAmbilKontak(form, {nama: 's0', hp: 's2', alamat: 's3'});
       pasangFormDinamis(form, function () {});
       div.addEventListener('click', function (ev) {
         var a = ev.target.closest('[data-aksi]');

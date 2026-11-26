@@ -34,6 +34,7 @@ class MainActivity : Activity() {
 
     private lateinit var web: WebView
     private lateinit var printer: JembatanPrinter
+    private lateinit var kontak: JembatanKontak
 
     private val alamat = "https://papaaikidil.github.io/catatan-sembada/"
     private val hostAplikasi = "papaaikidil.github.io"
@@ -78,9 +79,13 @@ class MainActivity : Activity() {
         // Cetak slip ke printer thermal Bluetooth (window.SembadaPrinter di aplikasi web).
         printer = JembatanPrinter(this, web, hostAplikasi)
         web.addJavascriptInterface(printer, "SembadaPrinter")
+        // Ambil nama + nomor dari aplikasi Kontak HP (window.SembadaKontak) untuk data pembeli/supplier.
+        kontak = JembatanKontak(this, web, hostAplikasi)
+        web.addJavascriptInterface(kontak, "SembadaKontak")
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 printer.hostSekarang = try { android.net.Uri.parse(url ?: "").host ?: "" } catch (e: Exception) { "" }
+                kontak.hostSekarang = printer.hostSekarang
                 super.onPageStarted(view, url, favicon)
             }
 
@@ -155,6 +160,13 @@ class MainActivity : Activity() {
         if (requestCode == KODE_IZIN_BLUETOOTH) {
             printer.kabariIzin(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
         }
+    }
+
+    // Hasil pemilih kontak (Activity biasa, bukan AndroidX, jadi lewat onActivityResult).
+    @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == JembatanKontak.KODE_PILIH_KONTAK) kontak.hasil(resultCode, data)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

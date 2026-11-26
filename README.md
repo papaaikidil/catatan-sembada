@@ -40,6 +40,11 @@ Catatan lama tidak diubah.
   dan Peta; di samping No HP (dan di kartu daftar) ada tombol WhatsApp yang menawarkan pilihan WhatsApp pribadi atau
   WA Bisnis lalu langsung membuka percakapan (Android: lewat nama paket; iPhone: api.whatsapp.com / whatsapp://). Cari lewat nama, alamat, No HP, atau email. Pembeli baru otomatis masuk daftar pilihan "Pembeli" di formulir
   Penjualan. Nama yang sudah dipakai di Penjualan tidak bisa diganti dari sini supaya totalnya tetap cocok.
+- **Ambil dari kontak HP** (3.16): tombol di atas formulir Data pembeli dan Data supplier. APK 1.0.6+ memakai pemilih kontak
+  Android (window.SembadaKontak, tanpa izin membaca semua kontak: hanya nama + nomor kontak yang dipilih); Chrome Android memakai
+  Contact Picker (ikut email & alamat; kalau kontak punya beberapa nomor, dipilih dulu); iPhone memakai IsiOtomatis Kontak
+  › Kontak Lain dari Safari (isian diberi autocomplete name/tel/email/street-address). Nama yang sudah diisi tidak ditimpa;
+  nama orangnya masuk ke "Nama kontak". APK lama diarahkan ke APK terbaru; di komputer tombol tidak tampil.
 - **Data supplier** (3.15, Beranda › Data supplier, untuk pemilik dan yang boleh mengatur): buku kontak supplier — nama,
   supplier apa (bisa lebih dari satu: bahan jeruk purut, kayu bakar, jeriken/kemasan, alat & perbaikan, angkutan, atau
   tulis sendiri), No HP/WhatsApp, alamat, catatan (harga, jadwal kirim). Disimpan di tab baru "Data Supplier" (semua kolom

@@ -711,3 +711,6 @@ details.lipat.rinci-lipat[open] > .lipat-isi .baris-angka { font-size: .875rem; 
 mark { background: #fde68a; color: inherit; border-radius: .1875rem; padding: 0 .0625rem; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) mark { background: #a16207; color: #fff; } }
 :root[data-theme="dark"] mark { background: #a16207; color: #fff; }
+.tombol-kontak { margin: .25rem 0 .75rem; min-height: 3rem; }
+.tombol-kontak svg { width: 1.125rem; height: 1.125rem; }
+.catatan-kontak { margin: -.25rem 0 .75rem; padding: .625rem .75rem; border-radius: .75rem; background: var(--aksen-muda); font-size: .875rem; line-height: 1.45; }
