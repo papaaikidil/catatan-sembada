@@ -1,0 +1,719 @@
+17:* What went wrong:
+19:> Could not resolve all artifacts for configuration ':classpath'.
+20:   > Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+23:      > Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+24:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'.
+25:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+26:      > Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+27:         > Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'.
+28:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+29:   > Could not resolve org.jetbrains:annotations:13.0.
+32:      > Could not resolve org.jetbrains:annotations:13.0.
+33:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'.
+34:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'. Received status code 429 from server: Too Many Requests
+35:      > Could not resolve org.jetbrains:annotations:13.0.
+36:         > Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/annotations/13.0/annotations-13.0.pom'.
+37:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'. Received status code 429 from server: Too Many Requests
+38:   > Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+41:      > Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+42:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'.
+43:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+44:      > Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+45:         > Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'.
+46:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+47:   > Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21.
+50:      > Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21.
+51:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom'.
+52:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom'. Received status code 429 from server: Too Many Requests
+53:      > Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21.
+54:         > Could not parse POM https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom
+55:            > Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugins-bom:2.0.21.
+56:               > Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugins-bom:2.0.21.
+57:                  > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom'.
+58:                     > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom'. Received status code 429 from server: Too Many Requests
+59:               > Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugins-bom:2.0.21.
+60:                  > Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom'.
+61:                     > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom'. Received status code 429 from server: Too Many Requests
+62:   > Could not resolve org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20.
+80:      > Could not resolve org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20.
+81:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'.
+82:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'. Received status code 429 from server: Too Many Requests
+83:      > Could not resolve org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20.
+84:         > Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'.
+85:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'. Received status code 429 from server: Too Many Requests
+86:   > Could not resolve org.apache.httpcomponents:httpmime:4.5.6.
+91:      > Could not resolve org.apache.httpcomponents:httpmime:4.5.6.
+92:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'.
+93:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'. Received status code 429 from server: Too Many Requests
+94:      > Could not resolve org.apache.httpcomponents:httpmime:4.5.6.
+95:         > Could not get resource 'https://plugins.gradle.org/m2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'.
+96:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'. Received status code 429 from server: Too Many Requests
+97:   > Could not resolve commons-io:commons-io:2.13.0.
+101:      > Could not resolve commons-io:commons-io:2.13.0.
+102:         > Could not get resource 'https://repo.maven.apache.org/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'.
+103:            > Could not GET 'https://repo.maven.apache.org/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'. Received status code 429 from server: Too Many Requests
+104:      > Could not resolve commons-io:commons-io:2.13.0.
+105:         > Could not get resource 'https://plugins.gradle.org/m2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'.
+106:            > Could not GET 'https://repo.maven.apache.org/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'. Received status code 429 from server: Too Many Requests
+107:   > Could not resolve org.ow2.asm:asm:9.6.
+112:      > Could not resolve org.ow2.asm:asm:9.6.
+113:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'.
+114:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'. Received status code 429 from server: Too Many Requests
+115:      > Could not resolve org.ow2.asm:asm:9.6.
+116:         > Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm/9.6/asm-9.6.pom'.
+117:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'. Received status code 429 from server: Too Many Requests
+118:   > Could not resolve org.ow2.asm:asm-analysis:9.6.
+121:      > Could not resolve org.ow2.asm:asm-analysis:9.6.
+122:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'.
+123:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'. Received status code 429 from server: Too Many Requests
+124:      > Could not resolve org.ow2.asm:asm-analysis:9.6.
+125:         > Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'.
+126:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'. Received status code 429 from server: Too Many Requests
+127:   > Could not resolve org.ow2.asm:asm-commons:9.6.
+131:      > Could not resolve org.ow2.asm:asm-commons:9.6.
+132:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'.
+133:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'. Received status code 429 from server: Too Many Requests
+134:      > Could not resolve org.ow2.asm:asm-commons:9.6.
+135:         > Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'.
+136:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'. Received status code 429 from server: Too Many Requests
+137:   > Could not resolve org.ow2.asm:asm-util:9.6.
+140:      > Could not resolve org.ow2.asm:asm-util:9.6.
+141:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'.
+142:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'. Received status code 429 from server: Too Many Requests
+143:      > Could not resolve org.ow2.asm:asm-util:9.6.
+144:         > Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'.
+145:            > Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'. Received status code 429 from server: Too Many Requests
+146:   > Could not resolve org.bouncycastle:bcpkix-jdk18on:1.77.
+152:      > Could not resolve org.bouncycastle:bcpkix-jdk18on:1.77.
+153:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'.
+154:            > Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+155:      > Could not resolve org.bouncycastle:bcpkix-jdk18on:1.77.
+156:         > Could not get resource 'https://plugins.gradle.org/m2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'.
+157:            > Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+158:   > Could not resolve org.glassfish.jaxb:jaxb-runtime:2.3.2.
+165:      > Could not resolve org.glassfish.jaxb:jaxb-runtime:2.3.2.
+166:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'.
+167:            > Could not GET 'https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'. Received status code 429 from server: Too Many Requests
+168:      > Could not resolve org.glassfish.jaxb:jaxb-runtime:2.3.2.
+169:         > Could not get resource 'https://plugins.gradle.org/m2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'.
+170:            > Could not GET 'https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'. Received status code 429 from server: Too Many Requests
+171:   > Could not resolve net.sf.jopt-simple:jopt-simple:4.9.
+174:      > Could not resolve net.sf.jopt-simple:jopt-simple:4.9.
+175:         > Could not get resource 'https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'.
+176:            > Could not GET 'https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'. Received status code 429 from server: Too Many Requests
+177:      > Could not resolve net.sf.jopt-simple:jopt-simple:4.9.
+178:         > Could not get resource 'https://plugins.gradle.org/m2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'.
+179:            > Could not GET 'https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'. Received status code 429 from server: Too Many Requests
+180:   > Could not resolve com.squareup:javapoet:1.10.0.
+184:      > Could not resolve com.squareup:javapoet:1.10.0.
+185:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'.
+186:            > Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'. Received status code 429 from server: Too Many Requests
+187:      > Could not resolve com.squareup:javapoet:1.10.0.
+188:         > Could not get resource 'https://plugins.gradle.org/m2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'.
+189:            > Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'. Received status code 429 from server: Too Many Requests
+190:   > Could not resolve com.google.protobuf:protobuf-java:3.22.3.
+210:      > Could not resolve com.google.protobuf:protobuf-java:3.22.3.
+211:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'.
+212:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+213:      > Could not resolve com.google.protobuf:protobuf-java:3.22.3.
+214:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'.
+215:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+216:   > Could not resolve com.google.protobuf:protobuf-java-util:3.22.3.
+220:      > Could not resolve com.google.protobuf:protobuf-java-util:3.22.3.
+221:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'.
+222:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+223:      > Could not resolve com.google.protobuf:protobuf-java-util:3.22.3.
+224:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'.
+225:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+226:   > Could not resolve com.google.code.gson:gson:2.10.1.
+235:      > Could not resolve com.google.code.gson:gson:2.10.1.
+236:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'.
+237:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'. Received status code 429 from server: Too Many Requests
+238:      > Could not resolve com.google.code.gson:gson:2.10.1.
+239:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'.
+240:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'. Received status code 429 from server: Too Many Requests
+241:   > Could not resolve io.grpc:grpc-core:1.57.0.
+245:      > Could not resolve io.grpc:grpc-core:1.57.0.
+246:         > Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'.
+247:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+248:      > Could not resolve io.grpc:grpc-core:1.57.0.
+249:         > Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'.
+250:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+251:   > Could not resolve io.grpc:grpc-netty:1.57.0.
+255:      > Could not resolve io.grpc:grpc-netty:1.57.0.
+256:         > Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'.
+257:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+258:      > Could not resolve io.grpc:grpc-netty:1.57.0.
+259:         > Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'.
+260:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+261:   > Could not resolve io.grpc:grpc-protobuf:1.57.0.
+265:      > Could not resolve io.grpc:grpc-protobuf:1.57.0.
+266:         > Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'.
+267:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+268:      > Could not resolve io.grpc:grpc-protobuf:1.57.0.
+269:         > Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'.
+270:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+271:   > Could not resolve io.grpc:grpc-stub:1.57.0.
+275:      > Could not resolve io.grpc:grpc-stub:1.57.0.
+276:         > Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'.
+277:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+278:      > Could not resolve io.grpc:grpc-stub:1.57.0.
+279:         > Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'.
+280:            > Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+281:   > Could not resolve com.google.crypto.tink:tink:1.7.0.
+284:      > Could not resolve com.google.crypto.tink:tink:1.7.0.
+285:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'.
+286:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'. Received status code 429 from server: Too Many Requests
+287:      > Could not resolve com.google.crypto.tink:tink:1.7.0.
+288:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'.
+289:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'. Received status code 429 from server: Too Many Requests
+290:   > Could not resolve com.google.flatbuffers:flatbuffers-java:1.12.0.
+293:      > Could not resolve com.google.flatbuffers:flatbuffers-java:1.12.0.
+294:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'.
+295:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'. Received status code 429 from server: Too Many Requests
+296:      > Could not resolve com.google.flatbuffers:flatbuffers-java:1.12.0.
+297:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'.
+298:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'. Received status code 429 from server: Too Many Requests
+299:   > Could not resolve org.tensorflow:tensorflow-lite-metadata:0.1.0-rc2.
+302:      > Could not resolve org.tensorflow:tensorflow-lite-metadata:0.1.0-rc2.
+303:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'.
+304:            > Could not GET 'https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'. Received status code 429 from server: Too Many Requests
+305:      > Could not resolve org.tensorflow:tensorflow-lite-metadata:0.1.0-rc2.
+306:         > Could not get resource 'https://plugins.gradle.org/m2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'.
+307:            > Could not GET 'https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'. Received status code 429 from server: Too Many Requests
+308:   > Could not resolve com.google.guava:guava:32.0.1-jre.
+323:      > Could not resolve com.google.guava:guava:32.0.1-jre.
+324:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'.
+325:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'. Received status code 429 from server: Too Many Requests
+326:      > Could not resolve com.google.guava:guava:32.0.1-jre.
+327:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'.
+328:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'. Received status code 429 from server: Too Many Requests
+329:   > Could not resolve javax.inject:javax.inject:1.
+334:      > Could not resolve javax.inject:javax.inject:1.
+335:         > Could not get resource 'https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom'.
+336:            > Could not GET 'https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom'. Received status code 429 from server: Too Many Requests
+337:      > Could not resolve javax.inject:javax.inject:1.
+338:         > Could not get resource 'https://plugins.gradle.org/m2/javax/inject/javax.inject/1/javax.inject-1.pom'.
+339:            > Could not GET 'https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom'. Received status code 429 from server: Too Many Requests
+340:   > Could not resolve net.sf.kxml:kxml2:2.3.0.
+346:      > Could not resolve net.sf.kxml:kxml2:2.3.0.
+347:         > Could not get resource 'https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'.
+348:            > Could not GET 'https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'. Received status code 429 from server: Too Many Requests
+349:      > Could not resolve net.sf.kxml:kxml2:2.3.0.
+350:         > Could not get resource 'https://plugins.gradle.org/m2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'.
+351:            > Could not GET 'https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'. Received status code 429 from server: Too Many Requests
+352:   > Could not resolve org.bouncycastle:bcprov-jdk18on:1.77.
+357:      > Could not resolve org.bouncycastle:bcprov-jdk18on:1.77.
+358:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'.
+359:            > Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+360:      > Could not resolve org.bouncycastle:bcprov-jdk18on:1.77.
+361:         > Could not get resource 'https://plugins.gradle.org/m2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'.
+362:            > Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+363:   > Could not resolve org.jetbrains.intellij.deps:trove4j:1.0.20200330.
+366:      > Could not resolve org.jetbrains.intellij.deps:trove4j:1.0.20200330.
+367:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'.
+368:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'. Received status code 429 from server: Too Many Requests
+369:      > Could not resolve org.jetbrains.intellij.deps:trove4j:1.0.20200330.
+370:         > Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'.
+371:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'. Received status code 429 from server: Too Many Requests
+372:   > Could not resolve org.apache.commons:commons-compress:1.21.
+376:      > Could not resolve org.apache.commons:commons-compress:1.21.
+377:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'.
+378:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'. Received status code 429 from server: Too Many Requests
+379:      > Could not resolve org.apache.commons:commons-compress:1.21.
+380:         > Could not get resource 'https://plugins.gradle.org/m2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'.
+381:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'. Received status code 429 from server: Too Many Requests
+382:   > Could not resolve org.apache.httpcomponents:httpcore:4.4.16.
+386:      > Could not resolve org.apache.httpcomponents:httpcore:4.4.16.
+387:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'.
+388:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'. Received status code 429 from server: Too Many Requests
+389:      > Could not resolve org.apache.httpcomponents:httpcore:4.4.16.
+390:         > Could not get resource 'https://plugins.gradle.org/m2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'.
+391:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'. Received status code 429 from server: Too Many Requests
+392:   > Could not resolve com.google.jimfs:jimfs:1.1.
+395:      > Could not resolve com.google.jimfs:jimfs:1.1.
+396:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'.
+397:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'. Received status code 429 from server: Too Many Requests
+398:      > Could not resolve com.google.jimfs:jimfs:1.1.
+399:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'.
+400:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'. Received status code 429 from server: Too Many Requests
+401:   > Could not resolve com.sun.activation:javax.activation:1.2.0.
+404:      > Could not resolve com.sun.activation:javax.activation:1.2.0.
+405:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'.
+406:            > Could not GET 'https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'. Received status code 429 from server: Too Many Requests
+407:      > Could not resolve com.sun.activation:javax.activation:1.2.0.
+408:         > Could not get resource 'https://plugins.gradle.org/m2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'.
+409:            > Could not GET 'https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'. Received status code 429 from server: Too Many Requests
+410:   > Could not resolve org.apache.httpcomponents:httpclient:4.5.14.
+413:      > Could not resolve org.apache.httpcomponents:httpclient:4.5.14.
+414:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'.
+415:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'. Received status code 429 from server: Too Many Requests
+416:      > Could not resolve org.apache.httpcomponents:httpclient:4.5.14.
+417:         > Could not get resource 'https://plugins.gradle.org/m2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'.
+418:            > Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'. Received status code 429 from server: Too Many Requests
+419:   > Could not resolve net.java.dev.jna:jna-platform:5.6.0.
+423:      > Could not resolve net.java.dev.jna:jna-platform:5.6.0.
+424:         > Could not get resource 'https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'.
+425:            > Could not GET 'https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'. Received status code 429 from server: Too Many Requests
+426:      > Could not resolve net.java.dev.jna:jna-platform:5.6.0.
+427:         > Could not get resource 'https://plugins.gradle.org/m2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'.
+428:            > Could not GET 'https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'. Received status code 429 from server: Too Many Requests
+429:   > Could not resolve com.googlecode.juniversalchardet:juniversalchardet:1.0.3.
+432:      > Could not resolve com.googlecode.juniversalchardet:juniversalchardet:1.0.3.
+433:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'.
+434:            > Could not GET 'https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'. Received status code 429 from server: Too Many Requests
+435:      > Could not resolve com.googlecode.juniversalchardet:juniversalchardet:1.0.3.
+436:         > Could not get resource 'https://plugins.gradle.org/m2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'.
+437:            > Could not GET 'https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'. Received status code 429 from server: Too Many Requests
+438:   > Could not resolve javax.annotation:javax.annotation-api:1.3.2.
+441:      > Could not resolve javax.annotation:javax.annotation-api:1.3.2.
+442:         > Could not get resource 'https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'.
+443:            > Could not GET 'https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'. Received status code 429 from server: Too Many Requests
+444:      > Could not resolve javax.annotation:javax.annotation-api:1.3.2.
+445:         > Could not get resource 'https://plugins.gradle.org/m2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'.
+446:            > Could not GET 'https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'. Received status code 429 from server: Too Many Requests
+447:   > Could not resolve com.google.auto.value:auto-value-annotations:1.6.2.
+450:      > Could not resolve com.google.auto.value:auto-value-annotations:1.6.2.
+451:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'.
+452:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'. Received status code 429 from server: Too Many Requests
+453:      > Could not resolve com.google.auto.value:auto-value-annotations:1.6.2.
+454:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'.
+455:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'. Received status code 429 from server: Too Many Requests
+456:   > Could not resolve com.google.errorprone:error_prone_annotations:2.3.1.
+459:      > Could not resolve com.google.errorprone:error_prone_annotations:2.3.1.
+460:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'.
+461:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'. Received status code 429 from server: Too Many Requests
+462:      > Could not resolve com.google.errorprone:error_prone_annotations:2.3.1.
+463:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'.
+464:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'. Received status code 429 from server: Too Many Requests
+465:   > Could not resolve com.google.dagger:dagger:2.28.3.
+468:      > Could not resolve com.google.dagger:dagger:2.28.3.
+469:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'.
+470:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'. Received status code 429 from server: Too Many Requests
+471:      > Could not resolve com.google.dagger:dagger:2.28.3.
+472:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'.
+473:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'. Received status code 429 from server: Too Many Requests
+474:   > Could not resolve org.bitbucket.b_c:jose4j:0.9.5.
+477:      > Could not resolve org.bitbucket.b_c:jose4j:0.9.5.
+478:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'.
+479:            > Could not GET 'https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'. Received status code 429 from server: Too Many Requests
+480:      > Could not resolve org.bitbucket.b_c:jose4j:0.9.5.
+481:         > Could not get resource 'https://plugins.gradle.org/m2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'.
+482:            > Could not GET 'https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'. Received status code 429 from server: Too Many Requests
+483:   > Could not resolve org.slf4j:slf4j-api:1.7.30.
+486:      > Could not resolve org.slf4j:slf4j-api:1.7.30.
+487:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'.
+488:            > Could not GET 'https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'. Received status code 429 from server: Too Many Requests
+489:      > Could not resolve org.slf4j:slf4j-api:1.7.30.
+490:         > Could not get resource 'https://plugins.gradle.org/m2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'.
+491:            > Could not GET 'https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'. Received status code 429 from server: Too Many Requests
+492:   > Could not resolve org.jdom:jdom2:2.0.6.
+495:      > Could not resolve org.jdom:jdom2:2.0.6.
+496:         > Could not get resource 'https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'.
+497:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'. Received status code 429 from server: Too Many Requests
+498:      > Could not resolve org.jdom:jdom2:2.0.6.
+499:         > Could not get resource 'https://plugins.gradle.org/m2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'.
+500:            > Could not GET 'https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'. Received status code 429 from server: Too Many Requests
+501:   > Could not resolve commons-codec:commons-codec:1.10.
+504:      > Could not resolve commons-codec:commons-codec:1.10.
+505:         > Could not get resource 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'.
+506:            > Could not GET 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'. Received status code 429 from server: Too Many Requests
+507:      > Could not resolve commons-codec:commons-codec:1.10.
+508:         > Could not get resource 'https://plugins.gradle.org/m2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'.
+509:            > Could not GET 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'. Received status code 429 from server: Too Many Requests
+510:   > Could not resolve com.squareup:javawriter:2.5.0.
+513:      > Could not resolve com.squareup:javawriter:2.5.0.
+514:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'.
+515:            > Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'. Received status code 429 from server: Too Many Requests
+516:      > Could not resolve com.squareup:javawriter:2.5.0.
+517:         > Could not get resource 'https://plugins.gradle.org/m2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'.
+518:            > Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'. Received status code 429 from server: Too Many Requests
+519:   > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+522:      > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+523:         > Could not get resource 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
+524:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
+525:      > Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+526:         > Could not get resource 'https://plugins.gradle.org/m2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
+527:            > Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
+678:Caused by: org.gradle.api.internal.artifacts.ivyservice.TypedResolveException: Could not resolve all artifacts for configuration ':classpath'.
+865:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+868:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+869:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'.
+1119:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+1142:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+1143:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'.
+1396:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+1419:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains:annotations:13.0.
+1422:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains:annotations:13.0.
+1423:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'.
+1676:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'. Received status code 429 from server: Too Many Requests
+1699:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains:annotations:13.0.
+1700:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/annotations/13.0/annotations-13.0.pom'.
+1953:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'. Received status code 429 from server: Too Many Requests
+1976:Cause 3: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+1979:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+1980:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'.
+2233:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+2256:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+2257:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'.
+2510:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+2533:Cause 4: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21.
+2536:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21.
+2537:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom'.
+2790:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom'. Received status code 429 from server: Too Many Requests
+2813:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21.
+2814:Caused by: org.gradle.api.internal.artifacts.ivyservice.ivyresolve.parser.MetaDataParseException: Could not parse POM https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-gradle-plugin/2.0.21/kotlin-gradle-plugin-2.0.21.pom
+3065:Caused by: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugins-bom:2.0.21.
+3066:Caused by: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-gradle-plugins-bom:2.0.21.
+3067:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom'.
+3360:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-gradle-plugins-bom/2.0.21/kotlin-gradle-plugins-bom-2.0.21.pom'. Received status code 429 from server: Too Many Requests
+3383:Cause 5: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20.
+3401:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20.
+3402:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'.
+3461:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'. Received status code 429 from server: Too Many Requests
+3484:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20.
+3485:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'.
+3544:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.9.20/kotlin-stdlib-jdk8-1.9.20.pom'. Received status code 429 from server: Too Many Requests
+3567:Cause 6: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpmime:4.5.6.
+3572:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpmime:4.5.6.
+3573:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'.
+3632:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'. Received status code 429 from server: Too Many Requests
+3655:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpmime:4.5.6.
+3656:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'.
+3715:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.pom'. Received status code 429 from server: Too Many Requests
+3738:Cause 7: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve commons-io:commons-io:2.13.0.
+3742:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve commons-io:commons-io:2.13.0.
+3743:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'.
+4012:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'. Received status code 429 from server: Too Many Requests
+4035:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve commons-io:commons-io:2.13.0.
+4036:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'.
+4305:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/commons-io/commons-io/2.13.0/commons-io-2.13.0.pom'. Received status code 429 from server: Too Many Requests
+4328:Cause 8: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm:9.6.
+4333:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm:9.6.
+4334:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'.
+4393:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'. Received status code 429 from server: Too Many Requests
+4416:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm:9.6.
+4417:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm/9.6/asm-9.6.pom'.
+4476:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'. Received status code 429 from server: Too Many Requests
+4499:Cause 9: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-analysis:9.6.
+4502:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-analysis:9.6.
+4503:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'.
+4562:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'. Received status code 429 from server: Too Many Requests
+4585:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-analysis:9.6.
+4586:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'.
+4645:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.6/asm-analysis-9.6.pom'. Received status code 429 from server: Too Many Requests
+4668:Cause 10: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-commons:9.6.
+4672:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-commons:9.6.
+4673:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'.
+4732:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'. Received status code 429 from server: Too Many Requests
+4755:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-commons:9.6.
+4756:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'.
+4815:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'. Received status code 429 from server: Too Many Requests
+4838:Cause 11: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-util:9.6.
+4841:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-util:9.6.
+4842:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'.
+5111:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'. Received status code 429 from server: Too Many Requests
+5134:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-util:9.6.
+5135:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'.
+5404:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'. Received status code 429 from server: Too Many Requests
+5427:Cause 12: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bouncycastle:bcpkix-jdk18on:1.77.
+5433:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bouncycastle:bcpkix-jdk18on:1.77.
+5434:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'.
+5493:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+5516:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bouncycastle:bcpkix-jdk18on:1.77.
+5517:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'.
+5576:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcpkix-jdk18on/1.77/bcpkix-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+5599:Cause 13: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.glassfish.jaxb:jaxb-runtime:2.3.2.
+5606:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.glassfish.jaxb:jaxb-runtime:2.3.2.
+5607:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'.
+5666:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'. Received status code 429 from server: Too Many Requests
+5689:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.glassfish.jaxb:jaxb-runtime:2.3.2.
+5690:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'.
+5749:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.pom'. Received status code 429 from server: Too Many Requests
+5772:Cause 14: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.sf.jopt-simple:jopt-simple:4.9.
+5775:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.sf.jopt-simple:jopt-simple:4.9.
+5776:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'.
+5835:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'. Received status code 429 from server: Too Many Requests
+5858:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.sf.jopt-simple:jopt-simple:4.9.
+5859:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'.
+5918:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.pom'. Received status code 429 from server: Too Many Requests
+5941:Cause 15: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.squareup:javapoet:1.10.0.
+5945:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.squareup:javapoet:1.10.0.
+5946:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'.
+6005:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'. Received status code 429 from server: Too Many Requests
+6028:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.squareup:javapoet:1.10.0.
+6029:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'.
+6088:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.10.0/javapoet-1.10.0.pom'. Received status code 429 from server: Too Many Requests
+6111:Cause 16: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.protobuf:protobuf-java:3.22.3.
+6131:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.protobuf:protobuf-java:3.22.3.
+6132:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'.
+6401:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+6424:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.protobuf:protobuf-java:3.22.3.
+6425:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'.
+6694:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java/3.22.3/protobuf-java-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+6717:Cause 17: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.protobuf:protobuf-java-util:3.22.3.
+6721:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.protobuf:protobuf-java-util:3.22.3.
+6722:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'.
+6781:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+6804:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.protobuf:protobuf-java-util:3.22.3.
+6805:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'.
+6864:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/protobuf/protobuf-java-util/3.22.3/protobuf-java-util-3.22.3.pom'. Received status code 429 from server: Too Many Requests
+6887:Cause 18: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.gson:gson:2.10.1.
+6896:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.gson:gson:2.10.1.
+6897:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'.
+6956:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'. Received status code 429 from server: Too Many Requests
+6979:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.gson:gson:2.10.1.
+6980:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'.
+7039:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'. Received status code 429 from server: Too Many Requests
+7062:Cause 19: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-core:1.57.0.
+7066:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-core:1.57.0.
+7067:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'.
+7126:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+7149:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-core:1.57.0.
+7150:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'.
+7209:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-core/1.57.0/grpc-core-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+7232:Cause 20: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-netty:1.57.0.
+7236:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-netty:1.57.0.
+7237:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'.
+7506:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+7529:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-netty:1.57.0.
+7530:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'.
+7799:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.57.0/grpc-netty-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+7822:Cause 21: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-protobuf:1.57.0.
+7826:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-protobuf:1.57.0.
+7827:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'.
+7886:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+7909:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-protobuf:1.57.0.
+7910:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'.
+7969:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-protobuf/1.57.0/grpc-protobuf-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+7992:Cause 22: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-stub:1.57.0.
+7996:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-stub:1.57.0.
+7997:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'.
+8056:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+8079:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve io.grpc:grpc-stub:1.57.0.
+8080:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'.
+8139:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.57.0/grpc-stub-1.57.0.pom'. Received status code 429 from server: Too Many Requests
+8162:Cause 23: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.crypto.tink:tink:1.7.0.
+8165:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.crypto.tink:tink:1.7.0.
+8166:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'.
+8225:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'. Received status code 429 from server: Too Many Requests
+8248:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.crypto.tink:tink:1.7.0.
+8249:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'.
+8308:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/crypto/tink/tink/1.7.0/tink-1.7.0.pom'. Received status code 429 from server: Too Many Requests
+8331:Cause 24: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.flatbuffers:flatbuffers-java:1.12.0.
+8334:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.flatbuffers:flatbuffers-java:1.12.0.
+8335:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'.
+8604:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'. Received status code 429 from server: Too Many Requests
+8627:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.flatbuffers:flatbuffers-java:1.12.0.
+8628:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'.
+8897:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.pom'. Received status code 429 from server: Too Many Requests
+8920:Cause 25: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.tensorflow:tensorflow-lite-metadata:0.1.0-rc2.
+8923:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.tensorflow:tensorflow-lite-metadata:0.1.0-rc2.
+8924:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'.
+8983:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'. Received status code 429 from server: Too Many Requests
+9006:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.tensorflow:tensorflow-lite-metadata:0.1.0-rc2.
+9007:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'.
+9066:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/tensorflow/tensorflow-lite-metadata/0.1.0-rc2/tensorflow-lite-metadata-0.1.0-rc2.pom'. Received status code 429 from server: Too Many Requests
+9089:Cause 26: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.guava:guava:32.0.1-jre.
+9104:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.guava:guava:32.0.1-jre.
+9105:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'.
+9164:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'. Received status code 429 from server: Too Many Requests
+9187:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.guava:guava:32.0.1-jre.
+9188:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'.
+9247:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/guava/guava/32.0.1-jre/guava-32.0.1-jre.pom'. Received status code 429 from server: Too Many Requests
+9270:Cause 27: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve javax.inject:javax.inject:1.
+9275:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve javax.inject:javax.inject:1.
+9276:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom'.
+9545:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom'. Received status code 429 from server: Too Many Requests
+9568:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve javax.inject:javax.inject:1.
+9569:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/javax/inject/javax.inject/1/javax.inject-1.pom'.
+9838:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/javax/inject/javax.inject/1/javax.inject-1.pom'. Received status code 429 from server: Too Many Requests
+9861:Cause 28: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.sf.kxml:kxml2:2.3.0.
+9867:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.sf.kxml:kxml2:2.3.0.
+9868:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'.
+9927:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'. Received status code 429 from server: Too Many Requests
+9950:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.sf.kxml:kxml2:2.3.0.
+9951:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'.
+10010:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.pom'. Received status code 429 from server: Too Many Requests
+10033:Cause 29: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bouncycastle:bcprov-jdk18on:1.77.
+10038:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bouncycastle:bcprov-jdk18on:1.77.
+10039:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'.
+10098:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+10121:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bouncycastle:bcprov-jdk18on:1.77.
+10122:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'.
+10181:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/bouncycastle/bcprov-jdk18on/1.77/bcprov-jdk18on-1.77.pom'. Received status code 429 from server: Too Many Requests
+10204:Cause 30: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.intellij.deps:trove4j:1.0.20200330.
+10207:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.intellij.deps:trove4j:1.0.20200330.
+10208:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'.
+10267:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'. Received status code 429 from server: Too Many Requests
+10290:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.intellij.deps:trove4j:1.0.20200330.
+10291:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'.
+10350:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.pom'. Received status code 429 from server: Too Many Requests
+10373:Cause 31: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+10376:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+10377:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'.
+10627:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+10650:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-reflect:1.9.24.
+10651:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'.
+10904:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.9.24/kotlin-reflect-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+10927:Cause 32: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.commons:commons-compress:1.21.
+10931:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.commons:commons-compress:1.21.
+10932:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'.
+10991:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'. Received status code 429 from server: Too Many Requests
+11014:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.commons:commons-compress:1.21.
+11015:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'.
+11074:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.21/commons-compress-1.21.pom'. Received status code 429 from server: Too Many Requests
+11097:Cause 33: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpcore:4.4.16.
+11101:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpcore:4.4.16.
+11102:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'.
+11161:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'. Received status code 429 from server: Too Many Requests
+11184:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpcore:4.4.16.
+11185:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'.
+11244:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpcore/4.4.16/httpcore-4.4.16.pom'. Received status code 429 from server: Too Many Requests
+11267:Cause 34: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.jimfs:jimfs:1.1.
+11270:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.jimfs:jimfs:1.1.
+11271:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'.
+11540:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'. Received status code 429 from server: Too Many Requests
+11563:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.jimfs:jimfs:1.1.
+11564:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'.
+11833:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.pom'. Received status code 429 from server: Too Many Requests
+11856:Cause 35: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.sun.activation:javax.activation:1.2.0.
+11859:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.sun.activation:javax.activation:1.2.0.
+11860:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'.
+11919:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'. Received status code 429 from server: Too Many Requests
+11942:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.sun.activation:javax.activation:1.2.0.
+11943:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'.
+12002:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.pom'. Received status code 429 from server: Too Many Requests
+12025:Cause 36: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains:annotations:13.0.
+12029:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains:annotations:13.0.
+12030:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'.
+12283:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'. Received status code 429 from server: Too Many Requests
+12306:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains:annotations:13.0.
+12307:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/annotations/13.0/annotations-13.0.pom'.
+12560:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom'. Received status code 429 from server: Too Many Requests
+12583:Cause 37: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpclient:4.5.14.
+12586:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpclient:4.5.14.
+12587:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'.
+12646:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'. Received status code 429 from server: Too Many Requests
+12669:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.apache.httpcomponents:httpclient:4.5.14.
+12670:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'.
+12729:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/apache/httpcomponents/httpclient/4.5.14/httpclient-4.5.14.pom'. Received status code 429 from server: Too Many Requests
+12752:Cause 38: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.java.dev.jna:jna-platform:5.6.0.
+12756:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.java.dev.jna:jna-platform:5.6.0.
+12757:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'.
+12816:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'. Received status code 429 from server: Too Many Requests
+12839:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve net.java.dev.jna:jna-platform:5.6.0.
+12840:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'.
+12899:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.pom'. Received status code 429 from server: Too Many Requests
+12922:Cause 39: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.googlecode.juniversalchardet:juniversalchardet:1.0.3.
+12925:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.googlecode.juniversalchardet:juniversalchardet:1.0.3.
+12926:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'.
+13179:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'. Received status code 429 from server: Too Many Requests
+13202:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.googlecode.juniversalchardet:juniversalchardet:1.0.3.
+13203:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'.
+13456:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.pom'. Received status code 429 from server: Too Many Requests
+13479:Cause 40: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve javax.annotation:javax.annotation-api:1.3.2.
+13482:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve javax.annotation:javax.annotation-api:1.3.2.
+13483:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'.
+13736:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'. Received status code 429 from server: Too Many Requests
+13759:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve javax.annotation:javax.annotation-api:1.3.2.
+13760:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'.
+14013:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.pom'. Received status code 429 from server: Too Many Requests
+14036:Cause 41: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.auto.value:auto-value-annotations:1.6.2.
+14039:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.auto.value:auto-value-annotations:1.6.2.
+14040:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'.
+14309:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'. Received status code 429 from server: Too Many Requests
+14332:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.auto.value:auto-value-annotations:1.6.2.
+14333:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'.
+14602:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.pom'. Received status code 429 from server: Too Many Requests
+14625:Cause 42: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.errorprone:error_prone_annotations:2.3.1.
+14628:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.errorprone:error_prone_annotations:2.3.1.
+14629:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'.
+14688:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'. Received status code 429 from server: Too Many Requests
+14711:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.errorprone:error_prone_annotations:2.3.1.
+14712:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'.
+14771:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.3.1/error_prone_annotations-2.3.1.pom'. Received status code 429 from server: Too Many Requests
+14794:Cause 43: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.dagger:dagger:2.28.3.
+14797:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.dagger:dagger:2.28.3.
+14798:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'.
+14857:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'. Received status code 429 from server: Too Many Requests
+14880:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.dagger:dagger:2.28.3.
+14881:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'.
+14940:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/dagger/dagger/2.28.3/dagger-2.28.3.pom'. Received status code 429 from server: Too Many Requests
+14963:Cause 44: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bitbucket.b_c:jose4j:0.9.5.
+14966:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bitbucket.b_c:jose4j:0.9.5.
+14967:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'.
+15026:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'. Received status code 429 from server: Too Many Requests
+15049:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.bitbucket.b_c:jose4j:0.9.5.
+15050:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'.
+15109:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/bitbucket/b_c/jose4j/0.9.5/jose4j-0.9.5.pom'. Received status code 429 from server: Too Many Requests
+15132:Cause 45: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.slf4j:slf4j-api:1.7.30.
+15135:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.slf4j:slf4j-api:1.7.30.
+15136:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'.
+15195:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'. Received status code 429 from server: Too Many Requests
+15218:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.slf4j:slf4j-api:1.7.30.
+15219:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'.
+15278:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.pom'. Received status code 429 from server: Too Many Requests
+15301:Cause 46: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.gson:gson:2.10.1.
+15304:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.gson:gson:2.10.1.
+15305:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'.
+15364:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'. Received status code 429 from server: Too Many Requests
+15387:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.gson:gson:2.10.1.
+15388:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'.
+15447:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.pom'. Received status code 429 from server: Too Many Requests
+15470:Cause 47: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+15474:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+15475:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'.
+15728:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+15751:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jetbrains.kotlin:kotlin-stdlib:1.9.24.
+15752:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'.
+16005:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.9.24/kotlin-stdlib-1.9.24.pom'. Received status code 429 from server: Too Many Requests
+16028:Cause 48: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm:9.6.
+16031:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm:9.6.
+16032:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'.
+16091:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'. Received status code 429 from server: Too Many Requests
+16114:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm:9.6.
+16115:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm/9.6/asm-9.6.pom'.
+16174:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.pom'. Received status code 429 from server: Too Many Requests
+16197:Cause 49: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-util:9.6.
+16200:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-util:9.6.
+16201:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'.
+16470:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'. Received status code 429 from server: Too Many Requests
+16493:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-util:9.6.
+16494:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'.
+16763:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.6/asm-util-9.6.pom'. Received status code 429 from server: Too Many Requests
+16786:Cause 50: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-commons:9.6.
+16789:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-commons:9.6.
+16790:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'.
+16849:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'. Received status code 429 from server: Too Many Requests
+16872:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.ow2.asm:asm-commons:9.6.
+16873:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'.
+16932:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.6/asm-commons-9.6.pom'. Received status code 429 from server: Too Many Requests
+16955:Cause 51: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jdom:jdom2:2.0.6.
+16958:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jdom:jdom2:2.0.6.
+16959:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'.
+17212:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'. Received status code 429 from server: Too Many Requests
+17235:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve org.jdom:jdom2:2.0.6.
+17236:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'.
+17489:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/org/jdom/jdom2/2.0.6/jdom2-2.0.6.pom'. Received status code 429 from server: Too Many Requests
+17512:Cause 52: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve commons-codec:commons-codec:1.10.
+17515:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve commons-codec:commons-codec:1.10.
+17516:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'.
+17575:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'. Received status code 429 from server: Too Many Requests
+17598:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve commons-codec:commons-codec:1.10.
+17599:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'.
+17658:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.pom'. Received status code 429 from server: Too Many Requests
+17681:Cause 53: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.squareup:javawriter:2.5.0.
+17684:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.squareup:javawriter:2.5.0.
+17685:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'.
+17954:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'. Received status code 429 from server: Too Many Requests
+17977:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.squareup:javawriter:2.5.0.
+17978:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'.
+18247:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.pom'. Received status code 429 from server: Too Many Requests
+18270:Cause 54: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+18273:Cause 1: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+18274:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
+18527:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
+18550:Cause 2: org.gradle.internal.resolve.ModuleVersionResolveException: Could not resolve com.google.code.findbugs:jsr305:3.0.2.
+18551:Caused by: org.gradle.api.resources.ResourceException: Could not get resource 'https://plugins.gradle.org/m2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'.
+18804:Caused by: org.gradle.internal.resource.transport.http.HttpErrorStatusCodeException: Could not GET 'https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom'. Received status code 429 from server: Too Many Requests
