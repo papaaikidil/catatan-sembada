@@ -883,6 +883,39 @@ cek('Data pembeli: gabungan kontak, daftar pilihan & Penjualan; total dari Penju
 }
 cek('Data supplier: tab dibuat saat pertama disimpan, No HP teks, kembar ditolak, ubah & hapus, hanya pemilik/admin');
 
+// ------------------------------------------------------------------ 10e. Laba bersih per minggu (setelah semua pengeluaran)
+{
+  const shK = sheets['Kas'];
+  const kosong = shK.data[0].map(() => '');
+  const baris = (kat, rp) => { const r = kosong.slice(); r[1] = new Date(); r[2] = tgl(hariIni); r[3] = kat; r[4] = rp; r[5] = 'uji laba bersih'; return r; };
+  // Kategori operasional yang masih ada di daftar (sudah termasuk biaya produksi, jadi tidak dikurangi lagi).
+  const katOps = panggil({ aksi: 'config', token: tokPemilik }).master['Kategori Kas'].find(m => m.nilai['Kelompok'] === 'Operasional usaha').nilai['Kategori'];
+  const awalRk = panggil({ aksi: 'ringkasan', token: tokPemilik, segar: true });
+  const m0 = awalRk.minggu[0];
+  const cek0 = m => m.labaSetelahCicilan - m.keluarga - m.proyekLain - (m.upahHarian || 0) - m.lainKeluar + m.pemasukanLain;
+  assert.strictEqual(m0.labaBersih, cek0(m0), 'rumus laba bersih');
+  assert.strictEqual(m0.labaSetelahCicilan, m0.laba - m0.pengembangan - m0.cicilan);
+  // Tambah: keluarga 100rb, proyek 40rb, kategori tak dikenal 25rb, bon pekerja 500rb (pembiayaan, tidak dihitung), bensin 30rb (sudah biaya produksi).
+  shK.data.splice(1, 0, baris('Keluarga & pribadi', 100000), baris('Proyek bangunan', 40000), baris('Kategori aneh', 25000),
+    baris('Bon pekerja (dipinjamkan)', 500000), baris(katOps, 30000));
+  const rk = panggil({ aksi: 'ringkasan', token: tokPemilik, segar: true });
+  const m1 = rk.minggu[0];
+  assert.strictEqual(m1.keluarga - m0.keluarga, 100000);
+  assert.strictEqual(m1.proyekLain - m0.proyekLain, 40000);
+  assert.strictEqual(m1.lainKeluar - m0.lainKeluar, 25000, 'kategori yang belum dikenal ikut dikurangi');
+  assert.strictEqual(m1.pembiayaan - m0.pembiayaan, -500000, 'bon tercatat di pembiayaan');
+  assert.strictEqual(m0.labaBersih + (m1.laba - m0.laba) - m1.labaBersih, 165000,
+    'laba bersih turun 100rb + 40rb + 25rb (bensin lewat laba usaha); bon tidak mengurangi');
+  assert.strictEqual(m1.labaBersih, cek0(m1));
+  assert.ok(m1.rinci && m1.rinci.kas.some(k => k.kel === 'Keluarga & pribadi' && k.rp === 100000) && m1.rinci.kas.some(k => k.kel === 'Belum dikategorikan' && k.rp === 25000),
+    'catatan kas minggu ini ikut dikirim untuk rincian');
+  // Bulan: laba bersih juga ada.
+  const b0 = rk.bulan[0];
+  assert.strictEqual(b0.labaBersih, b0.labaSetelahCicilan - b0.keluarga - b0.proyekLain - (b0.upahHarian || 0) - b0.lainKeluar + b0.pemasukanLain);
+  shK.data.splice(1, 5);
+}
+cek('Laba bersih: laba usaha − pengembangan − cicilan − keluarga − proyek lain − upah harian − Kas belum dikategorikan + pemasukan lain; bon/pinjaman tidak dihitung');
+
 // ------------------------------------------------------------------ 11. Semua file Apps Script dimuat bersama
 const m3 = muat(buatData(), { semuaBerkas: true });
 assert.ok(m3.panggil({ aksi: 'masuk', pengguna: 'wildan', sandi: '250610' }).ok);

@@ -306,9 +306,10 @@ function pngPolos(w, h) {
 
   // Setiap kotak angka minggu bisa diketuk dan menampilkan rinciannya.
   const kunciAngka = await page.$$eval('.angka-grid .angka[data-jenis="minggu"]', a => a.map(x => x.dataset.angka));
-  assert.deepStrictEqual(kunciAngka, ['penjualan', 'laba', 'minyak', 'minyakPerSulingan', 'sulingan', 'rendemen', 'bahanKg', 'hargaBahan', 'biayaPerKg', 'totalUpah', 'belumLunas', 'hariKosong']);
+  assert.deepStrictEqual(kunciAngka, ['penjualan', 'laba', 'labaBersih', 'minyak', 'minyakPerSulingan', 'sulingan', 'rendemen', 'bahanKg', 'hargaBahan', 'biayaPerKg', 'totalUpah', 'belumLunas', 'hariKosong']);
   const harap = {
     penjualan: /Catatan penjualan · \d+[\s\S]*Lusiani/, laba: /Penjualan[\s\S]*Beli bahan[\s\S]*Upah penyuling[\s\S]*Operasional & perawatan[\s\S]*Laba usaha/,
+    labaBersih: /Laba usaha[\s\S]*Pengembangan usaha[\s\S]*Cicilan kendaraan[\s\S]*Keluarga & pribadi[\s\S]*Proyek lain[\s\S]*Upah kerja harian[\s\S]*Laba bersih\s*-?Rp/,
     minyak: /Catatan saring · \d+/, minyakPerSulingan: /Minyak dihasilkan ÷ jumlah sulingan/, sulingan: /Ketel 1[\s\S]*Hari per hari/,
     rendemen: /× 100%/, bahanKg: /Trip ambil bahan · \d+[\s\S]*Tanen/, hargaBahan: /Harga per trip[\s\S]*\/kg/, biayaPerKg: /Biaya produksi[\s\S]*÷/,
     totalUpah: /Upah pengumpul[\s\S]*Per orang[\s\S]*Rofik/, belumLunas: /Penjualan belum lunas · \d+/, hariKosong: /Hari per hari[\s\S]*(Kosong|sulingan|Tidak ada catatan)/
@@ -319,7 +320,7 @@ function pngPolos(w, h) {
     const isiLembar = await page.textContent('.lembar-rinci');
     assert.ok(harap[k].test(isiLembar), k + ': ' + isiLembar.slice(0, 300));
     assert.ok(!/setelah Apps Script diperbarui/.test(isiLembar), k + ': catatan asli sudah ada');
-    if (['laba', 'hariKosong', 'bahanKg', 'biayaPerKg'].includes(k)) {
+    if (['laba', 'labaBersih', 'hariKosong', 'bahanKg', 'biayaPerKg'].includes(k)) {
       // Lembar dibentangkan supaya seluruh isinya terlihat di gambar.
       await page.addStyleTag({ content: '.tirai{position:absolute;bottom:auto;min-height:100%}.lembar{max-height:none}#toast{display:none}' });
       await page.locator('.lembar').screenshot({ path: path.join(OUT, '05b-rinci-' + k + '.png') });
@@ -344,10 +345,11 @@ function pngPolos(w, h) {
 
   // Setiap kotak di kartu Bulan juga bisa diketuk.
   const kunciBulan = await page.$$eval('.angka[data-jenis="bulan"]', a => a.map(x => x.dataset.angka));
-  assert.deepStrictEqual(kunciBulan, ['penjualan', 'laba', 'minyak', 'sulingan', 'biayaProduksi', 'totalUpah', 'cicilan', 'labaSetelahCicilan', 'keluarga',
+  assert.deepStrictEqual(kunciBulan, ['penjualan', 'laba', 'labaBersih', 'minyak', 'sulingan', 'biayaProduksi', 'totalUpah', 'cicilan', 'labaSetelahCicilan', 'keluarga',
     'proyekLain', 'pemasukanLain', 'belumDibayar', 'perubahanKas']);
   const harapBulan = {
-    penjualan: /Catatan penjualan · \d+/, laba: /Beli bahan[\s\S]*Laba usaha/, minyak: /Catatan saring · \d+/, sulingan: /Ketel 1[\s\S]*Hari yang ada catatan/,
+    penjualan: /Catatan penjualan · \d+/, laba: /Beli bahan[\s\S]*Laba usaha/, labaBersih: /Laba usaha[\s\S]*Keluarga & pribadi[\s\S]*Laba bersih/,
+    minyak: /Catatan saring · \d+/, sulingan: /Ketel 1[\s\S]*Hari yang ada catatan/,
     biayaProduksi: /Upah pengumpul[\s\S]*Biaya produksi/, totalUpah: /Per orang \(untuk gajian\)[\s\S]*Rofik/, cicilan: /Cicilan kendaraan/,
     labaSetelahCicilan: /Pengembangan usaha[\s\S]*Cicilan kendaraan/, keluarga: /Keluarga & pribadi/, proyekLain: /Proyek lain \(bahan & bayar\)[\s\S]*Upah kerja harian/,
     pemasukanLain: /Pemasukan lain/, belumDibayar: /Penjualan belum dibayar · \d+/, perubahanKas: /Laba setelah cicilan[\s\S]*Pembiayaan bersih[\s\S]*Perubahan kas/

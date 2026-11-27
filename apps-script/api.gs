@@ -1810,7 +1810,7 @@ function angkaRekap_(v) {
 // Ubahan langsung di Google Sheet terlihat paling lambat CACHE_RINGKASAN_DETIK kemudian, atau langsung lewat tombol
 // muat ulang di layar Ringkasan (segar: true). Ganti REV_RINGKASAN kalau bentuk data ringkasan berubah.
 var CACHE_RINGKASAN_DETIK = 600;
-var REV_RINGKASAN = 'rk20261111';
+var REV_RINGKASAN = 'rk20261127';
 
 function ringkasanCepat_(ss, akses, req) {
   if (!akses.admin) return ringkasan_(ss, akses);
@@ -1901,6 +1901,7 @@ function ringkasan_(ss, akses) {
   bulan = bulan.slice(0, 12);
 
   var sets = siapkanPeriode_([{daftar: minggu, jenis: 'minggu', lengkap: 12}, {daftar: bulan, jenis: 'bulan', lengkap: 6}]);
+  keuanganPeriode_(ss, sets);
   rincianPeriode_(ss, sets);
   catatanPeriode_(ss, sets);
   selesaiPeriode_(sets);
@@ -2041,7 +2042,47 @@ function rincianPeriode_(ss, sets) {
   });
 }
 
-var KELOMPOK_KAS_BULAN = ['Pengembangan usaha', 'Cicilan kendaraan', 'Keluarga & pribadi', 'Proyek lain', 'Pembiayaan', 'Pemasukan lain'];
+var KELOMPOK_KAS_BULAN = ['Pengembangan usaha', 'Cicilan kendaraan', 'Keluarga & pribadi', 'Proyek lain', 'Pembiayaan', 'Pemasukan lain', 'Belum dikategorikan'];
+
+// Laba bersih per minggu & bulan (aplikasi 3.17): laba usaha dikurangi SEMUA pengeluaran lain di periode itu yang bukan biaya
+// produksi — pengembangan usaha, cicilan kendaraan, keluarga & pribadi, proyek lain, upah kerja harian & lain, dan pengeluaran
+// Kas yang belum dikategorikan — ditambah pemasukan lain. Pembiayaan (bon, pinjaman, bayar hutang) tidak dihitung karena bukan
+// untung/rugi. Minggu dihitung dari tab Kas; bulan memakai angka Rekap Bulanan (ditambah Kas belum dikategorikan).
+function keuanganPeriode_(ss, sets) {
+  var peta = {};
+  bacaMaster_(ss, 'Kategori Kas').forEach(function (m) { peta[teks_(m.nilai['Kategori'])] = {kel: teks_(m.nilai['Kelompok']), arah: teks_(m.nilai['Arah'])}; });
+  var KUNCI = {'Pengembangan usaha': 'pengembangan', 'Cicilan kendaraan': 'cicilan', 'Keluarga & pribadi': 'keluarga', 'Proyek lain': 'proyekLain',
+    'Pemasukan lain': 'pemasukanLain'};
+  sets.forEach(function (set) {
+    set.daftar.forEach(function (m) { m._kas = {pengembangan: 0, cicilan: 0, keluarga: 0, proyekLain: 0, pemasukanLain: 0, pembiayaan: 0, lainKeluar: 0}; });
+  });
+  bacaKolom_(ss, 'Kas', ['Tanggal', 'Kategori', 'Jumlah (Rp)', 'Kelompok', 'Arah']).forEach(function (r) {
+    var t = tglKunci_(r[0]);
+    if (!t) return;
+    var kat = peta[teks_(r[1])] || {};
+    var kel = teks_(r[3]) || kat.kel || 'Belum dikategorikan', arah = teks_(r[4]) || kat.arah || '';
+    var rp = angka_(r[2]);
+    periodeDari_(sets, t).forEach(function (m) {
+      if (KUNCI[kel]) m._kas[KUNCI[kel]] += rp;
+      else if (kel === 'Pembiayaan') m._kas.pembiayaan += arah === 'Masuk' ? rp : -rp;
+      else if (kel !== 'Operasional usaha' && arah !== 'Masuk') m._kas.lainKeluar += rp;   // belum dikategorikan / kelompok baru
+    });
+  });
+  sets.forEach(function (set) {
+    set.daftar.forEach(function (m) {
+      var k = m._kas;
+      delete m._kas;
+      if (set.jenis === 'minggu') {
+        m.pengembangan = k.pengembangan; m.cicilan = k.cicilan; m.keluarga = k.keluarga; m.proyekLain = k.proyekLain;
+        m.pemasukanLain = k.pemasukanLain; m.pembiayaan = k.pembiayaan;
+        m.labaSetelahCicilan = (m.laba || 0) - k.pengembangan - k.cicilan;
+      }
+      m.lainKeluar = k.lainKeluar;
+      var dasar = typeof m.labaSetelahCicilan === 'number' ? m.labaSetelahCicilan : (m.laba || 0) - (m.pengembangan || 0) - (m.cicilan || 0);
+      m.labaBersih = dasar - (m.keluarga || 0) - (m.proyekLain || 0) - (m.upahHarian || 0) - k.lainKeluar + (m.pemasukanLain || 0);
+    });
+  });
+}
 
 // Catatan asli di balik angka setiap periode: trip, saring, penjualan, biaya operasional, dan (untuk bulan) Kas per kelompok.
 function catatanPeriode_(ss, sets) {
@@ -2049,8 +2090,7 @@ function catatanPeriode_(ss, sets) {
   sets.forEach(function (set) {
     set.daftar.forEach(function (m) {
       if (!m._lengkap) return;
-      m.rinci = {bahan: [], saring: [], jual: [], ops: []};
-      if (set.jenis === 'bulan') m.rinci.kas = [];
+      m.rinci = {bahan: [], saring: [], jual: [], ops: [], kas: []};
       semua.push({m: m, batas: set.jenis === 'bulan' ? 200 : 60});
     });
   });
@@ -2075,11 +2115,14 @@ function catatanPeriode_(ss, sets) {
         harga: angka_(r[5]), total: angka_(r[6]), kg: angka_(r[7]), status: teks_(r[8])});
     });
   });
+  var petaKas = {};
+  bacaMaster_(ss, 'Kategori Kas').forEach(function (m) { petaKas[teks_(m.nilai['Kategori'])] = {kel: teks_(m.nilai['Kelompok']), arah: teks_(m.nilai['Arah'])}; });
   bacaKolom_(ss, 'Kas', ['Tanggal', 'Kategori', 'Jumlah (Rp)', 'Keterangan', 'Kelompok', 'Arah']).forEach(function (r) {
-    var t = tglKunci_(r[0]), kel = teks_(r[4]);
+    var kat = petaKas[teks_(r[1])] || {};
+    var t = tglKunci_(r[0]), kel = teks_(r[4]) || kat.kel || 'Belum dikategorikan', arah = teks_(r[5]) || kat.arah || '';
     tiap(t, function (x) {
       if (kel === 'Operasional usaha') x.ops.push({tgl: t, apa: teks_(r[1]), rp: angka_(r[2]), ket: teks_(r[3])});
-      else if (x.kas && KELOMPOK_KAS_BULAN.indexOf(kel) >= 0) x.kas.push({tgl: t, apa: teks_(r[1]), rp: angka_(r[2]), ket: teks_(r[3]).replace(POLA_KAS_BON, '').trim(), kel: kel, arah: teks_(r[5])});
+      else if (x.kas && KELOMPOK_KAS_BULAN.indexOf(kel) >= 0) x.kas.push({tgl: t, apa: teks_(r[1]), rp: angka_(r[2]), ket: teks_(r[3]).replace(POLA_KAS_BON, '').trim(), kel: kel, arah: arah});
     });
   });
   bacaKolom_(ss, SH_ABSENSI, ['Tanggal', 'Nama', 'Pekerjaan', 'Pekerjaan lain', 'Upah (Rp)', 'Pos upah']).forEach(function (r) {

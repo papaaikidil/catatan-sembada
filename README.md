@@ -40,6 +40,11 @@ Catatan lama tidak diubah.
   dan Peta; di samping No HP (dan di kartu daftar) ada tombol WhatsApp yang menawarkan pilihan WhatsApp pribadi atau
   WA Bisnis lalu langsung membuka percakapan (Android: lewat nama paket; iPhone: api.whatsapp.com / whatsapp://). Cari lewat nama, alamat, No HP, atau email. Pembeli baru otomatis masuk daftar pilihan "Pembeli" di formulir
   Penjualan. Nama yang sudah dipakai di Penjualan tidak bisa diganti dari sini supaya totalnya tetap cocok.
+- **Laba bersih** (3.17): kotak baru di Ringkasan (minggu & bulan) dan di Beranda, sesudah Laba usaha. Laba bersih = laba usaha
+  − semua pengeluaran lain di periode itu yang bukan biaya produksi (pengembangan usaha, cicilan kendaraan, keluarga & pribadi,
+  proyek lain, upah kerja harian & lain, Kas yang kategorinya belum ada di daftar) + pemasukan lain. Bon dan pinjaman
+  (Pembiayaan) tidak dihitung karena bukan untung/rugi. Mingguan dihitung Apps Script dari tab Kas; bulanan dari Rekap Bulanan.
+  Ketuk kotaknya untuk rincian per kelompok beserta catatan Kas-nya. Tidak mengubah Sheet.
 - **Ambil dari kontak HP** (3.16): tombol di atas formulir Data pembeli dan Data supplier. APK 1.0.6+ memakai pemilih kontak
   Android (window.SembadaKontak, tanpa izin membaca semua kontak: hanya nama + nomor kontak yang dipilih); Chrome Android memakai
   Contact Picker (ikut email & alamat; kalau kontak punya beberapa nomor, dipilih dulu); iPhone memakai IsiOtomatis Kontak
